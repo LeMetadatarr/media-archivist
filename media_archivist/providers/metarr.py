@@ -29,18 +29,20 @@ LOG = logging.getLogger("media_archivist.providers.metarr")
 
 
 class MetarrProvider(MetadataProvider):
-    """Single provider that dispatches to skyhook / radarr / lidarr by medium."""
+    """Single provider that dispatches to skyhook / radarr / lidarr / OpenLibrary by medium."""
 
     name = "metarr"
-    media = {Medium.MOVIE, Medium.TV, Medium.MUSIC}
+    media = {Medium.MOVIE, Medium.TV, Medium.MUSIC, Medium.BOOK}
 
     def __init__(self) -> None:
         try:
-            from metarr import ArrMetadataClient  # noqa: WPS433
+            from metarr import ArrMetadataClient, OpenLibraryClient  # noqa: WPS433
             self._client = ArrMetadataClient()
+            self._ol = OpenLibraryClient()
             self._available = True
         except ImportError:
             self._client = None
+            self._ol = None
             self._available = False
 
     def is_available(self) -> bool:
@@ -56,8 +58,10 @@ class MetarrProvider(MetadataProvider):
                 return self._lookup_tv(signals)
             if signals.medium == Medium.MUSIC and signals.artist:
                 return self._lookup_artist(signals)
+            if signals.medium == Medium.BOOK:
+                return self._lookup_book(signals)
             if signals.medium is not None:
-                # Caller specified a medium we don't cover (book, podcast, …).
+                # Caller specified a medium we don't cover (podcast, other, …).
                 return None
             # Medium unspecified: try movie first, then tv. Cheap, idempotent.
             for kind_lookup in (self._lookup_movie, self._lookup_tv):
@@ -107,6 +111,56 @@ class MetarrProvider(MetadataProvider):
             external_ids=ExternalIds(
                 tvdb=int(top.tvdb_id) if top.tvdb_id else None,
             ),
+        )
+
+    def _lookup_book(self, signals: Signals) -> Optional[ProviderMatch]:
+        # Bias the OpenLibrary search with the author when we have one.
+        query = signals.title
+        if signals.artist:
+            query = f"{signals.title} {signals.artist}"
+        results = self._ol.search(query, limit=5)
+        if not results:
+            return None
+        top = results[0]
+
+        external = ExternalIds(olid=top.work_id)
+        # Search hits surface ISBNs as a flat list — pick the longest as ISBN-13
+        # if it looks like one, the shortest as ISBN-10 otherwise.
+        for raw_isbn in top.isbn or []:
+            digits = raw_isbn.replace("-", "").replace(" ", "")
+            if len(digits) == 13 and external.isbn_13 is None:
+                external.isbn_13 = digits
+            elif len(digits) == 10 and external.isbn_10 is None:
+                external.isbn_10 = digits
+            if external.isbn_10 and external.isbn_13:
+                break
+
+        relations: dict = {}
+        if top.author_names:
+            entries = []
+            for name, key in zip(top.author_names,
+                                 (top.author_keys + [None] * len(top.author_names))):
+                ext = ExternalIds()
+                if key:
+                    ext.extra["openlibrary_author"] = key
+                entries.append(ProviderEntity(
+                    kind=EntityKind.AUTHOR, name=name, external_ids=ext,
+                ))
+            relations[EntityKind.AUTHOR] = entries
+
+        language = (top.language[0] if top.language else None) or signals.language
+
+        return ProviderMatch(
+            provider=self.name,
+            confidence=0.85,
+            signals=Signals(
+                title=top.title,
+                year=top.first_publish_year,
+                language=language,
+                medium=Medium.BOOK,
+            ),
+            external_ids=external,
+            relations=relations,
         )
 
     def _lookup_artist(self, signals: Signals) -> Optional[ProviderMatch]:

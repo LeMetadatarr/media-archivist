@@ -45,10 +45,21 @@ def main() -> int:
     else:
         failures.append("music")
 
+    book = p.lookup(Signals(title="The Hobbit", artist="Tolkien",
+                            medium=Medium.BOOK))
+    if book and book.external_ids.olid:
+        from media_archivist.models.entities import EntityKind
+        authors = (book.relations or {}).get(EntityKind.AUTHOR) or []
+        author_name = authors[0].name if authors else None
+        print(f"  book   The Hobbit → olid {book.external_ids.olid} "
+              f"(author={author_name})")
+    else:
+        failures.append("book")
+
     if failures:
         print(f"FAIL: {', '.join(failures)} returned no ids", file=sys.stderr)
         return 1
-    print("PASS: skyhook + radarr-proxy + lidarr-proxy all returned ids")
+    print("PASS: skyhook + radarr-proxy + lidarr-proxy + openlibrary all returned ids")
     return 0
 
 

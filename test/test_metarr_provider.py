@@ -20,12 +20,27 @@ def test_provider_skips_when_no_title():
     assert p.lookup(Signals()) is None
 
 
-def test_provider_skips_book_medium():
-    """Books / podcasts aren't covered by the Servarr proxies."""
+def test_provider_skips_podcast_medium():
+    """Podcasts aren't covered by any of the metarr endpoints."""
     p = MetarrProvider()
     p._client = _StubClient()
-    sig = Signals(title="Some Book", medium=Medium.BOOK)
+    p._ol = _StubOL()
+    sig = Signals(title="Some Show", medium=Medium.PODCAST)
     assert p.lookup(sig) is None
+
+
+def test_provider_dispatches_to_book():
+    p = MetarrProvider()
+    p._client = _StubClient()
+    p._ol = _StubOL()
+    match = p.lookup(Signals(title="The Hobbit", artist="Tolkien",
+                             medium=Medium.BOOK))
+    assert match is not None
+    assert match.external_ids.olid == "OL27482W"
+    assert match.external_ids.isbn_13 == "9780261103344"
+    rel = match.relations.get(EntityKind.AUTHOR)
+    assert rel and rel[0].name == "J.R.R. Tolkien"
+    assert rel[0].external_ids.extra.get("openlibrary_author") == "OL26320A"
 
 
 def test_provider_dispatches_to_movie():
@@ -79,6 +94,21 @@ class _StubSeries:
 
 class _StubArtist:
     id = "mb-daft-punk"; name = "Daft Punk"
+
+
+class _StubBookHit:
+    work_id = "OL27482W"
+    title = "The Hobbit"
+    first_publish_year = 1937
+    author_names = ["J.R.R. Tolkien"]
+    author_keys = ["OL26320A"]
+    isbn = ["9780261103344", "0261103342"]
+    language = ["eng"]
+
+
+class _StubOL:
+    def search(self, query, limit=10):  # noqa: D401
+        return [_StubBookHit()]
 
 
 class _StubClient:
