@@ -29,6 +29,10 @@ try:
     )
 except ImportError:  # pragma: no cover
     pass
+try:
+    from media_archivist.providers.metarr import MetarrProvider           # noqa: F401
+except ImportError:  # pragma: no cover
+    pass
 
 
 def all_providers() -> Dict[str, MetadataProvider]:
