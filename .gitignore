@@ -17,3 +17,4 @@ examples/*.csv
 examples/.snapshots/
 examples/downloads/
 examples/jellyfin-library/
+examples/urls.txt
