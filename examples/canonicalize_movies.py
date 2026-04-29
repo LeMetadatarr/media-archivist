@@ -46,12 +46,13 @@ def main() -> int:
             archivist.archive(url)
 
     print("==> canonicalizing")
-    canonical, quarantine = canonicalize(
+    canonical, quarantine, entities = canonicalize(
         str(DB),
         providers=["arr_radarr", "tmdb", "wikidata"],
     )
     print(f"   {len(canonical.records)} canonical records, "
-          f"{len(quarantine.entries)} quarantined")
+          f"{len(quarantine.entries)} quarantined, "
+          f"{len(entities.entities)} entities")
 
     if quarantine.entries:
         print("==> first 5 quarantined rows:")
@@ -67,6 +68,11 @@ def main() -> int:
             "with_tmdb": sum(1 for r in canonical.records.values()
                              if r.external_ids.tmdb_movie),
             "quarantined": len(quarantine.entries),
+            "entities_total": len(entities.entities),
+            "entities_by_kind": {
+                k: sum(1 for r in entities.entities.values() if r.kind.value == k)
+                for k in {r.kind.value for r in entities.entities.values()}
+            },
         },
         indent=2,
     ))
