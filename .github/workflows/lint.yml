@@ -1,0 +1,14 @@
+name: Lint
+on:
+  push:
+    branches: [master, dev]
+  pull_request:
+    branches: [master, dev]
+  workflow_dispatch:
+
+jobs:
+  lint:
+    uses: OpenVoiceOS/gh-automations/.github/workflows/lint.yml@dev
+    with:
+      ruff: true
+      ruff_args: "media_archivist test"

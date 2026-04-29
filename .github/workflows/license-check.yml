@@ -1,0 +1,14 @@
+name: License Check
+on:
+  push:
+    branches: [master, dev]
+  pull_request:
+    branches: [master, dev]
+  workflow_dispatch:
+
+jobs:
+  license_check:
+    uses: OpenVoiceOS/gh-automations/.github/workflows/license-check.yml@dev
+    with:
+      python_version: "3.11"
+      install_extras: "[bandcamp,soundcloud]"

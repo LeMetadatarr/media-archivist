@@ -1,0 +1,10 @@
+name: Release Preview
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+jobs:
+  preview:
+    uses: OpenVoiceOS/gh-automations/.github/workflows/publish-alpha.yml@dev
+    secrets: inherit

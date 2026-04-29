@@ -1,0 +1,15 @@
+name: Coverage
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  coverage:
+    uses: OpenVoiceOS/gh-automations/.github/workflows/coverage.yml@dev
+    with:
+      python_version: "3.11"
+      install_extras: "bandcamp,soundcloud,test"
+      test_path: "test/"
