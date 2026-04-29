@@ -100,12 +100,30 @@ def _ia(raw: Dict[str, Any]) -> MediaEntry:
     )
 
 
+def _metal_archives(raw: Dict[str, Any]) -> MediaEntry:
+    """A song row from metal-archives.com."""
+    published = raw.get("release_date") or None
+    return MediaEntry.build(
+        source=Source.METAL_ARCHIVES,
+        url=raw["url"],
+        title=raw.get("title"),
+        raw=raw,
+        artist=raw.get("artist"),
+        album=raw.get("album") or None,
+        duration=raw.get("duration"),
+        published=published,
+        thumbnail=raw.get("thumbnail") or raw.get("cover_url"),
+        tags=list(raw.get("tags") or raw.get("genres") or []),
+    )
+
+
 _ADAPTERS: Dict[Source, Callable[[Dict[str, Any]], MediaEntry]] = {
     Source.YOUTUBE: _youtube,
     Source.YOUTUBE_MUSIC: _youtube_music,
     Source.BANDCAMP: _bandcamp,
     Source.SOUNDCLOUD: _soundcloud,
     Source.INTERNET_ARCHIVE: _ia,
+    Source.METAL_ARCHIVES: _metal_archives,
 }
 
 

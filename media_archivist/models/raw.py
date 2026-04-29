@@ -19,6 +19,7 @@ class Source(str, Enum):
     BANDCAMP = "bandcamp"
     SOUNDCLOUD = "soundcloud"
     INTERNET_ARCHIVE = "internet_archive"
+    METAL_ARCHIVES = "metal_archives"
 
 
 class _RawEntryBase(BaseModel):
@@ -96,6 +97,28 @@ class RawIAEntry(_RawEntryBase):
     images: List[str] = Field(default_factory=list)
 
 
+class RawMetalArchivesEntry(_RawEntryBase):
+    """A song row from Encyclopaedia Metallum (metal-archives.com)."""
+
+    source: Literal[Source.METAL_ARCHIVES] = Source.METAL_ARCHIVES
+    artist: Optional[str] = None             # band name
+    album: Optional[str] = None              # release title
+    band_id: Optional[int] = None            # MA band id (ma_id)
+    release_id: Optional[int] = None         # MA release id
+    song_id: Optional[int] = None            # MA song id
+    duration: Optional[float] = None         # seconds
+    length: Optional[str] = None             # raw "MM:SS" as MA renders it
+    release_date: Optional[str] = None
+    release_type: Optional[str] = None       # full-length, ep, demo, …
+    country: Optional[str] = None            # ISO-ish, MA renders the long name
+    genres: List[str] = Field(default_factory=list)
+    themes: List[str] = Field(default_factory=list)
+    label_id: Optional[int] = None
+    label_name: Optional[str] = None
+    cover_url: Optional[str] = None
+    band_url: Optional[str] = None
+
+
 # Discriminated union — pydantic picks the right model from the ``source``
 # field when validating an unknown raw row.
 RawEntry = Annotated[
@@ -105,6 +128,7 @@ RawEntry = Annotated[
         RawBandcampEntry,
         RawSoundcloudEntry,
         RawIAEntry,
+        RawMetalArchivesEntry,
     ],
     Field(discriminator="source"),
 ]
@@ -122,5 +146,6 @@ def parse_raw(data: dict) -> _RawEntryBase:
         Source.BANDCAMP: RawBandcampEntry,
         Source.SOUNDCLOUD: RawSoundcloudEntry,
         Source.INTERNET_ARCHIVE: RawIAEntry,
+        Source.METAL_ARCHIVES: RawMetalArchivesEntry,
     }
     return cls_map[src].model_validate(data)

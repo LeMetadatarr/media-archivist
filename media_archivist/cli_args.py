@@ -249,7 +249,7 @@ class MonitorArgs(_BaseCliArgs):
 
 
 def backend_from_namespace(ns: argparse.Namespace) -> Backend:
-    """Collapse the four mutually-exclusive backend flags into the discriminator."""
+    """Collapse the mutually-exclusive backend flags into the discriminator."""
     if getattr(ns, "ia", False):
         return "ia"
     if getattr(ns, "music", False):
@@ -258,6 +258,8 @@ def backend_from_namespace(ns: argparse.Namespace) -> Backend:
         return "bandcamp"
     if getattr(ns, "soundcloud", False):
         return "soundcloud"
+    if getattr(ns, "metal_archives", False):
+        return "metal_archives"
     return "youtube"
 
 

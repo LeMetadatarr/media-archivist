@@ -23,6 +23,12 @@ from media_archivist.providers.arr import (                              # noqa:
     ReadarrProvider,
     LidarrProvider,
 )
+try:
+    from media_archivist.providers.metalarchives import (                 # noqa: F401
+        MetalArchivesProvider,
+    )
+except ImportError:  # pragma: no cover
+    pass
 
 
 def all_providers() -> Dict[str, MetadataProvider]:

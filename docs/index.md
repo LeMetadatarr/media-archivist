@@ -43,6 +43,8 @@ media_archivist/
 - [Entities & relations](./entities.md) — first-class artists, actors,
   directors, albums, labels; `<db>.entities.json` sidecar; `--where`
   dotted access (`relations.director`, `external_ids.imdb`).
+- [Encyclopaedia Metallum](./metal_archives.md) — heavy-metal-specific
+  backend + enrichment provider via `pymetal`.
 - [Datasets, enrichment & sharing](./datasets.md) — `enrich`, `export
   --split`, `snapshot` / `diff`, HuggingFace `hub-publish`.
 - [Running as a service](./deploy.md) — Docker + systemd templates,

@@ -23,9 +23,11 @@ dependencies = [
 test = ["pytest"]
 bandcamp = ["py_bandcamp"]
 soundcloud = ["nuvem_de_som"]
+metal_archives = ["pymetal>=0.6"]
 hub = ["huggingface_hub"]
 server = ["fastapi", "uvicorn[standard]"]
-all = ["py_bandcamp", "nuvem_de_som", "huggingface_hub", "fastapi", "uvicorn[standard]"]
+all = ["py_bandcamp", "nuvem_de_som", "pymetal>=0.6", "huggingface_hub",
+       "fastapi", "uvicorn[standard]"]
 
 [project.scripts]
 media-archivist = "media_archivist.cli:main"

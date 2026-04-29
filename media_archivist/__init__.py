@@ -14,6 +14,10 @@ try:
     from media_archivist.soundcloud import SoundCloudArchivist  # noqa: F401
 except Exception:  # pragma: no cover
     SoundCloudArchivist = None  # type: ignore
+try:
+    from media_archivist.metalarchives import MetalArchivesArchivist  # noqa: F401
+except Exception:  # pragma: no cover
+    MetalArchivesArchivist = None  # type: ignore
 
 __all__ = [
     "YoutubeArchivist",
@@ -22,6 +26,7 @@ __all__ = [
     "IAArchivist",
     "BandcampArchivist",
     "SoundCloudArchivist",
+    "MetalArchivesArchivist",
     "Index",
     "MediaArchivistError",
     "VideoUnavailable",

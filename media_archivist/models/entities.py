@@ -58,22 +58,28 @@ def _normalize_name(name: str) -> str:
 def _dominant_external_id(ext: ExternalIds, kind: EntityKind) -> Optional[str]:
     """Return the most stable external id we know for ``kind``."""
     if kind == EntityKind.ARTIST:
-        return (ext.musicbrainz_artist or ext.wikidata
+        return (ext.musicbrainz_artist
+                or (str(ext.metal_archives_band) if ext.metal_archives_band else None)
+                or ext.wikidata
                 or ext.extra.get("tmdb_person")
                 or ext.extra.get("imdb_person"))
     if kind == EntityKind.ALBUM:
-        return ext.musicbrainz_release_group or ext.musicbrainz_release
+        return (ext.musicbrainz_release_group
+                or ext.musicbrainz_release
+                or (str(ext.metal_archives_release) if ext.metal_archives_release else None))
     if kind in {EntityKind.ACTOR, EntityKind.DIRECTOR, EntityKind.PRODUCER,
                 EntityKind.COMPOSER, EntityKind.WRITER, EntityKind.NARRATOR,
                 EntityKind.HOST}:
         return (ext.extra.get("tmdb_person")
                 or ext.extra.get("imdb_person")
+                or (str(ext.metal_archives_artist) if ext.metal_archives_artist else None)
                 or ext.wikidata)
     if kind == EntityKind.AUTHOR:
         return (ext.olid or ext.extra.get("goodreads_author")
                 or ext.wikidata)
     if kind == EntityKind.LABEL:
-        return ext.extra.get("musicbrainz_label") or ext.wikidata
+        return ((str(ext.metal_archives_label) if ext.metal_archives_label else None)
+                or ext.extra.get("musicbrainz_label") or ext.wikidata)
     if kind == EntityKind.CHANNEL:
         return ext.extra.get("youtube_channel_id")
     return None

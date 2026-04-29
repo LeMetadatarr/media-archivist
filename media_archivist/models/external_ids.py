@@ -40,6 +40,13 @@ class ExternalIds(BaseModel):
     tmdb_person: Optional[int] = None
     imdb_person: Optional[str] = None      # nm-id
 
+    # Encyclopaedia Metallum (metal-archives.com) ids.
+    metal_archives_band: Optional[int] = None
+    metal_archives_release: Optional[int] = None
+    metal_archives_song: Optional[int] = None
+    metal_archives_label: Optional[int] = None
+    metal_archives_artist: Optional[int] = None  # MA artist (lineup member) id
+
     # Anything else a provider produced that we don't have a slot for.
     extra: Dict[str, str] = Field(default_factory=dict)
 
