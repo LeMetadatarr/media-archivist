@@ -46,12 +46,21 @@ class AddArgs(_BaseCliArgs):
 class UrlsArgs(_BaseCliArgs):
     grep: Optional[str] = None
     limit: int = 0
+    where: Optional[str] = None
+    canonical: bool = False
+    has_stream: Optional[bool] = None
+    source_filter: Optional[str] = None
 
 
 class ListArgs(_BaseCliArgs):
     grep: Optional[str] = None
     limit: int = 0
     json_out: bool = False
+    where: Optional[str] = None
+    canonical: bool = False
+    has_stream: Optional[bool] = None
+    explicit_filter: Optional[bool] = None
+    source_filter: Optional[str] = None
 
 
 class DumpArgs(_BaseCliArgs):
@@ -64,6 +73,20 @@ class ExportArgs(_BaseCliArgs):
     grep: Optional[str] = None
     limit: int = 0
     output: Optional[str] = None
+    where: Optional[str] = None
+    canonical: bool = False
+    has_stream: Optional[bool] = None
+    source_filter: Optional[str] = None
+
+
+class LinkArgs(_BaseCliArgs):
+    duration_tolerance: float = 2.0
+
+
+class DedupeArgs(_BaseCliArgs):
+    output: str
+    prefer: str = "bandcamp,internet_archive,youtube_music,soundcloud,youtube"
+    duration_tolerance: float = 2.0
 
 
 class ImportArgs(_BaseCliArgs):

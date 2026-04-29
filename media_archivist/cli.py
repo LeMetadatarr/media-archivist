@@ -114,7 +114,42 @@ def cmd_add(args) -> int:
     return 0
 
 
+def _index_for(args):
+    """Open an :class:`Index` from the args' DB target."""
+    from media_archivist.index import Index
+
+    db_path = args.db_file
+    if not db_path and args.db:
+        # Resolve XDG location.
+        from json_database import xdg_data_home
+        db_path = f"{xdg_data_home()}/media_archivist/{args.db}.json"
+    return Index(db_path)
+
+
+def _resolve_view(args, *, defaults_grep: bool = True):
+    """Apply --where / --canonical / source / has-stream / explicit / grep."""
+    from media_archivist.index import WhereError
+
+    idx = _index_for(args)
+    try:
+        return list(idx.view(
+            where=getattr(args, "where", None),
+            source=getattr(args, "source_filter", None),
+            has_stream=getattr(args, "has_stream", None),
+            explicit=getattr(args, "explicit_filter", None),
+            grep=getattr(args, "grep", None) if defaults_grep else None,
+            limit=getattr(args, "limit", 0) or 0,
+        ))
+    except WhereError as e:
+        raise SystemExit(f"error: --where: {e}")
+
+
 def cmd_urls(args) -> int:
+    if args.canonical or args.where or args.source_filter or args.has_stream is not None:
+        for entry in _resolve_view(args):
+            if entry.url:
+                print(entry.url)
+        return 0
     archivist = _make_archivist(args)
     entries = _filter_entries(archivist.sorted_entries(), args.grep)
     if args.limit:
@@ -127,11 +162,23 @@ def cmd_urls(args) -> int:
 
 
 def cmd_list(args) -> int:
+    use_view = (args.canonical or args.where or args.source_filter
+                or args.has_stream is not None or args.explicit_filter is not None)
+    if use_view:
+        entries = _resolve_view(args)
+        if args.json_out:
+            json.dump([e.model_dump(mode="json") for e in entries], sys.stdout,
+                      indent=2, ensure_ascii=False)
+            sys.stdout.write("\n")
+            return 0
+        for e in entries:
+            print(f"{e.title or '(no title)'}\t{e.url}")
+        return 0
     archivist = _make_archivist(args)
     entries = _filter_entries(archivist.sorted_entries(), args.grep)
     if args.limit:
         entries = entries[: args.limit]
-    if args.json:
+    if args.json_out:
         json.dump(entries, sys.stdout, indent=2, ensure_ascii=False)
         sys.stdout.write("\n")
         return 0
@@ -152,10 +199,21 @@ def cmd_dump(args) -> int:
 def cmd_export(args) -> int:
     """Emit the DB as JSON, JSONL, CSV, or a flat URL list — with optional field projection."""
     _validated_args(_cli_args.ExportArgs, args)
-    archivist = _make_archivist(args)
-    entries = _filter_entries(archivist.sorted_entries(), args.grep)
-    if args.limit:
-        entries = entries[: args.limit]
+
+    use_view = (args.canonical or args.where or args.source_filter
+                or args.has_stream is not None)
+    if use_view:
+        view_entries = _resolve_view(args, defaults_grep=False)
+        # When --canonical, project the MediaEntry rows; entries var holds dicts either way.
+        entries = [e.model_dump(mode="json") for e in view_entries]
+        if args.grep:
+            needle = args.grep.lower()
+            entries = [e for e in entries if needle in (e.get("title") or "").lower()]
+    else:
+        archivist = _make_archivist(args)
+        entries = _filter_entries(archivist.sorted_entries(), args.grep)
+        if args.limit:
+            entries = entries[: args.limit]
 
     fields = [f.strip() for f in args.fields.split(",")] if args.fields else None
 
@@ -301,6 +359,32 @@ def cmd_bootstrap(args) -> int:
     return 0
 
 
+def cmd_link(args) -> int:
+    """Compute fingerprint groups and write the ``<db>.links.json`` sidecar."""
+    _validated_args(_cli_args.LinkArgs, args)
+    from media_archivist.canon import link as canon_link
+
+    db_path = args.db_file or _index_for(args).path
+    links = canon_link(db_path, duration_tolerance=args.duration_tolerance)
+    print(f"linked {sum(len(v) for v in links.values())} entries across "
+          f"{len(links)} fingerprint groups", file=sys.stderr)
+    return 0
+
+
+def cmd_dedupe(args) -> int:
+    """Read view+links and emit a deduped canonical JSONL."""
+    _validated_args(_cli_args.DedupeArgs, args)
+    from media_archivist.canon import dedupe, write_dedupe_jsonl
+
+    db_path = args.db_file or _index_for(args).path
+    preference = [s.strip() for s in args.prefer.split(",") if s.strip()]
+    deduped = dedupe(db_path, preference=preference,
+                     duration_tolerance=args.duration_tolerance)
+    n = write_dedupe_jsonl(deduped, args.output)
+    print(f"wrote {n} canonical rows to {args.output}", file=sys.stderr)
+    return 0
+
+
 def cmd_monitor(args) -> int:
     from media_archivist.youtube import YoutubeMonitor
 
@@ -366,16 +450,35 @@ def build_parser() -> argparse.ArgumentParser:
     p_add.add_argument("urls", nargs="+")
     p_add.set_defaults(func=cmd_add)
 
+    def _add_view_flags(p):
+        p.add_argument("--canonical", action="store_true",
+                       help="use the canonical MediaEntry view")
+        p.add_argument("--where", metavar="EXPR",
+                       help="filter expression (e.g. 'duration>180 and source==\"bandcamp\"')")
+        p.add_argument("--source", dest="source_filter", metavar="NAME",
+                       help="keep only entries from this source")
+        p.add_argument("--has-stream", dest="has_stream", action="store_true",
+                       default=None, help="keep only entries with a resolved stream URL")
+        p.add_argument("--no-stream", dest="has_stream", action="store_false",
+                       help="keep only entries without a stream URL")
+
     p_urls = sub.add_parser("urls", parents=[common],
                             help="print stored URLs (pipe to `yt-dlp -a -`)")
     p_urls.add_argument("--grep", help="filter by substring in title")
     p_urls.add_argument("--limit", type=int, default=0)
+    _add_view_flags(p_urls)
     p_urls.set_defaults(func=cmd_urls)
 
     p_list = sub.add_parser("list", parents=[common], help="list entries (title<TAB>url)")
     p_list.add_argument("--grep", help="filter by substring in title")
     p_list.add_argument("--limit", type=int, default=0)
-    p_list.add_argument("--json", action="store_true", help="emit JSON array")
+    p_list.add_argument("--json", dest="json_out", action="store_true",
+                        help="emit JSON array")
+    _add_view_flags(p_list)
+    p_list.add_argument("--explicit", dest="explicit_filter", action="store_true",
+                        default=None, help="(canonical view) keep only explicit-flagged tracks")
+    p_list.add_argument("--no-explicit", dest="explicit_filter", action="store_false",
+                        help="(canonical view) drop explicit-flagged tracks")
     p_list.set_defaults(func=cmd_list)
 
     p_dump = sub.add_parser("dump", parents=[common], help="dump full DB as JSON")
@@ -390,6 +493,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_export.add_argument("--limit", type=int, default=0)
     p_export.add_argument("-o", "--output", metavar="PATH",
                           help="write to PATH instead of stdout")
+    _add_view_flags(p_export)
     p_export.set_defaults(func=cmd_export)
 
     p_import = sub.add_parser("import", parents=[common],
@@ -423,6 +527,22 @@ def build_parser() -> argparse.ArgumentParser:
                             help="seed an empty DB from a remote JSON dump")
     p_boot.add_argument("url")
     p_boot.set_defaults(func=cmd_bootstrap)
+
+    p_link = sub.add_parser("link", parents=[common],
+                            help="fingerprint cross-source matches into <db>.links.json")
+    p_link.add_argument("--duration-tolerance", type=float, default=2.0,
+                        help="seconds of duration mismatch tolerated within a group")
+    p_link.set_defaults(func=cmd_link)
+
+    p_dedupe = sub.add_parser("dedupe", parents=[common],
+                              help="emit a deduped canonical JSONL using fingerprint links")
+    p_dedupe.add_argument("--output", "-o", metavar="PATH", required=True,
+                          help="output JSONL path")
+    p_dedupe.add_argument("--prefer", metavar="A,B,C",
+                          default="bandcamp,internet_archive,youtube_music,soundcloud,youtube",
+                          help="comma-separated source preference order (winners first)")
+    p_dedupe.add_argument("--duration-tolerance", type=float, default=2.0)
+    p_dedupe.set_defaults(func=cmd_dedupe)
 
     p_mon = sub.add_parser("monitor", parents=[common],
                            help="background-poll URLs and keep the DB in sync")

@@ -27,7 +27,16 @@ milestones land.
   - ✅ GitHub remote pointed at `TigreGotico/media-archivist` (not pushed
     yet — first push deferred until the v1.0 milestone).
   - ⬜ Repo directory rename (cosmetic; deferred).
-- ⬜ **v0.3** — Two-tier schema, canonical view, fingerprint dedup.
+- ✅ **v0.3 — Two-tier schema, canonical view, fingerprint dedup.**
+  - `MediaEntry` pydantic model + per-backend view adapters
+    (`models/canonical.py`, `views.py`).
+  - `Index` SDK with sandboxed `--where` expression evaluator
+    (`index.py`).
+  - Cross-source fingerprint, duration-aware clustering, sidecar links,
+    canonical JSONL dedupe (`canon.py`).
+  - CLI: `link`, `dedupe` subcommands; `--canonical`, `--where`,
+    `--source`, `--has-stream`, `--explicit/--no-explicit` flags on
+    `list` / `urls` / `export`.
 - ⬜ **v0.6** — Datasets & sharing (HF Hub, transcripts, lyrics).
 - ⬜ **v0.4** — Discovery & RSS-incremental sync.
 - ⬜ **v0.5** — Service mode (FastAPI, M3U/RSS endpoints, async scheduler).

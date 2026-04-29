@@ -31,6 +31,8 @@ media_archivist/
 - [Schema & validation](./schema.md) — pydantic models for every backend
   and the canonical envelope.
 - [Storage format](./storage.md) — on-disk JSON layout.
+- [Canonical view & dedupe](./canonical.md) — `MediaEntry`, `Index` SDK,
+  `--where` filter language, fingerprint, link, dedupe.
 - [CLI architecture](./cli.md) — subcommand reference, validation rules.
 - [CI / release automation](./ci.md) — workflows and branching model.
 - [Roadmap](./roadmap.md) — phased plan to v1.0 (mirrors

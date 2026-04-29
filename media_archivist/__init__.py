@@ -1,4 +1,5 @@
 from media_archivist.exceptions import MediaArchivistError, VideoUnavailable
+from media_archivist.index import Index
 from media_archivist.ia import IAArchivist
 from media_archivist.music import YoutubeMusicArchivist
 from media_archivist.version import __version__
@@ -21,6 +22,7 @@ __all__ = [
     "IAArchivist",
     "BandcampArchivist",
     "SoundCloudArchivist",
+    "Index",
     "MediaArchivistError",
     "VideoUnavailable",
     "__version__",
