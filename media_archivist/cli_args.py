@@ -77,6 +77,8 @@ class ExportArgs(_BaseCliArgs):
     canonical: bool = False
     has_stream: Optional[bool] = None
     source_filter: Optional[str] = None
+    split: Optional[str] = None
+    split_by: Optional[str] = None
 
 
 class LinkArgs(_BaseCliArgs):
@@ -105,6 +107,42 @@ class QuarantineResolveArgs(_BaseCliArgs):
 
 class QuarantineRejectArgs(_BaseCliArgs):
     row_id: str
+
+
+class EnrichArgs(_BaseCliArgs):
+    kinds: List[str]
+    limit: int = 0
+    overwrite: bool = False
+    languages: str = "en"
+
+    @model_validator(mode="after")
+    def _at_least_one_kind(self) -> "EnrichArgs":
+        if not self.kinds:
+            raise ValueError(
+                "enrich requires at least one --kind: lyrics, transcripts, content_type"
+            )
+        return self
+
+
+class SnapshotArgs(_BaseCliArgs):
+    label: Optional[str] = None
+
+
+class DiffArgs(BaseModel):
+    """diff doesn't take a DB target — it takes two DB paths positionally."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    a: str
+    b: str
+
+
+class HubPublishArgs(_BaseCliArgs):
+    repo: str
+    jsonl_path: str
+    description: str = ""
+    license_id: str = "other"
+    private: bool = False
 
 
 class DedupeArgs(_BaseCliArgs):

@@ -217,39 +217,71 @@ def cmd_export(args) -> int:
 
     fields = [f.strip() for f in args.fields.split(",")] if args.fields else None
 
-    out = open(args.output, "w", encoding="utf-8") if args.output else sys.stdout
-    try:
+    # ---- splits ----
+    split_groups: dict[str, list] = {"": list(entries)}  # default: single group
+    if args.split:
+        from media_archivist.hub import split_jsonl
+        split_groups = split_jsonl(list(entries), args.split)
+    elif args.split_by:
+        groups: dict[str, list] = {}
+        for e in entries:
+            key = str(e.get(args.split_by) or "")
+            groups.setdefault(key, []).append(e)
+        split_groups = groups
+
+    def _emit(rows: list, sink) -> None:
         if args.format == "jsonl":
-            for entry in entries:
+            for entry in rows:
                 row = _project(entry, fields) if fields else entry
-                out.write(json.dumps(row, ensure_ascii=False) + "\n")
+                sink.write(json.dumps(row, ensure_ascii=False) + "\n")
         elif args.format == "json":
-            rows = [_project(e, fields) if fields else e for e in entries]
-            json.dump(rows, out, indent=2, ensure_ascii=False)
-            out.write("\n")
+            payload = [_project(e, fields) if fields else e for e in rows]
+            json.dump(payload, sink, indent=2, ensure_ascii=False)
+            sink.write("\n")
         elif args.format == "csv":
             cols = fields or DEFAULT_FIELDS
-            writer = csv.DictWriter(out, fieldnames=cols, extrasaction="ignore")
+            writer = csv.DictWriter(sink, fieldnames=cols, extrasaction="ignore")
             writer.writeheader()
-            for entry in entries:
+            for entry in rows:
                 row = {c: entry.get(c) for c in cols}
-                # serialize lists/dicts so CSV stays flat
                 for k, v in list(row.items()):
                     if isinstance(v, (list, dict)):
                         row[k] = json.dumps(v, ensure_ascii=False)
                 writer.writerow(row)
         elif args.format == "txt":
-            for entry in entries:
+            for entry in rows:
                 url = entry.get("url") or ""
                 if url:
-                    out.write(url + "\n")
+                    sink.write(url + "\n")
         else:
-            print(f"unknown format: {args.format}", file=sys.stderr)
-            return 2
-    finally:
-        if args.output:
-            out.close()
-    print(f"exported {len(entries)} entries", file=sys.stderr)
+            raise ValueError(f"unknown format: {args.format}")
+
+    if not (args.split or args.split_by):
+        out = open(args.output, "w", encoding="utf-8") if args.output else sys.stdout
+        try:
+            _emit(list(entries), out)
+        finally:
+            if args.output:
+                out.close()
+        print(f"exported {len(entries)} entries", file=sys.stderr)
+        return 0
+
+    # Split path: requires --output as a base path (e.g. -o data.jsonl).
+    if not args.output:
+        print("error: --split / --split-by require -o BASE_PATH", file=sys.stderr)
+        return 2
+    from pathlib import Path
+    base = Path(args.output)
+    stem, suffix = base.with_suffix(""), base.suffix or f".{args.format}"
+    total_emitted = 0
+    for label, rows in split_groups.items():
+        out_path = Path(f"{stem}.{label}{suffix}") if label else base
+        with out_path.open("w", encoding="utf-8") as f:
+            _emit(rows, f)
+        total_emitted += len(rows)
+        print(f"  {out_path}: {len(rows)} rows", file=sys.stderr)
+    print(f"exported {total_emitted} entries across {len(split_groups)} files",
+          file=sys.stderr)
     return 0
 
 
@@ -356,6 +388,48 @@ def cmd_bootstrap(args) -> int:
     else:
         print("bootstrap not supported for this archivist", file=sys.stderr)
         return 1
+    return 0
+
+
+def cmd_enrich(args) -> int:
+    """Run lyrics / transcripts / content_type enrichers across the DB."""
+    _validated_args(_cli_args.EnrichArgs, args)
+    from media_archivist.enrich import EnrichKind, enrich
+
+    db_path = args.db_file or _index_for(args).path
+    kinds = [EnrichKind(k) for k in args.kinds]
+    languages = [s.strip() for s in args.languages.split(",") if s.strip()]
+    processed, modified = enrich(db_path, kinds, limit=args.limit,
+                                 overwrite=args.overwrite, languages=languages)
+    print(f"enriched {modified}/{processed} rows", file=sys.stderr)
+    return 0
+
+
+def cmd_snapshot(args) -> int:
+    from media_archivist.snapshot import snapshot
+    db_path = args.db_file or _index_for(args).path
+    out = snapshot(db_path, label=args.label or "")
+    print(out)
+    return 0
+
+
+def cmd_diff(args) -> int:
+    _validated_args(_cli_args.DiffArgs, args)
+    from media_archivist.snapshot import diff
+    result = diff(args.a, args.b)
+    json.dump(result, sys.stdout, indent=2, ensure_ascii=False)
+    sys.stdout.write("\n")
+    return 0
+
+
+def cmd_hub_publish(args) -> int:
+    _validated_args(_cli_args.HubPublishArgs, args)
+    from media_archivist.hub import publish
+    db_path = args.db_file or _index_for(args).path
+    url = publish(db_path, repo=args.repo, jsonl_path=args.jsonl_path,
+                  description=args.description, license_id=args.license_id,
+                  private=args.private)
+    print(url)
     return 0
 
 
@@ -558,6 +632,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_export.add_argument("--limit", type=int, default=0)
     p_export.add_argument("-o", "--output", metavar="PATH",
                           help="write to PATH instead of stdout")
+    p_export.add_argument("--split", metavar="train:0.8,val:0.1,test:0.1",
+                          help="deterministic split by fingerprint hash; emits multiple files")
+    p_export.add_argument("--split-by", metavar="FIELD",
+                          help="split output one file per distinct value of FIELD (e.g. source)")
     _add_view_flags(p_export)
     p_export.set_defaults(func=cmd_export)
 
@@ -592,6 +670,45 @@ def build_parser() -> argparse.ArgumentParser:
                             help="seed an empty DB from a remote JSON dump")
     p_boot.add_argument("url")
     p_boot.set_defaults(func=cmd_bootstrap)
+
+    p_enrich = sub.add_parser("enrich", parents=[common],
+                              help="add lyrics / transcripts / content_type to rows under _meta.enriched")
+    p_enrich.add_argument("--lyrics", dest="kinds", action="append_const",
+                          const="lyrics", help="fetch Bandcamp track lyrics")
+    p_enrich.add_argument("--transcripts", dest="kinds", action="append_const",
+                          const="transcripts",
+                          help="fetch YouTube auto-subs via yt-dlp")
+    p_enrich.add_argument("--content-type", dest="kinds", action="append_const",
+                          const="content_type",
+                          help="classify YouTube rows via tutubo.content_type")
+    p_enrich.add_argument("--limit", type=int, default=0)
+    p_enrich.add_argument("--overwrite", action="store_true",
+                          help="re-run enrichment even if a block already exists")
+    p_enrich.add_argument("--languages", default="en",
+                          help="comma-separated transcript language preference (default: en)")
+    p_enrich.set_defaults(func=cmd_enrich, kinds=[])
+
+    p_snap = sub.add_parser("snapshot", parents=[common],
+                            help="copy the DB to .snapshots/<timestamp>.json")
+    p_snap.add_argument("--label", help="optional suffix on the snapshot filename")
+    p_snap.set_defaults(func=cmd_snapshot)
+
+    p_diff = sub.add_parser("diff",
+                            help="compare two DB snapshots; print added/removed/changed URLs")
+    p_diff.add_argument("a", help="path to the older DB")
+    p_diff.add_argument("b", help="path to the newer DB")
+    p_diff.set_defaults(func=cmd_diff)
+
+    p_hub = sub.add_parser("hub-publish", parents=[common],
+                           help="push a JSONL export + auto-generated dataset card to HuggingFace Hub")
+    p_hub.add_argument("--repo", required=True,
+                       help="HF repo id (e.g. user/dataset-name)")
+    p_hub.add_argument("--jsonl", dest="jsonl_path", required=True,
+                       help="path to the JSONL export to upload")
+    p_hub.add_argument("--description", default="")
+    p_hub.add_argument("--license-id", dest="license_id", default="other")
+    p_hub.add_argument("--private", action="store_true")
+    p_hub.set_defaults(func=cmd_hub_publish)
 
     p_providers = sub.add_parser("providers",
                                  help="list built-in metadata providers and their active status")

@@ -59,7 +59,20 @@ milestones land.
     via Wikidata / TMDB joins).
   - ⬜ HTTP fixture-based integration tests for the live providers
     (vcr.py / cassette pattern).
-- ⬜ **v0.6** — Datasets & sharing (HF Hub, transcripts, lyrics).
+- ✅ **v0.6 — Datasets & sharing.**
+  - `enrich/` package: lyrics (Bandcamp), transcripts (yt-dlp + VTT
+    parser), content_type (tutubo classifier); `EnrichedBlock`
+    pydantic model under `_meta.enriched`.
+  - `hub.py`: HuggingFace Hub publisher with auto-generated
+    `DatasetCard` from envelope `source_mix` + canonical sidecar.
+  - Deterministic train/val/test splits keyed on `canonical_id` →
+    `--split` flag on `export`. Per-field bucketing via `--split-by`.
+  - `snapshot.py`: dated DB copies + structural `diff` ignoring
+    volatile `_meta` fields.
+  - CLI: `enrich`, `snapshot`, `diff`, `hub-publish` subcommands.
+  - 8 new offline tests; 60 total green.
+  - Docs: `docs/datasets.md`. Recipes folder shipped by the docs
+    agents in parallel.
 - ⬜ **v0.4** — Discovery & RSS-incremental sync.
 - ⬜ **v0.5** — Service mode (FastAPI, M3U/RSS endpoints, async scheduler).
 - ⬜ **v1.0** — Schema semver, docs site, ≥80% coverage.

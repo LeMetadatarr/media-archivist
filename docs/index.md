@@ -28,6 +28,10 @@ media_archivist/
 
 ## Documentation index
 
+- [Getting Started](./getting-started.md) — install, first run, 10-minute walkthrough.
+- [Tutorial: Cross-Source Music Dataset](./tutorial.md) — end-to-end workflow: index from YouTube Music / Bandcamp / SoundCloud, deduplicate, export to JSONL.
+- [Recipes](./recipes/index.md) — practical end-to-end workflows: music libraries, documentaries, podcasts, ML datasets, Arr integration, cross-source deduplication, automation via cron.
+- [FAQ](./faq.md) — 20+ common questions: installation, backend selection, ToS, performance, filtering, canonicalization, troubleshooting.
 - [Schema & validation](./schema.md) — pydantic models for every backend
   and the canonical envelope.
 - [Storage format](./storage.md) — on-disk JSON layout.
@@ -40,6 +44,7 @@ media_archivist/
 - [CI / release automation](./ci.md) — workflows and branching model.
 - [Roadmap](./roadmap.md) — phased plan to v1.0 (mirrors
   `~/.claude/plans/plan-a-full-roadmap-gleaming-ripple.md`).
+- **[Reference Documentation](./reference/index.md)** — exhaustive technical reference: CLI, SDK, data models, WHERE language, providers, file formats.
 
 ## Design principles
 
