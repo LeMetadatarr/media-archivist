@@ -8,11 +8,14 @@ can write source-agnostic queries, dedup, and dataset exports.
 from __future__ import annotations
 
 import hashlib
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from media_archivist.models.external_ids import ExternalIds
 from media_archivist.models.raw import Source
+
+CanonicalStatus = Literal["matched", "quarantined", "unmatched"]
 
 
 def stable_id(source: Source, url: str) -> str:
@@ -38,6 +41,9 @@ class MediaEntry(BaseModel):
     is_live: bool = False
     explicit: bool = False
     stream: Optional[str] = None
+    canonical_id: Optional[str] = None
+    canonical_status: Optional[CanonicalStatus] = None
+    external_ids: ExternalIds = Field(default_factory=ExternalIds)
     raw: Dict[str, Any] = Field(default_factory=dict)
 
     @classmethod

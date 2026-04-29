@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any, Iterable, Iterator, List, Optional
 
 from media_archivist.models.canonical import MediaEntry
+from media_archivist.models.external_ids import ExternalIds
 from media_archivist.storage import EnvelopeJsonStorage
 from media_archivist.views import to_media_entry
 
@@ -115,6 +116,16 @@ class Index:
     def __init__(self, path: str | Path) -> None:
         self.path = str(path)
         self._db = EnvelopeJsonStorage(self.path)
+        self._canonical_index = self._load_canonical_index()
+
+    def _load_canonical_index(self):
+        """Read ``<db>.canonical.json`` if present and build a lookup map."""
+        from media_archivist.canonicalize import load_canonical
+        try:
+            sidecar = load_canonical(self.path)
+        except Exception:
+            return {}
+        return {cid: rec for cid, rec in sidecar.records.items()}
 
     def __len__(self) -> int:
         return len(self._db)
@@ -140,6 +151,7 @@ class Index:
                 entry = to_media_entry(raw)
             except Exception:
                 continue
+            self._stamp_canonical(entry, raw)
             if source is not None and entry.source.value != source:
                 continue
             if has_stream is True and not entry.stream:
@@ -161,3 +173,16 @@ class Index:
 
     def to_list(self, **filters) -> List[MediaEntry]:
         return list(self.view(**filters))
+
+    def _stamp_canonical(self, entry: MediaEntry, raw: dict) -> None:
+        """Attach canonical_id / canonical_status / external_ids from sidecar + meta."""
+        meta = raw.get("_meta") or {}
+        cid = meta.get("canonical_id")
+        status = meta.get("canonical_status")
+        if cid:
+            entry.canonical_id = cid
+            rec = self._canonical_index.get(cid)
+            if rec is not None:
+                entry.external_ids = rec.external_ids
+        if status:
+            entry.canonical_status = status

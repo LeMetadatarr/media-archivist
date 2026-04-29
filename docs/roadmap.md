@@ -37,6 +37,28 @@ milestones land.
   - CLI: `link`, `dedupe` subcommands; `--canonical`, `--where`,
     `--source`, `--has-stream`, `--explicit/--no-explicit` flags on
     `list` / `urls` / `export`.
+- 🚧 **v0.3.5 — Disambiguation, canonical IDs & external providers.** *In progress.*
+  - ✅ `Signals`, `ExternalIds`, `CanonicalRecord`, `QuarantineEntry`
+    pydantic models with strict-on-read configuration
+    (`models/{signals,external_ids,canonical_record}.py`).
+  - ✅ Built-in providers, env-var driven activation
+    (`providers/{musicbrainz,wikidata,tmdb,arr}.py`); `arr` covers
+    Sonarr / Radarr / Readarr / Lidarr.
+  - ✅ `canonicalize.py` orchestrator: signal extraction, provider
+    lookups, conservative quarantine on any disagreement, sidecar I/O,
+    `_meta.canonical_id` row stamps.
+  - ✅ `MediaEntry` + `Index.view()` surface `canonical_id`,
+    `canonical_status`, `external_ids` from sidecar joins.
+  - ✅ CLI: `providers`, `canonicalize`, `quarantine-list`,
+    `quarantine-resolve`, `quarantine-reject`.
+  - ✅ Tests: `test_disambiguation.py` (10 cases, fully offline via a
+    stub provider).
+  - ✅ Docs: `disambiguation.md`. Example:
+    `examples/canonicalize_movies.py`.
+  - ⬜ Dedicated `tvdb`, `openlibrary`, `imdb` providers (currently
+    via Wikidata / TMDB joins).
+  - ⬜ HTTP fixture-based integration tests for the live providers
+    (vcr.py / cassette pattern).
 - ⬜ **v0.6** — Datasets & sharing (HF Hub, transcripts, lyrics).
 - ⬜ **v0.4** — Discovery & RSS-incremental sync.
 - ⬜ **v0.5** — Service mode (FastAPI, M3U/RSS endpoints, async scheduler).

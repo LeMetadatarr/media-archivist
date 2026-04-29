@@ -83,6 +83,30 @@ class LinkArgs(_BaseCliArgs):
     duration_tolerance: float = 2.0
 
 
+class ProvidersArgs(BaseModel):
+    """media-archivist providers — no DB target needed."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class CanonicalizeArgs(_BaseCliArgs):
+    providers: List[str] = Field(default_factory=list)
+    no_stamp: bool = False
+
+
+class QuarantineListArgs(_BaseCliArgs):
+    pass
+
+
+class QuarantineResolveArgs(_BaseCliArgs):
+    row_id: str
+    canonical_id: Optional[str] = None
+
+
+class QuarantineRejectArgs(_BaseCliArgs):
+    row_id: str
+
+
 class DedupeArgs(_BaseCliArgs):
     output: str
     prefer: str = "bandcamp,internet_archive,youtube_music,soundcloud,youtube"

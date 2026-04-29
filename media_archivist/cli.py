@@ -359,6 +359,71 @@ def cmd_bootstrap(args) -> int:
     return 0
 
 
+def cmd_providers(args) -> int:
+    """List built-in providers and which are active."""
+    from media_archivist.providers import all_providers
+    rows = []
+    for name, p in sorted(all_providers().items()):
+        rows.append({
+            "name": name,
+            "active": p.is_available(),
+            "media": sorted(m.value for m in p.media),
+        })
+    json.dump(rows, sys.stdout, indent=2, ensure_ascii=False)
+    sys.stdout.write("\n")
+    return 0
+
+
+def cmd_canonicalize(args) -> int:
+    """Run providers across the DB and update canonical/quarantine sidecars."""
+    _validated_args(_cli_args.CanonicalizeArgs, args)
+    from media_archivist.canonicalize import canonicalize
+
+    db_path = args.db_file or _index_for(args).path
+    providers = args.providers or None
+    canonical, quarantine = canonicalize(
+        db_path,
+        providers=providers,
+        stamp_rows=not args.no_stamp,
+    )
+    print(f"canonical: {len(canonical.records)} records, "
+          f"quarantine: {len(quarantine.entries)} entries", file=sys.stderr)
+    return 0
+
+
+def cmd_quarantine_list(args) -> int:
+    from media_archivist.canonicalize import load_quarantine
+    db_path = args.db_file or _index_for(args).path
+    sidecar = load_quarantine(db_path)
+    json.dump(sidecar.model_dump(mode="json"), sys.stdout, indent=2, ensure_ascii=False)
+    sys.stdout.write("\n")
+    return 0
+
+
+def cmd_quarantine_resolve(args) -> int:
+    _validated_args(_cli_args.QuarantineResolveArgs, args)
+    from media_archivist.canonicalize import quarantine_resolve
+    db_path = args.db_file or _index_for(args).path
+    ok = quarantine_resolve(db_path, args.row_id, args.canonical_id)
+    if not ok:
+        print(f"row_id {args.row_id} not in quarantine", file=sys.stderr)
+        return 1
+    print(f"resolved {args.row_id}", file=sys.stderr)
+    return 0
+
+
+def cmd_quarantine_reject(args) -> int:
+    _validated_args(_cli_args.QuarantineRejectArgs, args)
+    from media_archivist.canonicalize import quarantine_reject
+    db_path = args.db_file or _index_for(args).path
+    ok = quarantine_reject(db_path, args.row_id)
+    if not ok:
+        print(f"row_id {args.row_id} not in quarantine", file=sys.stderr)
+        return 1
+    print(f"rejected {args.row_id} → new canonical_id allocated", file=sys.stderr)
+    return 0
+
+
 def cmd_link(args) -> int:
     """Compute fingerprint groups and write the ``<db>.links.json`` sidecar."""
     _validated_args(_cli_args.LinkArgs, args)
@@ -527,6 +592,34 @@ def build_parser() -> argparse.ArgumentParser:
                             help="seed an empty DB from a remote JSON dump")
     p_boot.add_argument("url")
     p_boot.set_defaults(func=cmd_bootstrap)
+
+    p_providers = sub.add_parser("providers",
+                                 help="list built-in metadata providers and their active status")
+    p_providers.set_defaults(func=cmd_providers)
+
+    p_canon = sub.add_parser("canonicalize", parents=[common],
+                             help="run providers, update canonical/quarantine sidecars")
+    p_canon.add_argument("--providers", action="append", default=[], metavar="NAME",
+                         help="restrict to this provider (repeatable); default: all active")
+    p_canon.add_argument("--no-stamp", action="store_true",
+                         help="don't write _meta.canonical_id back to rows")
+    p_canon.set_defaults(func=cmd_canonicalize)
+
+    p_qlist = sub.add_parser("quarantine-list", parents=[common],
+                             help="dump the quarantine sidecar as JSON")
+    p_qlist.set_defaults(func=cmd_quarantine_list)
+
+    p_qres = sub.add_parser("quarantine-resolve", parents=[common],
+                            help="accept a quarantined row")
+    p_qres.add_argument("--row-id", required=True, dest="row_id")
+    p_qres.add_argument("--canonical-id", dest="canonical_id",
+                        help="link to this existing canonical_id; default: allocate new from proposed signals")
+    p_qres.set_defaults(func=cmd_quarantine_resolve)
+
+    p_qrej = sub.add_parser("quarantine-reject", parents=[common],
+                            help="reject a proposal; force a fresh canonical_id")
+    p_qrej.add_argument("--row-id", required=True, dest="row_id")
+    p_qrej.set_defaults(func=cmd_quarantine_reject)
 
     p_link = sub.add_parser("link", parents=[common],
                             help="fingerprint cross-source matches into <db>.links.json")

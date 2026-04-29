@@ -33,6 +33,9 @@ media_archivist/
 - [Storage format](./storage.md) — on-disk JSON layout.
 - [Canonical view & dedupe](./canonical.md) — `MediaEntry`, `Index` SDK,
   `--where` filter language, fingerprint, link, dedupe.
+- [Disambiguation & external IDs](./disambiguation.md) — canonical_id,
+  signal comparison, quarantine workflow, MusicBrainz / TMDB / Wikidata
+  / Arr-stack providers.
 - [CLI architecture](./cli.md) — subcommand reference, validation rules.
 - [CI / release automation](./ci.md) — workflows and branching model.
 - [Roadmap](./roadmap.md) — phased plan to v1.0 (mirrors
