@@ -40,6 +40,12 @@ media_archivist/
 - [Disambiguation & external IDs](./disambiguation.md) — canonical_id,
   signal comparison, quarantine workflow, MusicBrainz / TMDB / Wikidata
   / Arr-stack providers.
+- [Datasets, enrichment & sharing](./datasets.md) — `enrich`, `export
+  --split`, `snapshot` / `diff`, HuggingFace `hub-publish`.
+- [Running as a service](./deploy.md) — Docker + systemd templates,
+  HTTP surface reference.
+- [Jellyfin / Kodi remote media](./jellyfin.md) — `.strm` export
+  pointing at the server's `/strm/<id>` endpoint.
 - [CLI architecture](./cli.md) — subcommand reference, validation rules.
 - [CI / release automation](./ci.md) — workflows and branching model.
 - [Roadmap](./roadmap.md) — phased plan to v1.0 (mirrors
