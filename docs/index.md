@@ -40,6 +40,9 @@ media_archivist/
 - [Disambiguation & external IDs](./disambiguation.md) — canonical_id,
   signal comparison, quarantine workflow, MusicBrainz / TMDB / Wikidata
   / Arr-stack providers.
+- [Entities & relations](./entities.md) — first-class artists, actors,
+  directors, albums, labels; `<db>.entities.json` sidecar; `--where`
+  dotted access (`relations.director`, `external_ids.imdb`).
 - [Datasets, enrichment & sharing](./datasets.md) — `enrich`, `export
   --split`, `snapshot` / `diff`, HuggingFace `hub-publish`.
 - [Running as a service](./deploy.md) — Docker + systemd templates,
