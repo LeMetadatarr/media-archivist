@@ -1,0 +1,24 @@
+[Unit]
+Description=media_archivist HTTP server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=%i
+Environment=PYTHONUNBUFFERED=1
+# Override these in /etc/systemd/system/media-archivist@.service.d/override.conf
+Environment=MEDIA_ARCHIVIST_DB_FILE=%h/.local/share/media_archivist/index.json
+Environment=MEDIA_ARCHIVIST_HOST=127.0.0.1
+Environment=MEDIA_ARCHIVIST_PORT=8000
+
+ExecStart=/usr/bin/env media-archivist serve \
+    --db-file ${MEDIA_ARCHIVIST_DB_FILE} \
+    --host ${MEDIA_ARCHIVIST_HOST} \
+    --port ${MEDIA_ARCHIVIST_PORT}
+
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

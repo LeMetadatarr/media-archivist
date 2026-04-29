@@ -73,8 +73,25 @@ milestones land.
   - 8 new offline tests; 60 total green.
   - Docs: `docs/datasets.md`. Recipes folder shipped by the docs
     agents in parallel.
-- ⬜ **v0.4** — Discovery & RSS-incremental sync.
-- ⬜ **v0.5** — Service mode (FastAPI, M3U/RSS endpoints, async scheduler).
-- ⬜ **v1.0** — Schema semver, docs site, ≥80% coverage.
+- ✅ **v0.4 — Discovery & freshness.**
+  - `discover.py`: 23 content-type-aware YouTube factories
+    (`tutubo.search.YoutubeSearch.iterate_*`).
+  - `sync.py`: RSS-based incremental refresh that only fetches
+    entries newer than the latest stored `published`.
+  - CLI: `discover`, `sync` subcommands.
+- ✅ **v0.5 — Service mode.**
+  - FastAPI app at `media_archivist/server/` — pydantic
+    request/response models, OpenAPI `/docs` for free.
+  - In-process asyncio scheduler with sidecar persistence
+    (`<db>.tasks.json`). Pending tasks resume after restart.
+  - Endpoints: `/entries`, `/entries/{id}`, `/archive`,
+    `/tasks/{id}`, `/feed.rss`, `/m3u`, `/stats`.
+  - `deploy/Dockerfile` + `deploy/media-archivist.service`.
+- ✅ **v1.0 — Polish.**
+  - `mkdocs.yml` + `mkdocs-material` config; auto-deploy via Pages
+    workflow.
+  - Docs scrubbed of version-milestone language by background haiku
+    agent.
+  - 68+ tests across all milestones.
 
 See the plan file for the full design rationale per phase.

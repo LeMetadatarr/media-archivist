@@ -1,0 +1,81 @@
+site_name: media_archivist
+site_description: Cross-source media metadata indexer (YouTube, YT Music, Internet Archive, Bandcamp, SoundCloud)
+site_url: https://tigregotico.github.io/media-archivist/
+repo_url: https://github.com/TigreGotico/media-archivist
+repo_name: TigreGotico/media-archivist
+edit_uri: edit/master/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.indexes
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.snippets
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Install & first run: getting-started.md
+      - Tutorial: cross-source music dataset: tutorial.md
+      - FAQ: faq.md
+  - Concepts:
+      - Schema & validation: schema.md
+      - Storage format: storage.md
+      - Canonical view & dedupe: canonical.md
+      - Disambiguation & external IDs: disambiguation.md
+      - Datasets, enrichment & sharing: datasets.md
+      - Running as a service: deploy.md
+  - Recipes:
+      - recipes/index.md
+      - recipes/music-library-from-bandcamp-soundcloud-and-ytmusic.md
+      - recipes/documentary-archive.md
+      - recipes/podcast-mirror.md
+      - recipes/dataset-for-ml.md
+      - recipes/integrate-with-arr-stack.md
+      - recipes/cross-source-dedup-with-quarantine.md
+      - recipes/automate-with-cron.md
+  - Reference:
+      - reference/index.md
+      - reference/cli.md
+      - reference/sdk.md
+      - reference/models.md
+      - reference/where-language.md
+      - reference/providers.md
+      - reference/file-formats.md
+  - Development:
+      - CLI architecture: cli.md
+      - CI / release automation: ci.md
+      - Roadmap: roadmap.md
