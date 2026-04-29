@@ -453,9 +453,9 @@ Validated wrapper around on-disk JSON envelope.
 }
 ```
 
-**Backwards compatibility:**
+**Format compatibility:**
 
-Accepts legacy format (bare `{url: entry, ...}`) and auto-upgrades.
+Accepts flat format (bare `{url: entry, ...}`) and auto-upgrades to envelope format.
 
 **Methods:**
 

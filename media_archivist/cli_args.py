@@ -145,6 +145,29 @@ class HubPublishArgs(_BaseCliArgs):
     private: bool = False
 
 
+class DiscoverArgs(_BaseCliArgs):
+    kind: str
+    query: str
+    max_results: int = 50
+
+
+class SyncArgs(_BaseCliArgs):
+    rss: bool = False
+    max_per_channel: int = 0
+
+    @model_validator(mode="after")
+    def _at_least_one_strategy(self) -> "SyncArgs":
+        if not self.rss:
+            raise ValueError("sync requires --rss")
+        return self
+
+
+class ServeArgs(_BaseCliArgs):
+    host: str = "127.0.0.1"
+    port: int = 8000
+    reload: bool = False
+
+
 class DedupeArgs(_BaseCliArgs):
     output: str
     prefer: str = "bandcamp,internet_archive,youtube_music,soundcloud,youtube"

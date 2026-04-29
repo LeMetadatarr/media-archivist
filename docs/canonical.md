@@ -1,4 +1,4 @@
-# Canonical view, fingerprint & dedupe (v0.3)
+# Canonical view, fingerprint & dedupe
 
 `media_archivist` keeps **per-source raw rows** on disk (diff-stable,
 source-faithful) and computes a **canonical `MediaEntry` view** on read.

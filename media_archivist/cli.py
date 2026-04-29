@@ -391,6 +391,47 @@ def cmd_bootstrap(args) -> int:
     return 0
 
 
+def cmd_serve(args) -> int:
+    """Run the HTTP server bound to the DB."""
+    _validated_args(_cli_args.ServeArgs, args)
+    from media_archivist.server import run
+
+    db_path = args.db_file or _index_for(args).path
+    run(db_path, host=args.host, port=args.port, reload=args.reload)
+    return 0
+
+
+def cmd_discover(args) -> int:
+    """Run a content-type-filtered YouTube search and archive results."""
+    _validated_args(_cli_args.DiscoverArgs, args)
+    from media_archivist.discover import discover
+
+    db_path = args.db_file or _index_for(args).path
+    n = discover(db_path, kind=args.kind, query=args.query,
+                 max_results=args.max_results,
+                 required_kwords=args.require or [],
+                 blacklisted_kwords=args.blacklist or [],
+                 min_duration=args.min_duration)
+    print(f"discovered {n} entries", file=sys.stderr)
+    return 0
+
+
+def cmd_sync(args) -> int:
+    """Refresh the DB incrementally — currently RSS-based for YouTube channels."""
+    _validated_args(_cli_args.SyncArgs, args)
+    from media_archivist.sync import rss_sync
+
+    db_path = args.db_file or _index_for(args).path
+    added = rss_sync(db_path,
+                     max_per_channel=args.max_per_channel,
+                     required_kwords=args.require or [],
+                     blacklisted_kwords=args.blacklist or [],
+                     min_duration=args.min_duration)
+    total = sum(added.values())
+    print(f"sync: {total} new rows across {len(added)} channels", file=sys.stderr)
+    return 0
+
+
 def cmd_enrich(args) -> int:
     """Run lyrics / transcripts / content_type enrichers across the DB."""
     _validated_args(_cli_args.EnrichArgs, args)
@@ -670,6 +711,30 @@ def build_parser() -> argparse.ArgumentParser:
                             help="seed an empty DB from a remote JSON dump")
     p_boot.add_argument("url")
     p_boot.set_defaults(func=cmd_bootstrap)
+
+    p_serve = sub.add_parser("serve", parents=[common],
+                             help="run the HTTP server (FastAPI) over the DB")
+    p_serve.add_argument("--host", default="127.0.0.1")
+    p_serve.add_argument("--port", type=int, default=8000)
+    p_serve.add_argument("--reload", action="store_true",
+                         help="enable uvicorn auto-reload (development)")
+    p_serve.set_defaults(func=cmd_serve)
+
+    p_discover = sub.add_parser("discover", parents=[common],
+                                help="content-type-filtered YouTube discovery (movies, documentaries, podcasts, …)")
+    from media_archivist.discover import supported_kinds
+    p_discover.add_argument("--kind", choices=list(supported_kinds()), required=True)
+    p_discover.add_argument("--query", required=True)
+    p_discover.add_argument("--max-results", dest="max_results", type=int, default=50)
+    p_discover.set_defaults(func=cmd_discover)
+
+    p_sync = sub.add_parser("sync", parents=[common],
+                            help="incremental refresh; --rss reads YouTube channel RSS feeds")
+    p_sync.add_argument("--rss", action="store_true",
+                        help="pull each channel's RSS feed, archive entries newer than the latest stored")
+    p_sync.add_argument("--max-per-channel", dest="max_per_channel", type=int, default=0,
+                        help="cap rows added per channel per run (0 = no cap)")
+    p_sync.set_defaults(func=cmd_sync)
 
     p_enrich = sub.add_parser("enrich", parents=[common],
                               help="add lyrics / transcripts / content_type to rows under _meta.enriched")

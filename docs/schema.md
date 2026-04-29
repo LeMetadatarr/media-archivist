@@ -40,18 +40,25 @@ Backend-specific fields (excerpt):
 The discriminated union `RawEntry = Union[…]` (also exported) is what
 pydantic uses to dispatch when validating an unknown row.
 
-## Legacy v0.1 inference
+## Validating raw rows
 
-Files written by `youtube_archivist` 0.0.x didn't carry a `source` field.
-`media_archivist.models.parse_raw(dict)` infers it from the URL shape so
-you can load any historical DB without migration:
+`media_archivist.models.parse_raw(dict)` validates an arbitrary dict
+into the right `Raw*Entry` subclass — dispatched on the row's `source`
+discriminator:
 
 ```python
 from media_archivist.models import parse_raw, Source
 
-row = parse_raw({"url": "https://x.bandcamp.com/track/y", "title": "t"})
+row = parse_raw({
+    "source": "bandcamp",
+    "url": "https://x.bandcamp.com/track/y",
+    "title": "t",
+})
 assert row.source is Source.BANDCAMP
 ```
+
+The `source` field is required; `parse_raw` raises if it's missing or
+unknown.
 
 ## Strictness
 
@@ -60,10 +67,9 @@ default) and **strict on round-trip** in tests
 (`test/test_models.py` exercises every model). When a backend gains a new
 field, the corresponding `Raw*Entry` must be updated — CI catches drift.
 
-## Canonical view (v0.3, planned)
+## Canonical view
 
-A separate `MediaEntry` model in `models/canonical.py` will project any
-raw row to a unified shape (`id, source, url, title, artist?, album?,
-duration?, published?, …`) for cross-source queries and dataset export.
-The on-disk format does **not** change — the view is computed on read.
-See [`roadmap.md`](./roadmap.md).
+A `MediaEntry` model in `models/canonical.py` projects any raw row to a
+unified shape (`id, source, url, title, artist?, album?, duration?,
+published?, …`) for cross-source queries and dataset export. The on-disk
+format does **not** change — the view is computed on read.

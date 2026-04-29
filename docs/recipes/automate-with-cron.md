@@ -310,7 +310,7 @@ Add to crontab (e.g., every Monday at 9 AM):
 0 9 * * 1 /home/user/scripts/weekly_sync_report.sh | mail -s "Media Archivist Sync Report" user@example.com
 ```
 
-## Step 6: Set up incremental canonicalization (v0.3.5+)
+## Step 6: Set up incremental canonicalization
 
 Once your index is stable, run canonicalize on a slower schedule to enrich with external IDs:
 

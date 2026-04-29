@@ -3,7 +3,7 @@
 DBs are plain JSON files validated by the
 `media_archivist.models.MediaArchive` envelope.
 
-## v0.2 envelope
+## Envelope format
 
 ```json
 {
@@ -22,21 +22,7 @@ DBs are plain JSON files validated by the
 ```
 
 `_meta.source_mix` is recomputed on every store; useful for `stats` and
-for dataset cards (v0.6).
-
-## Legacy bare mapping
-
-Files written by `youtube_archivist` 0.0.x are flat `{url: entry, …}`
-mappings without an `_meta` block. They are loaded transparently and
-**rewritten as the v0.2 envelope on the next `store()`**. No manual
-migration step.
-
-```python
-from media_archivist.storage import EnvelopeJsonStorage
-
-db = EnvelopeJsonStorage("./old.json")   # legacy file
-db.store()                               # written back as envelope
-```
+dataset metadata.
 
 ## Storage classes
 

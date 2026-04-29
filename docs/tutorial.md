@@ -284,9 +284,9 @@ youtube_music    Come to Daddy        Aphex Twin   Come to Daddy      275      (
 ...
 ```
 
-## Part 5: Load into HuggingFace Datasets (v0.6 preview)
+## Part 5: Load into HuggingFace Datasets
 
-This is a **v0.6 feature** (upcoming), but you can use the JSONL manually today:
+You can load the JSONL into HuggingFace Datasets:
 
 ```python
 from datasets import load_dataset

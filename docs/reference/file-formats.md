@@ -52,7 +52,7 @@ Archive-level metadata:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `schema_version` | int | Current: 2 (backwards compatible with v1) |
+| `schema_version` | int | Current: 2 |
 | `archivist_version` | string | Version of media_archivist that wrote this |
 | `created` | string | ISO 8601 UTC timestamp when DB was created |
 | `last_synced` | string or null | ISO 8601 UTC timestamp of last archive operation |
@@ -511,22 +511,20 @@ for entry in idx.view(canonical=True):
 
 ---
 
-## Backwards Compatibility
+## Compatibility
 
-### v0.1 to v0.2+ Migration
+### Format upgrade
 
-v0.2+ uses the envelope format (with `_meta` and `entries`). Older versions used a bare object mapping URLs to entries.
-
-The `MediaArchive.load_dict()` method auto-detects and upgrades:
+The envelope format (with `_meta` and `entries`) is the current standard. Earlier flat object mappings are auto-detected and upgraded by `MediaArchive.load_dict()`:
 
 ```python
-# v0.1 format (detected and upgraded)
+# Flat format (auto-detected and upgraded)
 {
   "https://example.com/video1": { ... },
   "https://example.com/video2": { ... }
 }
 
-# v0.2+ format (canonical)
+# Envelope format (current)
 {
   "_meta": { ... },
   "entries": {
@@ -536,7 +534,7 @@ The `MediaArchive.load_dict()` method auto-detects and upgrades:
 }
 ```
 
-When saving, always uses v0.2+ format.
+When saving, always uses the envelope format.
 
 ---
 

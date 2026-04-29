@@ -1,6 +1,6 @@
-# Datasets, enrichment, snapshots & sharing (v0.6)
+# Datasets, enrichment, snapshots & sharing
 
-This page documents the dataset-publishing surface added in v0.6:
+This page documents the dataset-publishing surface:
 
 - **Enrichment**: `media-archivist enrich` augments rows with derived
   fields under `_meta.enriched.*` (lyrics, transcripts, content-type).
@@ -104,7 +104,7 @@ print(build_card("talks.json", name="talks-dataset",
                  description="...").to_markdown())
 ```
 
-## Pairing with v0.3.5
+## Using the canonical view
 
 The `--canonical` flag on `export` switches the row shape from raw to
 the canonical `MediaEntry` view, so the JSONL carries `canonical_id`

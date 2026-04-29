@@ -344,7 +344,7 @@ The `recipe_arr_enrichment.canonical.json` and `recipe_arr_enrichment.quarantine
 
 ## What to do next
 
-- **Auto-monitor new uploads:** Set up the monitor subcommand (v0.4+) to keep your channel index fresh.
+- **Auto-monitor new uploads:** Set up the monitor subcommand to keep your channel index fresh.
 - **Dedupe trailers:** If you have trailers indexed from multiple sources, dedupe them:
   ```bash
   media-archivist link --db-file recipe_arr_enrichment.json

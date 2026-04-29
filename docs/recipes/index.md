@@ -1,6 +1,6 @@
 # Recipes — practical end-to-end workflows
 
-Each recipe is a self-contained tutorial using real `media-archivist` subcommands and library calls. All recipes use v0.3.5+ and assume `media_archivist[all]` is installed. Fallbacks for current users are flagged where future features (v0.4+) are referenced.
+Each recipe is a self-contained tutorial using real `media-archivist` subcommands and library calls. All recipes assume `media_archivist[all]` is installed.
 
 ## Available recipes
 
@@ -8,7 +8,7 @@ Each recipe is a self-contained tutorial using real `media-archivist` subcommand
 
 2. **[documentary-archive.md](./documentary-archive.md)** — Index a curated set of documentary YouTube channels into one DB, prune unwanted titles, export URL list, pipe to yt-dlp for offline viewing.
 
-3. **[podcast-mirror.md](./podcast-mirror.md)** — Turn an Internet Archive collection into an M3U-friendly index (RSS sync planned for v0.4).
+3. **[podcast-mirror.md](./podcast-mirror.md)** — Turn an Internet Archive collection into an M3U-friendly index.
 
 4. **[dataset-for-ml.md](./dataset-for-ml.md)** — Produce a HuggingFace `datasets`-loadable JSONL with deterministic train/val/test splits via fingerprint-stable hashing.
 
@@ -74,7 +74,7 @@ media-archivist export --db-file my_index.json --format txt -o urls.txt
 # Substring match on title
 media-archivist list --db-file my_index.json --grep "documentary"
 
-# Sandboxed expression (v0.3+)
+# Sandboxed expression
 media-archivist list --db-file my_index.json --canonical \
     --where 'duration>600 and source=="youtube_music"'
 ```
@@ -92,7 +92,7 @@ media-archivist dedupe --db-file my_index.json \
     --prefer bandcamp,internet_archive,youtube_music
 ```
 
-## Working with providers (v0.3.5+)
+## Working with providers
 
 ```bash
 # Check which providers are active in your environment

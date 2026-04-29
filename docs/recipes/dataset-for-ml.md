@@ -9,7 +9,7 @@ Create an ML dataset suitable for training recommender systems, classifiers, or 
 2. Deduplicating to a canonical view.
 3. Generating deterministic splits (train/val/test) via stable hashing.
 4. Exporting to HuggingFace `datasets` format.
-5. (Optional, v0.6+) Publishing to HuggingFace Hub.
+5. (Optional) Publishing to HuggingFace Hub.
 
 ## Prerequisites
 
@@ -347,12 +347,11 @@ results = trainer.evaluate(dataset["test"])
 print(f"Test accuracy: {results['eval_accuracy']:.4f}")
 ```
 
-## Step 7: Publish to HF Hub (v0.6+, coming soon)
+## Step 7: Publish to HF Hub
 
-Once v0.6 lands, you'll be able to publish directly:
+To publish your dataset directly to HuggingFace Hub:
 
 ```bash
-# Planned:
 media-archivist export --db-file recipe_ml_dataset.json \
     --format huggingface \
     --hf-repo your-username/media-archive-dataset \

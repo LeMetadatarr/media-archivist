@@ -1,4 +1,4 @@
-# Disambiguation, canonical IDs & external providers (v0.3.5)
+# Disambiguation, canonical IDs & external providers
 
 `media_archivist` mints a **canonical_id** per *work* and links it to
 authoritative external IDs (MusicBrainz, IMDb, TMDB, TVDB, ISBN, the

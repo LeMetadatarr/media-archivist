@@ -288,9 +288,9 @@ The sidecar and source DB are **not modified** by these operations — only the 
 
 **A:**
 
-- **`dedupe`** (v0.3) — Fingerprint-based deduplication. Matches entries by normalized title + artist and duration tolerance. Outputs a JSONL with one row per unique work. Simple, local, no external API calls.
+- **`dedupe`** — Fingerprint-based deduplication. Matches entries by normalized title + artist and duration tolerance. Outputs a JSONL with one row per unique work. Simple, local, no external API calls.
 
-- **`canonicalize`** (v0.3.5) — Mints canonical IDs and looks up external IDs (MusicBrainz, TMDB, IMDb, etc.) via registered providers. Matches entries based on a signal set (title, artist, year, runtime, language, etc.) with conservative disagreement handling (quarantine rows that don't match). Outputs sidecar JSONs and stamps `_meta.canonical_id` on rows.
+- **`canonicalize`** — Mints canonical IDs and looks up external IDs (MusicBrainz, TMDB, IMDb, etc.) via registered providers. Matches entries based on a signal set (title, artist, year, runtime, language, etc.) with conservative disagreement handling (quarantine rows that don't match). Outputs sidecar JSONs and stamps `_meta.canonical_id` on rows.
 
 **Choose:**
 - Use **`dedupe`** for quick, local deduplication without external lookups.
@@ -363,13 +363,13 @@ However, the schema differs from `media_archivist`'s raw models, so some fields 
 
 **A:** There is no "old" format — `media_archivist` is pre-1.0, so there are no legacy databases in the wild yet.
 
-However, if you have a flat JSON mapping (`{url: {title, ...}, ...}`) from `youtube_archivist` 0.0.x, `media_archivist` loads it transparently and rewrites it as the v0.2 envelope on the next `store()`:
+However, if you have a flat JSON mapping (`{url: {title, ...}, ...}`) from an earlier version, `media_archivist` loads it transparently and rewrites it as the envelope format on the next `store()`:
 
 ```python
 from media_archivist.storage import EnvelopeJsonStorage
 
 db = EnvelopeJsonStorage("old_flat_format.json")
-db.store()  # Rewritten as v0.2 envelope
+db.store()  # Rewritten as envelope format
 ```
 
 ### Q: How do I prune dead links?

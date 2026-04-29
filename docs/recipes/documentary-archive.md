@@ -282,13 +282,11 @@ ls ~/Videos/documentaries/*.mp4 | sed 's|/home/user|..|' > documentaries.m3u
 
 - **Integrate with Plex/Jellyfin:** Point your media server at `~/Videos/documentaries/` and let it auto-discover metadata via IMDb/TMDB.
 
-- **Canonicalize with external IDs (v0.3.5+):** Enhance your index with IMDb IDs for better recommendations:
+- **Canonicalize with external IDs:** Enhance your index with IMDb IDs for better recommendations:
   ```bash
   media-archivist canonicalize --db-file recipe_documentaries.json \
       --providers tmdb --providers wikidata
   ```
-
-- **RSS feed export (v0.4+):** Once available, export as an RSS feed for consumption by podcast apps or RSS readers.
 
 - **Track changes:** Commit the JSON DB to Git alongside your download scripts for reproducibility:
   ```bash

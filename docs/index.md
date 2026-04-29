@@ -53,5 +53,5 @@ media_archivist/
    is validated against a typed model — no untyped dicts in the write
    path, no defensive reads on the consumer side.
 3. **Two-tier schema.** Raw per-source rows stay diff-stable and
-   source-faithful on disk; a canonical view is computed on read (v0.3+).
+   source-faithful on disk; a canonical view is computed on read.
 4. **Self-contained.** No required integration with any other ecosystem.

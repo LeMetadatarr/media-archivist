@@ -252,9 +252,9 @@ $ yt-dlp -a recipe_podcasts_urls.txt \
 
 (yt-dlp can extract audio from many IA item pages.)
 
-## Step 8: Set up periodic syncs (v0.4+ — coming soon)
+## Step 8: Set up periodic syncs
 
-v0.4 will add RSS-incremental sync, allowing automatic detection of new episodes. For now, manual re-runs work:
+Refresh the index periodically to detect new episodes:
 
 ```bash
 # Refresh the index monthly
@@ -272,12 +272,7 @@ Changes (new items) are automatically merged; duplicates are skipped.
   ```
   (Note: `published` field varies by IA item; may be relative or missing.)
 
-- **Integrate with RSS readers (v0.4+):** Once RSS sync lands, export as feed format:
-  ```bash
-  # Planned: media-archivist export --format rss -o feed.xml
-  ```
-
-- **Combine with other sources (v0.4+):** Index YouTube Podcasts tab alongside IA:
+- **Combine with other sources:** Index YouTube Podcasts tab alongside IA:
   ```bash
   # Planned: media-archivist add --db-file recipe_podcasts.json --youtube-podcasts <channel>
   ```
