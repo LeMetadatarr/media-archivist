@@ -95,8 +95,16 @@ def _eval_node(node: ast.AST, ctx: dict) -> Any:
             raise WhereError("only len/lower/upper are allowed in --where")
         return func(*args)
     if isinstance(node, ast.Attribute):
-        # support entry.field via flat ctx — disallow attribute access
-        raise WhereError("attribute access not allowed; use bare field names")
+        # Dotted access is allowed when the LHS is itself a dict-valued
+        # field (e.g. relations.artist, external_ids.imdb). Method
+        # access on strings (title.upper()) is still rejected because
+        # the LHS resolves to a non-dict.
+        target = _eval_node(node.value, ctx)
+        if isinstance(target, dict):
+            return target.get(node.attr)
+        raise WhereError(
+            f"attribute access on non-dict ({type(target).__name__})"
+        )
     raise WhereError(f"unsupported syntax: {type(node).__name__}")
 
 
@@ -117,6 +125,7 @@ class Index:
         self.path = str(path)
         self._db = EnvelopeJsonStorage(self.path)
         self._canonical_index = self._load_canonical_index()
+        self._entity_index = self._load_entity_index()
 
     def _load_canonical_index(self):
         """Read ``<db>.canonical.json`` if present and build a lookup map."""
@@ -126,6 +135,15 @@ class Index:
         except Exception:
             return {}
         return {cid: rec for cid, rec in sidecar.records.items()}
+
+    def _load_entity_index(self):
+        """Read ``<db>.entities.json`` if present and build a lookup map."""
+        from media_archivist.entities import load_entities
+        try:
+            sidecar = load_entities(self.path)
+        except Exception:
+            return {}
+        return {eid: rec for eid, rec in sidecar.entities.items()}
 
     def __len__(self) -> int:
         return len(self._db)
@@ -175,7 +193,7 @@ class Index:
         return list(self.view(**filters))
 
     def _stamp_canonical(self, entry: MediaEntry, raw: dict) -> None:
-        """Attach canonical_id / canonical_status / external_ids from sidecar + meta."""
+        """Attach canonical_id / canonical_status / external_ids / relations from sidecars."""
         meta = raw.get("_meta") or {}
         cid = meta.get("canonical_id")
         status = meta.get("canonical_status")
@@ -184,5 +202,17 @@ class Index:
             rec = self._canonical_index.get(cid)
             if rec is not None:
                 entry.external_ids = rec.external_ids
+                # Resolve role → entity names; keep ids alongside.
+                names: dict[str, list[str]] = {}
+                ids: dict[str, list[str]] = {}
+                for role, eids in (rec.relations or {}).items():
+                    role_key = role.value if hasattr(role, "value") else str(role)
+                    ids[role_key] = list(eids)
+                    names[role_key] = [
+                        self._entity_index[e].name for e in eids
+                        if e in self._entity_index
+                    ]
+                entry.relations = names
+                entry.relation_ids = ids
         if status:
             entry.canonical_status = status

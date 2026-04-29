@@ -15,6 +15,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
+from media_archivist.entities import (
+    attach_work,
+    load_entities,
+    save_entities,
+    upsert_entity,
+)
 from media_archivist.index import Index
 from media_archivist.models.canonical import MediaEntry
 from media_archivist.models.canonical_record import (
@@ -24,6 +30,7 @@ from media_archivist.models.canonical_record import (
     QuarantineEntry,
     QuarantineSidecar,
 )
+from media_archivist.models.entities import EntitySidecar
 from media_archivist.models.external_ids import ExternalIds
 from media_archivist.models.signals import (
     Medium,
@@ -159,18 +166,20 @@ def _consolidate(matches: List[ProviderMatch], local: Signals
 
 def canonicalize(db_path: str, *,
                  providers: Optional[Sequence[str]] = None,
-                 stamp_rows: bool = True) -> Tuple[CanonicalSidecar, QuarantineSidecar]:
+                 stamp_rows: bool = True
+                 ) -> Tuple[CanonicalSidecar, QuarantineSidecar, EntitySidecar]:
     """Run providers across every row and update the sidecars.
 
-    Returns the (canonical, quarantine) sidecar pair after persisting both.
-    Stamps ``_meta.canonical_id`` / ``_meta.canonical_status`` on each row
-    when ``stamp_rows=True``.
+    Returns the (canonical, quarantine, entities) sidecar triple after
+    persisting all three. Stamps ``_meta.canonical_id`` /
+    ``_meta.canonical_status`` on each row when ``stamp_rows=True``.
     """
     chosen = _select_providers(providers)
     if not chosen:
         LOG.warning("no providers active — canonicalization is a no-op")
     canonical = load_canonical(db_path)
     quarantine = load_quarantine(db_path)
+    entities = load_entities(db_path)
 
     db = EnvelopeJsonStorage(db_path)
     idx = Index(db_path)
@@ -236,6 +245,13 @@ def canonicalize(db_path: str, *,
         if entry.id not in rec.members:
             rec.members.append(entry.id)
         rec.provider_log.extend(log)
+        # Merge provider-supplied relations into the entity sidecar.
+        for match in verified:
+            for role, candidates in (match.relations or {}).items():
+                for cand in candidates:
+                    eid = upsert_entity(entities, cand, role_hint=role)
+                    rec.add_relation(role, eid)
+                    attach_work(entities, eid, canonical_id)
         rec.touch()
         canonical.records[canonical_id] = rec
 
@@ -249,7 +265,8 @@ def canonicalize(db_path: str, *,
         db.store()
     save_canonical(db_path, canonical)
     save_quarantine(db_path, quarantine)
-    return canonical, quarantine
+    save_entities(db_path, entities)
+    return canonical, quarantine, entities
 
 
 def _stamp(db: EnvelopeJsonStorage, url: str, *,

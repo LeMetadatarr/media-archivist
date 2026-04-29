@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import ClassVar, Dict, Optional, Set
+from typing import ClassVar, Dict, List, Optional, Set
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from media_archivist.models.entities import ProviderEntity, Role
 from media_archivist.models.external_ids import ExternalIds
 from media_archivist.models.signals import Medium, Signals
 
@@ -19,6 +20,9 @@ class ProviderMatch(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     signals: Signals = Field(default_factory=Signals)
     external_ids: ExternalIds = Field(default_factory=ExternalIds)
+    # Role → list of entities the provider says are involved with this work.
+    # Empty by default; providers populate per role they actually return.
+    relations: Dict[Role, List[ProviderEntity]] = Field(default_factory=dict)
 
 
 class MetadataProvider(ABC):

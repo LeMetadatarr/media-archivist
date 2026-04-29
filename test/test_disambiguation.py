@@ -110,7 +110,7 @@ def test_canonicalize_matches_when_provider_agrees(tmp_path, stub_registered):
                         medium=Medium.MUSIC),
         external_ids=ExternalIds(musicbrainz_recording="mb-1"),
     )))
-    canonical, quarantine = canonicalize(str(db_path), providers=["stub"])
+    canonical, quarantine, _ = canonicalize(str(db_path), providers=["stub"])
     assert len(canonical.records) == 1
     assert len(quarantine.entries) == 0
     rec = next(iter(canonical.records.values()))
@@ -132,7 +132,7 @@ def test_canonicalize_quarantines_on_signal_disagreement(tmp_path, stub_register
         signals=Signals(title="Hello", artist="Foo", runtime=600,  # 240 vs 600 → conflict
                         medium=Medium.MUSIC),
     )))
-    canonical, quarantine = canonicalize(str(db_path), providers=["stub"])
+    canonical, quarantine, _ = canonicalize(str(db_path), providers=["stub"])
     assert len(canonical.records) == 0
     assert len(quarantine.entries) == 1
     qe = next(iter(quarantine.entries.values()))

@@ -6,6 +6,7 @@ from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from media_archivist.models.entities import Role
 from media_archivist.models.external_ids import ExternalIds
 from media_archivist.models.signals import SignalConflict, Signals
 
@@ -34,12 +35,18 @@ class CanonicalRecord(BaseModel):
     signals: Signals
     members: List[str] = Field(default_factory=list)
     external_ids: ExternalIds = Field(default_factory=ExternalIds)
+    relations: Dict[Role, List[str]] = Field(default_factory=dict)  # role → entity_ids
     provider_log: List[ProviderHit] = Field(default_factory=list)
     created: str = Field(default_factory=_utcnow)
     last_updated: str = Field(default_factory=_utcnow)
 
     def touch(self) -> None:
         self.last_updated = _utcnow()
+
+    def add_relation(self, role: Role, entity_id: str) -> None:
+        ids = self.relations.setdefault(role, [])
+        if entity_id not in ids:
+            ids.append(entity_id)
 
 
 class QuarantineEntry(BaseModel):

@@ -17,6 +17,7 @@ declare -a CHECKS=(
     "internet_archive"
     "musicbrainz"
     "wikidata"
+    "entities"
 )
 
 declare -a PASSED FAILED SKIPPED

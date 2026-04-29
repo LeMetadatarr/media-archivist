@@ -44,6 +44,10 @@ class MediaEntry(BaseModel):
     canonical_id: Optional[str] = None
     canonical_status: Optional[CanonicalStatus] = None
     external_ids: ExternalIds = Field(default_factory=ExternalIds)
+    # role -> list of resolved entity names for this work (filled by Index.view)
+    relations: Dict[str, List[str]] = Field(default_factory=dict)
+    # role -> list of entity_ids (raw) so callers can join into the entity sidecar
+    relation_ids: Dict[str, List[str]] = Field(default_factory=dict)
     raw: Dict[str, Any] = Field(default_factory=dict)
 
     @classmethod

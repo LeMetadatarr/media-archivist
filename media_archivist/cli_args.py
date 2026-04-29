@@ -168,6 +168,19 @@ class ServeArgs(_BaseCliArgs):
     reload: bool = False
 
 
+class EntitiesListArgs(_BaseCliArgs):
+    kind: Optional[str] = None
+    limit: int = 0
+
+
+class EntitiesShowArgs(_BaseCliArgs):
+    entity_id: str
+
+
+class EntitiesStatsArgs(_BaseCliArgs):
+    pass
+
+
 class StrmExportArgs(_BaseCliArgs):
     output_dir: str
     base_url: Optional[str] = None

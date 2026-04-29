@@ -87,6 +87,29 @@ milestones land.
   - Endpoints: `/entries`, `/entries/{id}`, `/archive`,
     `/tasks/{id}`, `/feed.rss`, `/m3u`, `/stats`.
   - `deploy/Dockerfile` + `deploy/media-archivist.service`.
+- ✅ **v0.7 — Entities & relations.**
+  - First-class people / albums / labels / channels via
+    `EntityRecord` + `<db>.entities.json` sidecar.
+  - `EntityKind` enum (artist, album, label, channel, actor,
+    director, producer, composer, writer, narrator, host, author,
+    other); deterministic `allocate_entity_id` keyed off dominant
+    external id (MBID, TMDB person, Wikidata Q, …).
+  - `CanonicalRecord.relations: dict[role, list[entity_id]]`;
+    `MediaEntry` view exposes resolved names under `entry.relations`
+    and raw ids under `entry.relation_ids`.
+  - Provider contract gains `relations: dict[Role, list[ProviderEntity]]`.
+    MusicBrainz emits artist + album, TMDB (movies + tv) emits
+    cast/director/producer/writer/composer, Lidarr emits artist +
+    album, Readarr emits author, Radarr/Sonarr delegate to TMDB.
+  - `--where` dotted access — `relations.artist`, `external_ids.imdb`
+    work; method calls on strings still rejected.
+  - CLI: `entities-list`, `entities-show`, `entities-stats`.
+  - 11 new offline tests (`test_entities.py`); 114 total green.
+  - Live check (`examples/live/check_entities.py`) passes against
+    MusicBrainz: artist `Queen` allocated with mbid
+    `0383dadf-2a4e-4d10-a46a-e9e041da8eb3`.
+  - Docs: `docs/entities.md` covering the full design + queries;
+    example: `examples/entities_query.py`.
 - ✅ **v1.0 — Polish.**
   - `mkdocs.yml` + `mkdocs-material` config; auto-deploy via Pages
     workflow.

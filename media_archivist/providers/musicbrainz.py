@@ -6,6 +6,7 @@ from typing import Optional
 
 import requests
 
+from media_archivist.models.entities import EntityKind, ProviderEntity
 from media_archivist.models.external_ids import ExternalIds
 from media_archivist.models.signals import Medium, Signals
 from media_archivist.providers.base import (
@@ -64,6 +65,34 @@ class MusicBrainzProvider(MetadataProvider):
         runtime_ms = top.get("length")
         runtime_s = float(runtime_ms) / 1000 if isinstance(runtime_ms, (int, float)) else None
 
+        # Build artist relations from artist-credit (often multi-artist).
+        artists: list[ProviderEntity] = []
+        for credit in artist_credit:
+            artist_obj = credit.get("artist") or {}
+            cand_name = (credit.get("name")
+                         or artist_obj.get("name")
+                         or artist_obj.get("sort-name"))
+            if not cand_name:
+                continue
+            artists.append(ProviderEntity(
+                kind=EntityKind.ARTIST,
+                name=cand_name,
+                external_ids=ExternalIds(
+                    musicbrainz_artist=artist_obj.get("id"),
+                ),
+            ))
+        relations: dict = {}
+        if artists:
+            relations[EntityKind.ARTIST] = artists
+        if release.get("title"):
+            relations[EntityKind.ALBUM] = [ProviderEntity(
+                kind=EntityKind.ALBUM,
+                name=release["title"],
+                external_ids=ExternalIds(
+                    musicbrainz_release=release.get("id"),
+                ),
+            )]
+
         return ProviderMatch(
             provider=self.name,
             confidence=confidence,
@@ -80,6 +109,7 @@ class MusicBrainzProvider(MetadataProvider):
                 musicbrainz_release=release.get("id") or None,
                 musicbrainz_artist=artist_mbid,
             ),
+            relations=relations,
         )
 
 

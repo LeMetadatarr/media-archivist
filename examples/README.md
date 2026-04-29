@@ -11,6 +11,7 @@ Recipes for building reusable YouTube datasets with `media_archivist`.
 | [`scripted_export.py`](./scripted_export.py) | Drive `media_archivist` from Python using the CLI's pydantic validators. |
 | [`cross_source_dataset.py`](./cross_source_dataset.py) | Index the same artist on YT-Music + Bandcamp + SoundCloud, fingerprint-link duplicates, dedupe to canonical JSONL. |
 | [`canonicalize_movies.py`](./canonicalize_movies.py) | Canonicalize a movie index against the Arr stack (Radarr) + TMDB; mint canonical IDs and IMDb/TMDB cross-references. |
+| [`entities_query.py`](./entities_query.py) | Walk `<db>.entities.json`; show top artists by works-count, run `relations.artist` queries against the canonical view. |
 
 All examples use **explicit `--db-file PATH`** so the resulting JSON file lives
 next to the script and can be committed alongside the rest of the dataset.

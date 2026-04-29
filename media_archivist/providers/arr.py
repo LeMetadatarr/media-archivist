@@ -21,6 +21,7 @@ from typing import Any, Dict, List, Optional
 
 import requests
 
+from media_archivist.models.entities import EntityKind, ProviderEntity
 from media_archivist.models.external_ids import ExternalIds
 from media_archivist.models.signals import Medium, Signals
 from media_archivist.providers.base import (
@@ -152,18 +153,29 @@ class ReadarrProvider(_ArrBase):
         if not results:
             return None
         top = results[0]
+        author = top.get("author") or {}
+        relations: dict = {}
+        if author.get("authorName"):
+            relations[EntityKind.AUTHOR] = [ProviderEntity(
+                kind=EntityKind.AUTHOR,
+                name=author["authorName"],
+                external_ids=ExternalIds(
+                    extra={"goodreads_author": str(author.get("foreignAuthorId") or "")},
+                ),
+            )]
         return ProviderMatch(
             provider=self.name,
             confidence=0.85,
             signals=Signals(
                 title=top.get("title"),
-                artist=(top.get("author") or {}).get("authorName"),
+                artist=author.get("authorName"),
                 medium=Medium.BOOK,
             ),
             external_ids=ExternalIds(
                 isbn_13=top.get("isbn13"),
                 goodreads=str(top.get("foreignBookId") or "") or None,
             ),
+            relations=relations,
         )
 
 
@@ -183,18 +195,37 @@ class LidarrProvider(_ArrBase):
         if not results:
             return None
         top = results[0]
+        artist = top.get("artist") or {}
+        relations: dict = {}
+        if artist.get("artistName"):
+            relations[EntityKind.ARTIST] = [ProviderEntity(
+                kind=EntityKind.ARTIST,
+                name=artist["artistName"],
+                external_ids=ExternalIds(
+                    musicbrainz_artist=artist.get("foreignArtistId"),
+                ),
+            )]
+        if top.get("title"):
+            relations[EntityKind.ALBUM] = [ProviderEntity(
+                kind=EntityKind.ALBUM,
+                name=top["title"],
+                external_ids=ExternalIds(
+                    musicbrainz_release_group=top.get("foreignAlbumId"),
+                ),
+            )]
         return ProviderMatch(
             provider=self.name,
             confidence=0.85,
             signals=Signals(
                 title=top.get("title"),
-                artist=(top.get("artist") or {}).get("artistName"),
+                artist=artist.get("artistName"),
                 medium=Medium.MUSIC,
             ),
             external_ids=ExternalIds(
                 musicbrainz_release_group=top.get("foreignAlbumId"),
-                musicbrainz_artist=(top.get("artist") or {}).get("foreignArtistId"),
+                musicbrainz_artist=artist.get("foreignArtistId"),
             ),
+            relations=relations,
         )
 
 

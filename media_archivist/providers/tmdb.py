@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional
 
 import requests
 
+from media_archivist.models.entities import EntityKind, ProviderEntity
 from media_archivist.models.external_ids import ExternalIds
 from media_archivist.models.signals import Medium, Signals
 from media_archivist.providers.base import (
@@ -69,9 +70,11 @@ class TmdbProvider(MetadataProvider):
         if not results:
             return None
         top = results[0]
-        details = self._get(f"/movie/{top['id']}", append_to_response="external_ids")
+        details = self._get(f"/movie/{top['id']}",
+                            append_to_response="external_ids,credits")
         runtime_min = details.get("runtime")
         countries = details.get("production_countries") or []
+        relations = self._credits_to_relations(details.get("credits") or {})
         return ProviderMatch(
             provider=self.name,
             confidence=min(1.0, (top.get("popularity") or 1.0) / 100.0),
@@ -87,6 +90,7 @@ class TmdbProvider(MetadataProvider):
                 tmdb_movie=details["id"],
                 imdb=(details.get("external_ids") or {}).get("imdb_id"),
             ),
+            relations=relations,
         )
 
     def _lookup_tv(self, signals: Signals) -> Optional[ProviderMatch]:
@@ -100,9 +104,22 @@ class TmdbProvider(MetadataProvider):
         if not results:
             return None
         top = results[0]
-        details = self._get(f"/tv/{top['id']}", append_to_response="external_ids")
+        details = self._get(f"/tv/{top['id']}",
+                            append_to_response="external_ids,credits")
         countries = details.get("origin_country") or []
         runtimes = details.get("episode_run_time") or []
+        relations = self._credits_to_relations(details.get("credits") or {})
+        # Created-by → director-equivalent for series.
+        creators = details.get("created_by") or []
+        if creators:
+            relations.setdefault(EntityKind.DIRECTOR, []).extend(
+                ProviderEntity(
+                    kind=EntityKind.DIRECTOR,
+                    name=c.get("name") or "",
+                    external_ids=ExternalIds(tmdb_person=c.get("id")),
+                )
+                for c in creators if c.get("name")
+            )
         return ProviderMatch(
             provider=self.name,
             confidence=min(1.0, (top.get("popularity") or 1.0) / 100.0),
@@ -119,7 +136,46 @@ class TmdbProvider(MetadataProvider):
                 imdb=(details.get("external_ids") or {}).get("imdb_id"),
                 tvdb=(details.get("external_ids") or {}).get("tvdb_id"),
             ),
+            relations=relations,
         )
+
+    @staticmethod
+    def _credits_to_relations(credits: dict) -> dict:
+        """Translate TMDB ``credits`` blob to ProviderEntity per role."""
+        out: dict = {}
+        for member in credits.get("cast") or []:
+            name = member.get("name")
+            if not name:
+                continue
+            out.setdefault(EntityKind.ACTOR, []).append(ProviderEntity(
+                kind=EntityKind.ACTOR,
+                name=name,
+                external_ids=ExternalIds(tmdb_person=member.get("id")),
+            ))
+        # Cap cast at 20 to keep the sidecar reasonable.
+        if EntityKind.ACTOR in out:
+            out[EntityKind.ACTOR] = out[EntityKind.ACTOR][:20]
+        for member in credits.get("crew") or []:
+            job = (member.get("job") or "").lower()
+            name = member.get("name")
+            if not name:
+                continue
+            kind: Optional[EntityKind] = None
+            if job == "director":
+                kind = EntityKind.DIRECTOR
+            elif "producer" in job and "executive" not in job:
+                kind = EntityKind.PRODUCER
+            elif job in {"writer", "screenplay", "story"}:
+                kind = EntityKind.WRITER
+            elif job in {"original music composer", "music"}:
+                kind = EntityKind.COMPOSER
+            if kind is None:
+                continue
+            out.setdefault(kind, []).append(ProviderEntity(
+                kind=kind, name=name,
+                external_ids=ExternalIds(tmdb_person=member.get("id")),
+            ))
+        return out
 
 
 register(TmdbProvider())

@@ -36,6 +36,10 @@ class ExternalIds(BaseModel):
     # Linked-data hub
     wikidata: Optional[str] = None         # Q-id
 
+    # People (TMDB/IMDb person ids when known via film/TV providers).
+    tmdb_person: Optional[int] = None
+    imdb_person: Optional[str] = None      # nm-id
+
     # Anything else a provider produced that we don't have a slot for.
     extra: Dict[str, str] = Field(default_factory=dict)
 

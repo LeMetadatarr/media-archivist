@@ -5,6 +5,14 @@ Layer 2 (canonical): a unified ``MediaEntry`` view computed on read (v0.3+).
 Layer 3 (envelope): ``MediaArchive`` wraps the on-disk JSON file.
 """
 from media_archivist.models.archive import ArchiveMeta, MediaArchive
+from media_archivist.models.entities import (
+    EntityKind,
+    EntityRecord,
+    EntitySidecar,
+    ProviderEntity,
+    Role,
+    allocate_entity_id,
+)
 from media_archivist.models.raw import (
     RawBandcampEntry,
     RawEntry,
@@ -19,6 +27,12 @@ from media_archivist.models.raw import (
 __all__ = [
     "ArchiveMeta",
     "MediaArchive",
+    "EntityKind",
+    "EntityRecord",
+    "EntitySidecar",
+    "ProviderEntity",
+    "Role",
+    "allocate_entity_id",
     "RawBandcampEntry",
     "RawEntry",
     "RawIAEntry",
