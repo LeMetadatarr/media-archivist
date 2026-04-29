@@ -168,6 +168,16 @@ class ServeArgs(_BaseCliArgs):
     reload: bool = False
 
 
+class StrmExportArgs(_BaseCliArgs):
+    output_dir: str
+    base_url: Optional[str] = None
+    where: Optional[str] = None
+    source_filter: Optional[str] = None
+    has_stream: Optional[bool] = None
+    limit: int = 0
+    dry_run: bool = False
+
+
 class DedupeArgs(_BaseCliArgs):
     output: str
     prefer: str = "bandcamp,internet_archive,youtube_music,soundcloud,youtube"

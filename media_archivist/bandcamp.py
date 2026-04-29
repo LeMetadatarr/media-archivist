@@ -97,14 +97,26 @@ class BandcampArchivist(JsonArchivist):
 
         from media_archivist.models import RawBandcampEntry
 
+        def _str_or_none(value) -> Optional[str]:
+            """py_bandcamp returns BandcampArtist/Album objects from .artist/.album."""
+            if value is None:
+                return None
+            if isinstance(value, str):
+                return value
+            for attr in ("name", "title"):
+                got = getattr(value, attr, None)
+                if isinstance(got, str) and got:
+                    return got
+            return str(value)
+
         known_keys = {"album", "album_url", "artist", "artwork"}
         carried = {k: v for k, v in (extra_data or {}).items() if k in known_keys}
         unknown_extras = {k: v for k, v in (extra_data or {}).items() if k not in known_keys}
         entry = RawBandcampEntry(
             url=url,
             title=title,
-            artist=carried.get("artist") or track.artist,
-            album=carried.get("album") or getattr(track, "album", "") or "",
+            artist=_str_or_none(carried.get("artist")) or _str_or_none(track.artist),
+            album=_str_or_none(carried.get("album")) or _str_or_none(getattr(track, "album", "")) or "",
             album_url=carried.get("album_url"),
             track_number=getattr(track, "track_num", None),
             duration=duration,

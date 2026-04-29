@@ -23,6 +23,8 @@ from media_archivist.version import __version__
 
 
 def register_routes(app, *, db_path: str) -> None:
+    from contextlib import asynccontextmanager
+
     from fastapi import HTTPException, Query
     from fastapi.responses import PlainTextResponse, Response
 
@@ -56,13 +58,15 @@ def register_routes(app, *, db_path: str) -> None:
 
     scheduler = Scheduler(db_path, _archive_worker)
 
-    @app.on_event("startup")
-    async def _start_scheduler() -> None:
+    @asynccontextmanager
+    async def _lifespan(_app):
         scheduler.start(asyncio.get_running_loop())
+        try:
+            yield
+        finally:
+            await scheduler.stop()
 
-    @app.on_event("shutdown")
-    async def _stop_scheduler() -> None:
-        await scheduler.stop()
+    app.router.lifespan_context = _lifespan
 
     @app.get("/entries", response_model=EntryListResponse)
     def list_entries(
@@ -102,8 +106,25 @@ def register_routes(app, *, db_path: str) -> None:
             raise HTTPException(status_code=404, detail="task not found")
         return task
 
+    @app.get("/strm/{entry_id}", response_class=PlainTextResponse)
+    def strm(entry_id: str):
+        """Return the playable URL for an entry as plain text.
+
+        ``.strm`` files are one-line text files whose body is a URL —
+        Jellyfin / Kodi follow it to the actual stream. We return the
+        already-resolved ``stream`` field when present (Bandcamp,
+        SoundCloud, IA), otherwise the canonical watch URL so the
+        client's resolver (yt-dlp / Jellyfin plugin) handles it.
+        """
+        idx = Index(db_path)
+        for entry in idx.view():
+            if entry.id == entry_id:
+                return PlainTextResponse(entry.stream or entry.url,
+                                         media_type="text/plain")
+        raise HTTPException(status_code=404, detail="entry not found")
+
     @app.get("/feed.rss", response_class=Response)
-    def feed_rss(limit: int = Query(default=50, ge=1, le=500)) -> Response:
+    def feed_rss(limit: int = Query(default=50, ge=1, le=500)):
         idx = Index(db_path)
         items: list[str] = []
         for e in idx.to_list(limit=limit):
@@ -132,7 +153,7 @@ def register_routes(app, *, db_path: str) -> None:
         where: Optional[str] = None,
         has_stream: Optional[bool] = True,
         limit: int = Query(default=200, ge=1, le=10_000),
-    ) -> PlainTextResponse:
+    ):
         idx = Index(db_path)
         try:
             entries = idx.to_list(source=source, where=where,

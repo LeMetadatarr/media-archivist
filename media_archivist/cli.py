@@ -391,6 +391,27 @@ def cmd_bootstrap(args) -> int:
     return 0
 
 
+def cmd_strm_export(args) -> int:
+    """Write one .strm per matching entry, ready for Jellyfin / Kodi to pick up."""
+    _validated_args(_cli_args.StrmExportArgs, args)
+    from media_archivist.strm import export_strm
+
+    db_path = args.db_file or _index_for(args).path
+    n = export_strm(
+        db_path,
+        args.output_dir,
+        base_url=args.base_url,
+        source=args.source_filter,
+        where=args.where,
+        has_stream=args.has_stream,
+        limit=args.limit,
+        dry_run=args.dry_run,
+    )
+    print(f"{'would write' if args.dry_run else 'wrote'} {n} .strm files",
+          file=sys.stderr)
+    return 0
+
+
 def cmd_serve(args) -> int:
     """Run the HTTP server bound to the DB."""
     _validated_args(_cli_args.ServeArgs, args)
@@ -711,6 +732,23 @@ def build_parser() -> argparse.ArgumentParser:
                             help="seed an empty DB from a remote JSON dump")
     p_boot.add_argument("url")
     p_boot.set_defaults(func=cmd_bootstrap)
+
+    p_strm = sub.add_parser("strm-export", parents=[common],
+                            help="write one .strm per entry for Jellyfin / Kodi remote media")
+    p_strm.add_argument("--output-dir", dest="output_dir", required=True,
+                        help="directory to mount as a Jellyfin library")
+    p_strm.add_argument("--base-url", dest="base_url",
+                        help="point .strm files at <base_url>/strm/<id> (a "
+                             "running media-archivist server); without this, the "
+                             ".strm body is the resolved stream / watch URL directly")
+    p_strm.add_argument("--source", dest="source_filter")
+    p_strm.add_argument("--where")
+    p_strm.add_argument("--has-stream", dest="has_stream", action="store_true",
+                        default=None)
+    p_strm.add_argument("--no-stream", dest="has_stream", action="store_false")
+    p_strm.add_argument("--limit", type=int, default=0)
+    p_strm.add_argument("--dry-run", dest="dry_run", action="store_true")
+    p_strm.set_defaults(func=cmd_strm_export)
 
     p_serve = sub.add_parser("serve", parents=[common],
                              help="run the HTTP server (FastAPI) over the DB")

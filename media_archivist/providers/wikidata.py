@@ -21,6 +21,10 @@ from media_archivist.providers.base import (
 
 LOG = logging.getLogger("media_archivist.providers.wikidata")
 _API = "https://www.wikidata.org/w/api.php"
+_HEADERS = {
+    "User-Agent": "media_archivist/0.1 ( https://github.com/TigreGotico/media-archivist )",
+    "Accept": "application/json",
+}
 
 # Wikidata property → ExternalIds field mapping.
 _PROP_MAP = {
@@ -55,7 +59,7 @@ class WikidataProvider(MetadataProvider):
                 "language": signals.language or "en",
                 "format": "json",
                 "limit": 5,
-            }, timeout=20).json()
+            }, headers=_HEADERS, timeout=20).json()
         except requests.RequestException as e:
             LOG.warning("Wikidata search failed: %s", e)
             return None
@@ -71,7 +75,7 @@ class WikidataProvider(MetadataProvider):
                 "ids": qid,
                 "props": "claims|labels",
                 "format": "json",
-            }, timeout=20).json()
+            }, headers=_HEADERS, timeout=20).json()
         except requests.RequestException as e:
             LOG.warning("Wikidata entity fetch failed: %s", e)
             return None
