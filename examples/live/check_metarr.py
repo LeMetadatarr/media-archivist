@@ -1,65 +1,83 @@
-"""Live check: Servarr metadata proxies via metarr.
+"""Live check: every metarr-backed provider in one shot.
 
-Hits skyhook (tv), the Radarr proxy (movies), and the Lidarr proxy
-(artists). PASS when all three return real ids; SKIP when metarr isn't
-installed.
+Hits skyhook (TV), the Radarr proxy (movies), the Lidarr proxy (music
+artists), OpenLibrary (books) and the BookInfo / Goodreads proxy
+(books). Skips when ``metarr`` isn't installed.
 """
 from __future__ import annotations
 
 import sys
 
 try:
-    from media_archivist.providers.metarr import MetarrProvider
+    from media_archivist.providers.metarr import (
+        MetarrBookInfoProvider,
+        MetarrLidarrProvider,
+        MetarrOpenLibraryProvider,
+        MetarrRadarrProvider,
+        MetarrSkyhookProvider,
+    )
 except ImportError:
     print("SKIP: install metarr (pip install /path/to/api_clients/metarr)",
           file=sys.stderr)
     raise SystemExit(0)
 
 
+from media_archivist.models.entities import EntityKind
 from media_archivist.models.signals import Medium, Signals
 
 
 def main() -> int:
-    p = MetarrProvider()
-    if not p.is_available():
+    if not MetarrRadarrProvider().is_available():
         print("SKIP: metarr not importable", file=sys.stderr)
         return 0
     failures: list[str] = []
 
-    movie = p.lookup(Signals(title="Inception", medium=Medium.MOVIE))
+    movie = MetarrRadarrProvider().lookup(
+        Signals(title="Inception", medium=Medium.MOVIE))
     if movie and movie.external_ids.tmdb_movie:
-        print(f"  movie  Inception → tmdb {movie.external_ids.tmdb_movie}")
+        print(f"  metarr_radarr      Inception   → tmdb {movie.external_ids.tmdb_movie}")
     else:
-        failures.append("movie")
+        failures.append("metarr_radarr")
 
-    series = p.lookup(Signals(title="The Boys", medium=Medium.TV))
+    series = MetarrSkyhookProvider().lookup(
+        Signals(title="The Boys", medium=Medium.TV))
     if series and series.external_ids.tvdb:
-        print(f"  tv     The Boys → tvdb {series.external_ids.tvdb}")
+        print(f"  metarr_skyhook     The Boys    → tvdb {series.external_ids.tvdb}")
     else:
-        failures.append("tv")
+        failures.append("metarr_skyhook")
 
-    artist = p.lookup(Signals(title="Random", artist="Daft Punk",
-                              medium=Medium.MUSIC))
+    artist = MetarrLidarrProvider().lookup(
+        Signals(title="Random", artist="Daft Punk", medium=Medium.MUSIC))
     if artist and artist.external_ids.musicbrainz_artist:
-        print(f"  music  Daft Punk → mbid {artist.external_ids.musicbrainz_artist}")
+        print(f"  metarr_lidarr      Daft Punk   → mbid "
+              f"{artist.external_ids.musicbrainz_artist}")
     else:
-        failures.append("music")
+        failures.append("metarr_lidarr")
 
-    book = p.lookup(Signals(title="The Hobbit", artist="Tolkien",
-                            medium=Medium.BOOK))
+    book = MetarrOpenLibraryProvider().lookup(
+        Signals(title="The Hobbit", artist="Tolkien", medium=Medium.BOOK))
     if book and book.external_ids.olid:
-        from media_archivist.models.entities import EntityKind
         authors = (book.relations or {}).get(EntityKind.AUTHOR) or []
         author_name = authors[0].name if authors else None
-        print(f"  book   The Hobbit → olid {book.external_ids.olid} "
-              f"(author={author_name})")
+        print(f"  metarr_openlibrary The Hobbit  → olid "
+              f"{book.external_ids.olid} (author={author_name})")
     else:
-        failures.append("book")
+        failures.append("metarr_openlibrary")
+
+    info = MetarrBookInfoProvider().lookup(
+        Signals(title="The Hobbit", artist="Tolkien", medium=Medium.BOOK))
+    if info and info.external_ids.goodreads:
+        print(f"  metarr_bookinfo    The Hobbit  → goodreads "
+              f"{info.external_ids.goodreads}, "
+              f"isbn13 {info.external_ids.isbn_13}")
+    else:
+        failures.append("metarr_bookinfo")
 
     if failures:
         print(f"FAIL: {', '.join(failures)} returned no ids", file=sys.stderr)
         return 1
-    print("PASS: skyhook + radarr-proxy + lidarr-proxy + openlibrary all returned ids")
+    print("PASS: skyhook + radarr-proxy + lidarr-proxy + openlibrary + "
+          "bookinfo all returned ids")
     return 0
 
 

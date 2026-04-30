@@ -1,15 +1,20 @@
-"""Servarr-metadata-proxy provider via :mod:`metarr`.
+"""metarr-backed metadata providers.
 
-Hits the public proxies that Sonarr / Radarr / Lidarr query for their
-own metadata — no self-hosting, no API keys:
+`metarr` ships typed clients for the public catalogues we used to hand-roll
+HTTP calls against. Each metarr client gets its own provider — same pattern
+as the ``arr_*`` providers — so users can pick exactly which catalogues to
+consult via ``--providers metarr_radarr,metarr_openlibrary,...``:
 
-- ``skyhook.sonarr.tv/v1``     → TVDB-shaped series metadata
-- ``radarrapi.servarr.com/v1`` → TMDB-shaped movie metadata
-- ``api.lidarr.audio/v0.4``    → MusicBrainz-shaped artist metadata
+| Provider                | Backed by                       | Media |
+| ----------------------- | ------------------------------- | --- |
+| ``metarr_skyhook``      | ``ArrMetadataClient.search_series`` (skyhook.sonarr.tv) | TV |
+| ``metarr_radarr``       | ``ArrMetadataClient.search_movie`` (radarrapi.servarr.com) | movie |
+| ``metarr_lidarr``       | ``ArrMetadataClient.search_artist`` (api.lidarr.audio) | music |
+| ``metarr_openlibrary``  | ``OpenLibraryClient.search`` (openlibrary.org) | book |
+| ``metarr_bookinfo``     | ``BookInfoClient.search`` (Goodreads / Hardcover proxy) | book |
 
-This is the "no-Arr-stack-needed" sibling of the ``arr_*`` providers:
-those require the user to run their own Sonarr / Radarr / Lidarr; this
-one is always available wherever ``metarr`` imports.
+None of these need configuration — no env vars, no API keys, no
+self-hosted instances.
 """
 from __future__ import annotations
 
@@ -27,105 +32,153 @@ from media_archivist.providers.base import (
 
 LOG = logging.getLogger("media_archivist.providers.metarr")
 
+try:
+    from metarr import (  # noqa: WPS433
+        ArrMetadataClient,
+        BookInfoClient,
+        OpenLibraryClient,
+    )
+    _METARR_AVAILABLE = True
+except ImportError:
+    ArrMetadataClient = None  # type: ignore[assignment]
+    BookInfoClient = None  # type: ignore[assignment]
+    OpenLibraryClient = None  # type: ignore[assignment]
+    _METARR_AVAILABLE = False
 
-class MetarrProvider(MetadataProvider):
-    """Single provider that dispatches to skyhook / radarr / lidarr / OpenLibrary by medium."""
 
-    name = "metarr"
-    media = {Medium.MOVIE, Medium.TV, Medium.MUSIC, Medium.BOOK}
+# ---------------------------------------------------------------------------
+# Shared client cache — one instance per process per metarr client class.
+# ---------------------------------------------------------------------------
 
-    def __init__(self) -> None:
-        try:
-            from metarr import ArrMetadataClient, OpenLibraryClient  # noqa: WPS433
-            self._client = ArrMetadataClient()
-            self._ol = OpenLibraryClient()
-            self._available = True
-        except ImportError:
-            self._client = None
-            self._ol = None
-            self._available = False
+_clients: dict = {}
+
+
+def _client(cls):
+    if cls is None:
+        return None
+    instance = _clients.get(cls)
+    if instance is None:
+        instance = cls()
+        _clients[cls] = instance
+    return instance
+
+
+def _safe(call, *args, **kwargs):
+    """Run a metarr call, swallow request errors, return falsy on failure."""
+    try:
+        return call(*args, **kwargs)
+    except Exception as exc:
+        LOG.warning("%s failed: %s", getattr(call, "__qualname__", call), exc)
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Servarr proxies
+# ---------------------------------------------------------------------------
+
+class _MetarrArrBase(MetadataProvider):
+    """Shared scaffolding for Servarr-proxy providers (sonarr/radarr/lidarr)."""
 
     def is_available(self) -> bool:
-        return self._available
+        return _METARR_AVAILABLE
+
+
+class MetarrSkyhookProvider(_MetarrArrBase):
+    name = "metarr_skyhook"
+    media = {Medium.TV}
 
     def lookup(self, signals: Signals) -> Optional[ProviderMatch]:
-        if not (self._available and signals.title):
+        if not (self.is_available() and signals.title):
             return None
-        try:
-            if signals.medium == Medium.MOVIE:
-                return self._lookup_movie(signals)
-            if signals.medium == Medium.TV:
-                return self._lookup_tv(signals)
-            if signals.medium == Medium.MUSIC and signals.artist:
-                return self._lookup_artist(signals)
-            if signals.medium == Medium.BOOK:
-                return self._lookup_book(signals)
-            if signals.medium is not None:
-                # Caller specified a medium we don't cover (podcast, other, …).
-                return None
-            # Medium unspecified: try movie first, then tv. Cheap, idempotent.
-            for kind_lookup in (self._lookup_movie, self._lookup_tv):
-                got = kind_lookup(signals)
-                if got is not None:
-                    return got
+        if signals.medium and signals.medium != Medium.TV:
             return None
-        except Exception as exc:
-            LOG.warning("metarr lookup failed: %s", exc)
-            return None
-
-    # ------------------------------------------------------------------
-    # Per-medium helpers
-    # ------------------------------------------------------------------
-
-    def _lookup_movie(self, signals: Signals) -> Optional[ProviderMatch]:
-        results = self._client.search_movie(signals.title)
+        results = _safe(_client(ArrMetadataClient).search_series, signals.title) or []
         if not results:
             return None
         top = results[0]
         return ProviderMatch(
             provider=self.name,
             confidence=0.85,
-            signals=Signals(
-                title=top.title,
-                year=top.year,
-                medium=Medium.MOVIE,
-            ),
+            signals=Signals(title=top.title, year=top.year, medium=Medium.TV),
+            external_ids=ExternalIds(tvdb=int(top.tvdb_id) if top.tvdb_id else None),
+        )
+
+
+class MetarrRadarrProvider(_MetarrArrBase):
+    name = "metarr_radarr"
+    media = {Medium.MOVIE}
+
+    def lookup(self, signals: Signals) -> Optional[ProviderMatch]:
+        if not (self.is_available() and signals.title):
+            return None
+        if signals.medium and signals.medium != Medium.MOVIE:
+            return None
+        results = _safe(_client(ArrMetadataClient).search_movie, signals.title) or []
+        if not results:
+            return None
+        top = results[0]
+        return ProviderMatch(
+            provider=self.name,
+            confidence=0.85,
+            signals=Signals(title=top.title, year=top.year, medium=Medium.MOVIE),
             external_ids=ExternalIds(
                 tmdb_movie=int(top.tmdb_id) if top.tmdb_id else None,
             ),
         )
 
-    def _lookup_tv(self, signals: Signals) -> Optional[ProviderMatch]:
-        results = self._client.search_series(signals.title)
+
+class MetarrLidarrProvider(_MetarrArrBase):
+    name = "metarr_lidarr"
+    media = {Medium.MUSIC}
+
+    def lookup(self, signals: Signals) -> Optional[ProviderMatch]:
+        if not (self.is_available() and signals.artist):
+            return None
+        if signals.medium and signals.medium != Medium.MUSIC:
+            return None
+        results = _safe(_client(ArrMetadataClient).search_artist, signals.artist) or []
         if not results:
             return None
         top = results[0]
+        relations = {EntityKind.ARTIST: [ProviderEntity(
+            kind=EntityKind.ARTIST,
+            name=top.name,
+            external_ids=ExternalIds(musicbrainz_artist=top.id),
+        )]}
         return ProviderMatch(
             provider=self.name,
-            confidence=0.85,
-            signals=Signals(
-                title=top.title,
-                year=top.year,
-                medium=Medium.TV,
-            ),
-            external_ids=ExternalIds(
-                tvdb=int(top.tvdb_id) if top.tvdb_id else None,
-            ),
+            confidence=0.75,
+            signals=Signals(artist=top.name, medium=Medium.MUSIC),
+            external_ids=ExternalIds(musicbrainz_artist=top.id),
+            relations=relations,
         )
 
-    def _lookup_book(self, signals: Signals) -> Optional[ProviderMatch]:
-        # Bias the OpenLibrary search with the author when we have one.
+
+# ---------------------------------------------------------------------------
+# Books
+# ---------------------------------------------------------------------------
+
+class MetarrOpenLibraryProvider(MetadataProvider):
+    name = "metarr_openlibrary"
+    media = {Medium.BOOK}
+
+    def is_available(self) -> bool:
+        return _METARR_AVAILABLE
+
+    def lookup(self, signals: Signals) -> Optional[ProviderMatch]:
+        if not (self.is_available() and signals.title):
+            return None
+        if signals.medium and signals.medium != Medium.BOOK:
+            return None
         query = signals.title
         if signals.artist:
             query = f"{signals.title} {signals.artist}"
-        results = self._ol.search(query, limit=5)
+        results = _safe(_client(OpenLibraryClient).search, query, limit=5) or []
         if not results:
             return None
         top = results[0]
 
         external = ExternalIds(olid=top.work_id)
-        # Search hits surface ISBNs as a flat list — pick the longest as ISBN-13
-        # if it looks like one, the shortest as ISBN-10 otherwise.
         for raw_isbn in top.isbn or []:
             digits = raw_isbn.replace("-", "").replace(" ", "")
             if len(digits) == 13 and external.isbn_13 is None:
@@ -139,7 +192,7 @@ class MetarrProvider(MetadataProvider):
         if top.author_names:
             entries = []
             for name, key in zip(top.author_names,
-                                 (top.author_keys + [None] * len(top.author_names))):
+                                 top.author_keys + [None] * len(top.author_names)):
                 ext = ExternalIds()
                 if key:
                     ext.extra["openlibrary_author"] = key
@@ -149,7 +202,6 @@ class MetarrProvider(MetadataProvider):
             relations[EntityKind.AUTHOR] = entries
 
         language = (top.language[0] if top.language else None) or signals.language
-
         return ProviderMatch(
             provider=self.name,
             confidence=0.85,
@@ -163,28 +215,86 @@ class MetarrProvider(MetadataProvider):
             relations=relations,
         )
 
-    def _lookup_artist(self, signals: Signals) -> Optional[ProviderMatch]:
-        results = self._client.search_artist(signals.artist)
+
+class MetarrBookInfoProvider(MetadataProvider):
+    """Goodreads-shaped book metadata via the Servarr ``rreading-glasses`` proxy."""
+
+    name = "metarr_bookinfo"
+    media = {Medium.BOOK}
+
+    def is_available(self) -> bool:
+        return _METARR_AVAILABLE
+
+    def lookup(self, signals: Signals) -> Optional[ProviderMatch]:
+        if not (self.is_available() and signals.title):
+            return None
+        if signals.medium and signals.medium != Medium.BOOK:
+            return None
+        query = signals.title
+        if signals.artist:
+            query = f"{signals.title} {signals.artist}"
+        client = BookInfoClient.goodreads()
+        results = _safe(client.search, query) or []
         if not results:
             return None
         top = results[0]
-        # Lidarr's metadata proxy returns artist info only — emit it as an
-        # artist relation with the MBID, plus the work-level external id.
-        relations: dict = {EntityKind.ARTIST: [ProviderEntity(
-            kind=EntityKind.ARTIST,
-            name=top.name,
-            external_ids=ExternalIds(musicbrainz_artist=top.id),
-        )]}
+
+        # Pull the work payload to recover title + ISBN + release year.
+        work = _safe(client.get_work, top.work_id)
+        title = signals.title
+        year: Optional[int] = None
+        isbn_13: Optional[str] = None
+        author_name: Optional[str] = None
+        if work:
+            title = work.title or title
+            release = work.release_date or work.release_date_raw
+            if release and len(release) >= 4 and release[:4].isdigit():
+                year = int(release[:4])
+            for book in work.books:
+                if isbn_13 is None and book.isbn13:
+                    isbn_13 = book.isbn13
+                    break
+
+        relations: dict = {}
+        if top.author_id:
+            author = _safe(client.get_author, top.author_id)
+            if author and author.name:
+                author_name = author.name
+                relations[EntityKind.AUTHOR] = [ProviderEntity(
+                    kind=EntityKind.AUTHOR,
+                    name=author.name,
+                    external_ids=ExternalIds(extra={
+                        "goodreads_author": str(top.author_id),
+                    }),
+                )]
+
+        external = ExternalIds(
+            goodreads=str(top.work_id),
+            isbn_13=isbn_13,
+            extra={"goodreads_book": str(top.book_id)} if top.book_id else {},
+        )
         return ProviderMatch(
             provider=self.name,
-            confidence=0.75,
+            confidence=0.8,
             signals=Signals(
-                artist=top.name,
-                medium=Medium.MUSIC,
+                title=title,
+                artist=author_name,
+                year=year,
+                medium=Medium.BOOK,
             ),
-            external_ids=ExternalIds(musicbrainz_artist=top.id),
+            external_ids=external,
             relations=relations,
         )
 
 
-register(MetarrProvider())
+# ---------------------------------------------------------------------------
+# Registration — each metarr-backed provider self-registers; if metarr isn't
+# importable, the providers stay in the registry but report
+# ``is_available()`` = False, so ``media-archivist providers`` shows the gap.
+# ---------------------------------------------------------------------------
+
+register(MetarrSkyhookProvider())
+register(MetarrRadarrProvider())
+register(MetarrLidarrProvider())
+register(MetarrOpenLibraryProvider())
+register(MetarrBookInfoProvider())

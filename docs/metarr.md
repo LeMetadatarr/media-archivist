@@ -1,20 +1,35 @@
-# Servarr metadata proxies (`metarr`)
+# metarr-backed providers
 
-A "no-self-hosting-needed" provider that queries four public catalogues
-in one shot — the same Servarr metadata proxies Sonarr / Radarr /
-Lidarr hit internally, plus OpenLibrary for books:
+`metarr` ships typed clients for the public catalogues media_archivist
+otherwise hand-rolls HTTP calls against. Each metarr client is exposed
+as a separate provider — same `name` pattern as the `arr_*` providers —
+so users can pick exactly which catalogues to consult via
+`--providers metarr_radarr,metarr_openlibrary,…`.
 
-| Proxy                          | Used for       | Returns         |
-| ------------------------------ | -------------- | --------------- |
-| `skyhook.sonarr.tv/v1`         | TV series      | `tvdb_id`, year |
-| `radarrapi.servarr.com/v1`     | Movies         | `tmdb_id`, year |
-| `api.lidarr.audio/api/v0.4`    | Music artists  | MusicBrainz id  |
-| `openlibrary.org/search.json`  | Books          | OLID, ISBN, author OLIDs |
+| Provider              | Backed by                                    | Media | External ids produced       |
+| --------------------- | -------------------------------------------- | ----- | --------------------------- |
+| `metarr_skyhook`      | `ArrMetadataClient.search_series` (skyhook.sonarr.tv) | TV    | `tvdb`, year                |
+| `metarr_radarr`       | `ArrMetadataClient.search_movie` (radarrapi.servarr.com) | movie | `tmdb_movie`, year          |
+| `metarr_lidarr`       | `ArrMetadataClient.search_artist` (api.lidarr.audio) | music | `musicbrainz_artist`, artist relation with mbid |
+| `metarr_openlibrary`  | `OpenLibraryClient.search` (openlibrary.org) | book  | `olid`, `isbn_10`, `isbn_13`, `author` relations with OLIDs |
+| `metarr_bookinfo`     | `BookInfoClient.search` (Goodreads / Hardcover proxy) | book  | `goodreads` (work), `extra.goodreads_book`, `isbn_13`, `author` relation with `extra.goodreads_author` |
 
-This is the "no self-hosting, no API key" sibling of the existing
-`arr_*` providers. Those need a running Sonarr/Radarr/Lidarr instance;
-this one is always available wherever
-[`metarr`](https://github.com/JarbasAl/metarr) is installed.
+None of these need configuration — no env vars, no API keys, no
+self-hosted instances.
+
+## Why split it five ways
+
+Earlier the integration was a single `metarr` umbrella provider that
+dispatched on `signals.medium`. Splitting matches:
+
+- the existing `arr_*` pattern (Sonarr / Radarr / Readarr / Lidarr are
+  separate providers), so `media-archivist providers` and
+  `--providers …` show one-name-one-endpoint;
+- per-source rate-limit budgets — skipping `metarr_bookinfo` for a
+  music DB no longer drags every other metarr endpoint along;
+- enrichment composability — `metarr_openlibrary` and `metarr_bookinfo`
+  emit complementary book ids (OLID/ISBN vs Goodreads), so users can
+  enable both for fuller cross-references or one for less network noise.
 
 ## Install
 
@@ -24,61 +39,60 @@ pip install /path/to/api_clients/metarr
 pip install media_archivist[metarr]
 ```
 
-`metarr` itself depends on `requests`, `pydantic>=2`, and `bs4`.
+`metarr` itself depends on `requests`, `pydantic>=2`, `bs4` and `lxml`.
 
 ## Activation
 
-The provider self-registers when `metarr` imports:
+All five providers self-register when `metarr` imports cleanly:
 
 ```bash
 $ media-archivist providers
 [
-  {"name": "metarr", "active": true, "media": ["movie", "music", "tv"]},
+  {"name": "metarr_bookinfo",    "active": true, "media": ["book"]},
+  {"name": "metarr_lidarr",      "active": true, "media": ["music"]},
+  {"name": "metarr_openlibrary", "active": true, "media": ["book"]},
+  {"name": "metarr_radarr",      "active": true, "media": ["movie"]},
+  {"name": "metarr_skyhook",     "active": true, "media": ["tv"]},
   ...
 ]
 ```
 
 There's nothing to configure — no env var, no URL, no key.
 
-## What it produces
+## Pairing recipes
 
-| Signal medium | External ids on the work             | Relations populated |
-| ------------- | ------------------------------------ | --- |
-| `movie`       | `tmdb_movie`                         | (none — proxy doesn't return cast) |
-| `tv`          | `tvdb`                               | (none) |
-| `music`       | `musicbrainz_artist` (work-level)    | `artist` (with MBID) |
-| `book`        | `olid`, `isbn_13`, `isbn_10`         | `author` (with `extra.openlibrary_author` OLIDs) |
-| `podcast` / `other` | (skipped)                      | — |
-
-Confidence is 0.85 for film/TV (single-result fallback) and 0.75 for
-music artist matches.
-
-## Pairing with the heavy hitters
-
-The proxy returns *less* than a full Sonarr / Radarr instance does —
-it carries the canonical id and year, but no cast / crew / runtime /
-country. Pair `metarr` with TMDB or `arr_radarr` to get full credits
-on top of the canonical id:
+The Servarr proxies return canonical ids and a year, but no cast / crew
+/ runtime / country. Pair them with TMDB or your self-hosted Arr stack
+to get full credits:
 
 ```bash
-# tmdb supplies cast/director/producer; metarr is the cheap id seed
+# Cheap id seed + full cast/crew
 media-archivist canonicalize --db-file films.json \
-    --providers metarr --providers tmdb
+    --providers metarr_radarr --providers tmdb
+
+# OpenLibrary + Goodreads for fuller book cross-references
+media-archivist canonicalize --db-file books.json \
+    --providers metarr_openlibrary --providers metarr_bookinfo
 ```
 
-In that combo, both providers report the same `tmdb_movie` for
-matching films, the canonical record stays single, and TMDB's
-relations populate the entity sidecar with cast/crew.
+Both metarr book providers emit `EntityKind.AUTHOR` relations; running
+both populates entity records with both an `openlibrary_author` OLID
+and a `goodreads_author` id under `extra`, deduplicated to one entity
+when names match.
 
 ## Verification
 
-- 8 offline unit tests in
+- 15 offline unit tests in
   [`test/test_metarr_provider.py`](../test/test_metarr_provider.py):
-  registration, no-title short-circuit, podcast skip,
-  movie / tv / music / book dispatch, artist + author relations with
-  ids, fallthrough when medium is unspecified.
+  one per provider for happy-path dispatch, plus medium-mismatch
+  rejections, no-title short-circuits, registration assertions, and
+  relation-emission checks for the music-artist and book-author
+  cases. Stub clients mirror metarr's surface so no network is needed.
 - Live check
   [`examples/live/check_metarr.py`](../examples/live/check_metarr.py)
-  hits all four endpoints; current run: PASS (Inception → tmdb 27205,
-  The Boys → tvdb 355567, Daft Punk → mbid `056e4f3e-…`, The Hobbit →
-  olid OL27482W with author OL26320A).
+  hits all five endpoints; latest run:
+  - `metarr_radarr` Inception → tmdb 27205
+  - `metarr_skyhook` The Boys → tvdb 355567
+  - `metarr_lidarr` Daft Punk → mbid `056e4f3e-d505-4dad-8ec1-d04f521cbb56`
+  - `metarr_openlibrary` The Hobbit → OL27482W (Tolkien OL26320A)
+  - `metarr_bookinfo` The Hobbit → goodreads `1540236`, isbn13 `9783423085595`

@@ -45,8 +45,10 @@ media_archivist/
   dotted access (`relations.director`, `external_ids.imdb`).
 - [Encyclopaedia Metallum](./metal_archives.md) — heavy-metal-specific
   backend + enrichment provider via `pymetal`.
-- [Servarr metadata proxies (`metarr`)](./metarr.md) — TVDB / TMDB /
-  MusicBrainz ids without self-hosting Sonarr / Radarr / Lidarr.
+- [metarr-backed providers](./metarr.md) — TVDB / TMDB / MusicBrainz /
+  OpenLibrary OLID / Goodreads ids without self-hosting anything; one
+  provider per endpoint (`metarr_skyhook`, `metarr_radarr`,
+  `metarr_lidarr`, `metarr_openlibrary`, `metarr_bookinfo`).
 - [Datasets, enrichment & sharing](./datasets.md) — `enrich`, `export
   --split`, `snapshot` / `diff`, HuggingFace `hub-publish`.
 - [Running as a service](./deploy.md) — Docker + systemd templates,
