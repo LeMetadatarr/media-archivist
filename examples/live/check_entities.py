@@ -8,7 +8,7 @@ import tempfile
 from pathlib import Path
 
 from media_archivist.canonicalize import canonicalize
-from media_archivist.models.entities import EntityKind
+from metadatarr.resolve.entities import EntityKind
 from media_archivist.storage import EnvelopeJsonStorage
 
 

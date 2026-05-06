@@ -263,6 +263,59 @@ All archivists inherit from `JsonArchivist`:
 - `remove_below_duration(minutes)` — drop entries shorter than N minutes
 - `sorted_entries()` — entries sorted by `upload_ts` (descending)
 
+## Metadata providers — roadmap
+
+`media-archivist canonicalize` enriches indexed entries with external IDs and
+structured metadata. The table below tracks planned providers, their access
+model, and implementation effort.
+
+**Legend** — Access column:
+- 🟢 **Free API** — public REST/GraphQL endpoint, no credentials required
+- 🔑 **API key** — free registration, credentials passed via env var
+- 🕷️ **Scraper** — no public API; HTML scraping required
+
+### High priority (zero setup)
+
+| Provider | Medium | Access | ID field(s) | Notes |
+|---|---|---|---|---|
+| **AniList** | Anime, Manga | 🟢 Free API (GraphQL) | `anilist_id` | Most active anime/manga DB; covers airing schedule, staff, studios |
+| **Jikan** (MAL proxy) | Anime, Manga | 🟢 Free API (REST) | `mal_id` | Unofficial MyAnimeList REST proxy; largest raw catalogue |
+| **Google Books** | Book, Audiobook | 🟢 Free API | `google_books_id` | ISBN resolution; fills edition gaps between OpenLibrary and Goodreads; 1,000 req/day without key |
+
+### Medium priority (free key, one-time signup)
+
+| Provider | Medium | Access | ID field(s) | Notes |
+|---|---|---|---|---|
+| **OpenCritic** | Game | 🔑 RapidAPI key | `opencritic_id` | Game search + review aggregator; requires RapidAPI subscription |
+| **Trakt** | Movie, TV | 🔑 API key | `trakt_id` | ID cross-reference: resolves IMDb ↔ TMDB ↔ TVDB; key required for all endpoints |
+| **RAWG** | Game | 🔑 API key | `rawg_id` | 500 k+ games, best general-purpose game catalogue |
+| **Podcast Index** | Podcast, Audiodrama | 🔑 API key | `podcast_index_id` | Open data, 4 M+ feeds, episode GUIDs; key via podcastindex.org/developer |
+| **Last.fm** | Music | 🔑 API key | — (supplements MusicBrainz) | Scrobble counts, tags, similar artists |
+
+### Low priority (scraping required or restricted API)
+
+| Provider | Medium | Access | ID field(s) | Notes |
+|---|---|---|---|---|
+| **AniDB** | Anime | 🕷️ Scraper / throttled API | `anidb_id` | Most precise release-level data (dub vs sub, specials, episodes); rate-limited without key |
+| **Audible** | Audiobook | 🕷️ Scraper | `audible_asin` | No public API; Audnexus (above) is the preferred path |
+| **IMDb** | Movie, TV | 🕷️ Scraper | `imdb` | Already used as an ID field; live querying requires scraping |
+| **Letterboxd** | Movie | 🕷️ Scraper | — | No public API; community ratings only |
+| **IGDB** | Game | 🔑 Twitch OAuth | `igdb_id` | Most authoritative game DB; OAuth setup cost |
+| **Spotify** | Music, Podcast | 🔑 OAuth | — | Requires OAuth flow; audiobook/podcast coverage good but setup heavy |
+
+### New mediums / entity kinds still needed
+
+| Addition | Type | Required by |
+|---|---|---|
+| `MediaType.EPISODIC_SERIES + content_genres=["anime"]` | model | AniList, Jikan |
+| `MediaType.COMIC + content_genres=["manga"]` | model | AniList, Jikan |
+| `MediaType.GAME` | model | OpenCritic, RAWG, IGDB |
+| `EntityKind.CHARACTER` | model | Anime/drama cast credits |
+| `anilist_id`, `mal_id`, `anidb_id` | `ExternalIds` fields | Anime providers |
+| `opencritic_id`, `rawg_id`, `igdb_id` | `ExternalIds` fields | Game providers |
+| `google_books_id` | `ExternalIds` field | Google Books |
+| `trakt_id` | `ExternalIds` field | Trakt |
+
 ## License
 
 Apache-2.0

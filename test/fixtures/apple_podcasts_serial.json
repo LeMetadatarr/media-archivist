@@ -1,0 +1,87 @@
+{
+  "resultCount": 2,
+  "results": [
+    {
+      "wrapperType": "track",
+      "kind": "podcast",
+      "artistId": 364380278,
+      "collectionId": 917918570,
+      "trackId": 917918570,
+      "artistName": "Serial Productions & The New York Times",
+      "collectionName": "Serial",
+      "trackName": "Serial",
+      "collectionCensoredName": "Serial",
+      "trackCensoredName": "Serial",
+      "artistViewUrl": "https://podcasts.apple.com/us/artist/wbez/364380278?uo=4",
+      "collectionViewUrl": "https://podcasts.apple.com/us/podcast/serial/id917918570?uo=4",
+      "feedUrl": "https://feeds.simplecast.com/PpzWFGhg",
+      "trackViewUrl": "https://podcasts.apple.com/us/podcast/serial/id917918570?uo=4",
+      "artworkUrl30": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/9a/fb/87/9afb8760-0e05-2b3e-24a2-7e14cce74570/mza_14816055607064169808.jpg/30x30bb.jpg",
+      "artworkUrl60": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/9a/fb/87/9afb8760-0e05-2b3e-24a2-7e14cce74570/mza_14816055607064169808.jpg/60x60bb.jpg",
+      "artworkUrl100": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/9a/fb/87/9afb8760-0e05-2b3e-24a2-7e14cce74570/mza_14816055607064169808.jpg/100x100bb.jpg",
+      "collectionPrice": 0.0,
+      "trackPrice": 0.0,
+      "collectionHdPrice": 0,
+      "releaseDate": "2026-03-26T02:05:00Z",
+      "collectionExplicitness": "notExplicit",
+      "trackExplicitness": "cleaned",
+      "trackCount": 119,
+      "trackTimeMillis": 1733,
+      "country": "USA",
+      "currency": "USD",
+      "primaryGenreName": "News",
+      "contentAdvisoryRating": "Clean",
+      "artworkUrl600": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/9a/fb/87/9afb8760-0e05-2b3e-24a2-7e14cce74570/mza_14816055607064169808.jpg/600x600bb.jpg",
+      "genreIds": [
+        "1489",
+        "26",
+        "1488"
+      ],
+      "genres": [
+        "News",
+        "Podcasts",
+        "True Crime"
+      ]
+    },
+    {
+      "wrapperType": "track",
+      "kind": "podcast",
+      "collectionId": 1884735227,
+      "trackId": 1884735227,
+      "artistName": "Serial Productions & The New York Times",
+      "collectionName": "The Idiot",
+      "trackName": "The Idiot",
+      "collectionCensoredName": "The Idiot",
+      "trackCensoredName": "The Idiot",
+      "collectionViewUrl": "https://podcasts.apple.com/us/podcast/the-idiot/id1884735227?uo=4",
+      "feedUrl": "https://feeds.simplecast.com/KrIt3mGT",
+      "trackViewUrl": "https://podcasts.apple.com/us/podcast/the-idiot/id1884735227?uo=4",
+      "artworkUrl30": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/e0/51/63/e0516361-1ae2-40fd-3d1c-fc4178969373/mza_10963835521218649303.jpg/30x30bb.jpg",
+      "artworkUrl60": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/e0/51/63/e0516361-1ae2-40fd-3d1c-fc4178969373/mza_10963835521218649303.jpg/60x60bb.jpg",
+      "artworkUrl100": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/e0/51/63/e0516361-1ae2-40fd-3d1c-fc4178969373/mza_10963835521218649303.jpg/100x100bb.jpg",
+      "collectionPrice": 0.0,
+      "trackPrice": 0.0,
+      "collectionHdPrice": 0,
+      "releaseDate": "2026-04-16T10:00:00Z",
+      "collectionExplicitness": "notExplicit",
+      "trackExplicitness": "explicit",
+      "trackCount": 7,
+      "trackTimeMillis": 2228,
+      "country": "USA",
+      "currency": "USD",
+      "primaryGenreName": "True Crime",
+      "contentAdvisoryRating": "Explicit",
+      "artworkUrl600": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/e0/51/63/e0516361-1ae2-40fd-3d1c-fc4178969373/mza_10963835521218649303.jpg/600x600bb.jpg",
+      "genreIds": [
+        "1488",
+        "26",
+        "1324"
+      ],
+      "genres": [
+        "True Crime",
+        "Podcasts",
+        "Society & Culture"
+      ]
+    }
+  ]
+}

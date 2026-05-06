@@ -71,11 +71,11 @@ confidence = score / 100.0
 from media_archivist.providers import all_providers
 
 mb = all_providers()["musicbrainz"]
-match = mb.lookup(Signals(title="Bohemian Rhapsody", artist="Queen", medium=Medium.MUSIC))
+match = mb.lookup(Signals(title="Bohemian Rhapsody", artist="Queen", medium=MediaType.MUSIC))
 # Returns: ProviderMatch(
 #   provider="musicbrainz",
 #   confidence=0.95,
-#   signals=Signals(title="Bohemian Rhapsody", artist="Queen", runtime=354.0, medium=Medium.MUSIC),
+#   signals=Signals(title="Bohemian Rhapsody", artist="Queen", runtime=354.0, medium=MediaType.MUSIC),
 #   external_ids=ExternalIds(
 #       musicbrainz_recording="...",
 #       musicbrainz_release="...",
@@ -249,7 +249,7 @@ if tmdb.is_available():
     match = tmdb.lookup(Signals(
         title="The Matrix",
         year=1999,
-        medium=Medium.MOVIE,
+        medium=MediaType.MOVIE,
         language="en"
     ))
     # Returns: ProviderMatch(
@@ -261,7 +261,7 @@ if tmdb.is_available():
     #       runtime=8100.0,  # 135 minutes * 60
     #       country="US",
     #       language="en",
-    #       medium=Medium.MOVIE
+    #       medium=MediaType.MOVIE
     #   ),
     #   external_ids=ExternalIds(
     #       tmdb_movie=603,
@@ -331,7 +331,7 @@ sonarr = all_providers()["arr_sonarr"]
 if sonarr.is_available():
     match = sonarr.lookup(Signals(
         title="Breaking Bad",
-        medium=Medium.TV
+        medium=MediaType.EPISODIC_SERIES
     ))
     # Returns: ProviderMatch(
     #   provider="arr_sonarr",
@@ -342,7 +342,7 @@ if sonarr.is_available():
     #       runtime=2700.0,  # 45 minutes * 60
     #       country="US",
     #       language="en",
-    #       medium=Medium.TV
+    #       medium=MediaType.EPISODIC_SERIES
     #   ),
     #   external_ids=ExternalIds(
     #       tvdb=81189,
@@ -478,7 +478,7 @@ class MetadataProvider(ABC):
     name: ClassVar[str] = ""
     """Unique provider name (lowercase, underscore-separated)."""
 
-    media: ClassVar[Set[Medium]] = set()
+    media: ClassVar[Set[MediaType]] = set()
     """Set of Medium types this provider handles."""
 
     @abstractmethod
@@ -547,7 +547,7 @@ from media_archivist.models.external_ids import ExternalIds
 
 class MyCustomProvider(MetadataProvider):
     name = "my_custom"
-    media = {Medium.MUSIC}
+    media = {MediaType.MUSIC}
 
     def is_available(self) -> bool:
         import os
@@ -556,7 +556,7 @@ class MyCustomProvider(MetadataProvider):
     def lookup(self, signals: Signals) -> Optional[ProviderMatch]:
         if not (signals.title and signals.artist):
             return None
-        if signals.medium and signals.medium != Medium.MUSIC:
+        if signals.medium and signals.medium != MediaType.MUSIC:
             return None
 
         # Call your API, parse results
@@ -572,7 +572,7 @@ class MyCustomProvider(MetadataProvider):
                 artist=result.get("artist"),
                 year=result.get("year"),
                 runtime=result.get("runtime"),
-                medium=Medium.MUSIC,
+                medium=MediaType.MUSIC,
             ),
             external_ids=ExternalIds(
                 extra={
@@ -614,7 +614,7 @@ Follow the built-in pattern:
 ```python
 class CustomProvider(MetadataProvider):
     name = "custom"
-    media = {Medium.MUSIC, Medium.MOVIE}
+    media = {MediaType.MUSIC, MediaType.MOVIE}
 
     def is_available(self) -> bool:
         url = os.environ.get("MEDIA_ARCHIVIST_CUSTOM_URL")

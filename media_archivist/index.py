@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any, Iterable, Iterator, List, Optional
 
 from media_archivist.models.canonical import MediaEntry
-from media_archivist.models.external_ids import ExternalIds
+from mediavocab.models import ExternalIds
 from media_archivist.storage import EnvelopeJsonStorage
 from media_archivist.views import to_media_entry
 

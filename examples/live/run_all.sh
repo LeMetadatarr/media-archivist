@@ -19,7 +19,7 @@ declare -a CHECKS=(
     "wikidata"
     "entities"
     "metal_archives"
-    "metarr"
+    "metadatarr"
 )
 
 declare -a PASSED FAILED SKIPPED

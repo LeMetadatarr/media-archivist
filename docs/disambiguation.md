@@ -30,7 +30,7 @@ external_ids   mbid, tt-id, tmdb, tvdb, isbn, …  — populated by providers
 
 ## Disambiguation signals
 
-`media_archivist.models.signals.Signals` carries the bag of facts we
+`metadatarr.resolve.signals.Signals` carries the bag of facts we
 compare. Tolerances are conservative:
 
 | Signal     | Compared by               | Tolerance              |
@@ -41,9 +41,13 @@ compare. Tolerances are conservative:
 | `country`  | exact ISO 3166 (case-insensitive) | exact          |
 | `runtime`  | absolute delta            | ±5 s                   |
 | `medium`   | exact enum                | exact (movie/tv/music/book/podcast) |
-| `language` | exact ISO 639-1           | exact                  |
+| `language`      | exact ISO 639-1                   | exact                  |
+| `variant_kind`  | exact enum                        | exact                  |
+| `region`        | exact ISO 3166 (case-insensitive) | exact                  |
+| `source_format` | exact (case-insensitive)          | exact                  |
+| `edition`       | exact (case-insensitive)          | exact                  |
 
-Comparison rules (`media_archivist.models.signals.compare`):
+Comparison rules (`metadatarr.resolve.signals.compare` — `metadatarr/resolve/signals.py`):
 
 - A signal absent on either side is **not** a disagreement.
 - All overlapping signals must agree → matched.
@@ -112,25 +116,33 @@ reports which are active.
 > Planned: dedicated `tvdb`, `openlibrary`, and `imdb` providers
 > (currently reachable via `wikidata` / `tmdb` joins). All other
 > providers are extension points — subclass
-> `media_archivist.providers.base.MetadataProvider` and call
+> `metadatarr.resolve.base.MetadataProvider` and call
 > `register()` from your import-side effect.
 
 ### Provider contract
 
 ```python
-from media_archivist.providers.base import (
+from metadatarr.resolve.base import (
     MetadataProvider, ProviderMatch, register,
 )
 
 class MyProvider(MetadataProvider):
     name = "my_provider"
-    media = {Medium.MUSIC}
+    media = {MediaType.MUSIC}
 
     def is_available(self) -> bool: ...
     def lookup(self, signals: Signals) -> Optional[ProviderMatch]: ...
+    # Optional: override list_variants() to support signals.include_variants=True
+    # def list_variants(self, external_ids, signals=None): ...
 
 register(MyProvider())
 ```
+
+`include_variants` (default `False`) is a fan-out control flag on `Signals`,
+not a disambiguating signal. It does not appear in the comparison table above
+and is not included in `signal_hash()`. When `True`, the orchestrator calls
+`list_variants()` on each active provider after the primary `lookup()` step.
+See [Release variants](./variants.md) for full details.
 
 `ProviderMatch` is the pydantic carrier:
 

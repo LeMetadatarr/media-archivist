@@ -437,11 +437,11 @@ media-archivist providers
 **A:** Yes. Subclass `MetadataProvider` and register:
 
 ```python
-from media_archivist.providers.base import MetadataProvider, register, ProviderMatch
+from metadatarr.resolve.base import MetadataProvider, register, ProviderMatch
 
 class MyProvider(MetadataProvider):
     name = "my_provider"
-    media = {Medium.MUSIC}  # or MOVIE, TV, BOOK
+    media = {MediaType.MUSIC}  # or MOVIE, TV, BOOK
 
     def is_available(self) -> bool:
         # Check env vars or config

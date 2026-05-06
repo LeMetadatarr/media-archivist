@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from media_archivist.models.external_ids import ExternalIds
+from mediavocab.models import ExternalIds
 from media_archivist.models.raw import Source
 
 CanonicalStatus = Literal["matched", "quarantined", "unmatched"]

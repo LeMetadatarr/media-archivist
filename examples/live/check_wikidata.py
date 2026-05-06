@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import sys
 
-from media_archivist.models.signals import Medium, Signals
+from mediavocab import MediaType
+from mediavocab.models.signals import Signals
 from media_archivist.providers import all_providers
 
 
@@ -12,7 +13,7 @@ def main() -> int:
     if wd is None:
         print("FAIL: wikidata provider not registered", file=sys.stderr)
         return 1
-    sig = Signals(title="Tenet", medium=Medium.MOVIE)
+    sig = Signals(title="Tenet", medium=MediaType.MOVIE)
     match = wd.lookup(sig)
     if match is None:
         print("FAIL: wikidata returned no match", file=sys.stderr)

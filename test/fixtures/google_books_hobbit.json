@@ -1,0 +1,38 @@
+{
+  "kind": "books#volumes",
+  "totalItems": 842,
+  "items": [
+    {
+      "id": "UGmrEAAAQBAJ",
+      "volumeInfo": {
+        "title": "The Hobbit",
+        "authors": ["J.R.R. Tolkien"],
+        "publisher": "HarperCollins UK",
+        "publishedDate": "1937-09-21",
+        "description": "Bilbo Baggins is a hobbit who enjoys a comfortable, unambitious life.",
+        "industryIdentifiers": [
+          {"type": "ISBN_13", "identifier": "9780261102217"},
+          {"type": "ISBN_10", "identifier": "0261102214"}
+        ],
+        "pageCount": 310,
+        "categories": ["Fiction"],
+        "language": "en",
+        "infoLink": "https://play.google.com/store/books/details?id=UGmrEAAAQBAJ"
+      }
+    },
+    {
+      "id": "0vRpAAAAMAAJ",
+      "volumeInfo": {
+        "title": "The Hobbit, or There and Back Again",
+        "authors": ["J.R.R. Tolkien"],
+        "publisher": "Allen & Unwin",
+        "publishedDate": "1937",
+        "industryIdentifiers": [],
+        "pageCount": 310,
+        "categories": ["Fiction"],
+        "language": "en",
+        "infoLink": "https://play.google.com/store/books/details?id=0vRpAAAAMAAJ"
+      }
+    }
+  ]
+}

@@ -6,9 +6,9 @@ from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from media_archivist.models.entities import Role
-from media_archivist.models.external_ids import ExternalIds
-from media_archivist.models.signals import SignalConflict, Signals
+from metadatarr.resolve.entities import Role
+from mediavocab.models import ExternalIds
+from mediavocab.models.signals import SignalConflict, Signals
 
 
 CanonicalStatus = Literal["matched", "quarantined", "unmatched"]
@@ -47,6 +47,15 @@ class CanonicalRecord(BaseModel):
         ids = self.relations.setdefault(role, [])
         if entity_id not in ids:
             ids.append(entity_id)
+
+    def log_hit(self, hit: "ProviderHit") -> None:
+        """Append *hit* to the provider log, replacing any prior entry for the same provider.
+
+        This keeps at most one log entry per provider (the most recent),
+        preventing unbounded growth on repeated canonicalize runs.
+        """
+        self.provider_log = [h for h in self.provider_log if h.provider != hit.provider]
+        self.provider_log.append(hit)
 
 
 class QuarantineEntry(BaseModel):

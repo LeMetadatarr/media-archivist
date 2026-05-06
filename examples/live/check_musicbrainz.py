@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import sys
 
-from media_archivist.models.signals import Signals
+from mediavocab.models.signals import Signals
 from media_archivist.providers import all_providers
 
 

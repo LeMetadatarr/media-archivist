@@ -15,7 +15,7 @@ from pathlib import Path
 
 from media_archivist import Index
 from media_archivist.entities import load_entities
-from media_archivist.models.entities import EntityKind
+from metadatarr.resolve.entities import EntityKind
 
 
 def main(argv: list[str]) -> int:

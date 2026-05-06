@@ -3,13 +3,14 @@ from __future__ import annotations
 
 import pytest
 
+from mediavocab import MediaType
 from media_archivist.metalarchives import _length_to_seconds
 from media_archivist.models import (
     RawMetalArchivesEntry,
     Source,
 )
-from media_archivist.models.entities import EntityKind, allocate_entity_id
-from media_archivist.models.external_ids import ExternalIds
+from metadatarr.resolve.entities import EntityKind, allocate_entity_id
+from mediavocab.models import ExternalIds
 from media_archivist.providers import all_providers
 from media_archivist.providers.metalarchives import (
     MetalArchivesProvider,
@@ -132,19 +133,18 @@ def test_dominant_external_for_label_uses_ma_label():
 
 
 def test_metalarchives_provider_skips_non_music(monkeypatch):
-    from media_archivist.models.signals import Medium
+    # MediaType moved to mediavocab
 
     p = MetalArchivesProvider()
     if not p.is_available():
         pytest.skip("pymetal not installed in this environment")
-    sig = Medium and __import__("media_archivist.models.signals",
-                                fromlist=["Signals"]).Signals(
-        title="Tenet", artist="Christopher Nolan", medium=Medium.MOVIE)
+    from mediavocab.models.signals import Signals
+    sig = Signals(title="Tenet", artist="Christopher Nolan", medium=MediaType.MOVIE)
     assert p.lookup(sig) is None
 
 
 def test_metalarchives_provider_no_artist_signal():
-    from media_archivist.models.signals import Signals
+    from mediavocab.models.signals import Signals
     p = MetalArchivesProvider()
     if not p.is_available():
         pytest.skip("pymetal not installed in this environment")

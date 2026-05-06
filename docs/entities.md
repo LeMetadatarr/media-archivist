@@ -19,12 +19,13 @@ not the works it appears in have been canonicalized yet.
 
 ## Entity kinds
 
-`media_archivist.models.entities.EntityKind`:
+`metadatarr.resolve.entities.EntityKind`:
 
 | Kind        | Typical use                                          |
 | ----------- | ---------------------------------------------------- |
 | `artist`    | Music performers, recording artists, channel hosts.  |
-| `album`     | A grouping of tracks; carries its own external ids.  |
+| `album`     | A grouping of tracks; carries its own external ids (release-group level). |
+| `release`   | A specific release variant of a work (director's cut, regional pressing, fanedit, MusicBrainz release). |
 | `label`     | Record labels, publishing imprints.                  |
 | `channel`   | A YouTube / Bandcamp / SoundCloud profile.           |
 | `actor`     | Cast member of a film / show / drama.                |
@@ -101,11 +102,12 @@ Each `CanonicalRecord.relations` is a `dict[role, list[entity_id]]`.
    accumulate as more providers chime in.
 
 The "dominant external id" is per-kind, defined in
-`media_archivist.models.entities._dominant_external_id`. For artists
-that's MusicBrainz first, then Wikidata, then TMDB / IMDb person
-ids; for actors / directors / producers it's TMDB person id first,
-then IMDb, then Wikidata. The point is to pick the most stable
-identifier each ecosystem owns.
+`metadatarr.resolve.entities._dominant_external_id` —
+`metadatarr/resolve/entities.py`. For artists that's MusicBrainz
+first, then Wikidata, then TMDB / IMDb person ids; for actors / directors /
+producers it's TMDB person id first, then IMDb, then Wikidata; for `release`
+it's `musicbrainz_release` first, then `fanedit_id`. The point is to pick
+the most stable identifier each ecosystem owns.
 
 ## Provider contract
 

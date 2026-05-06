@@ -9,10 +9,11 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from media_archivist.models.entities import EntityKind, ProviderEntity
-from media_archivist.models.external_ids import ExternalIds
-from media_archivist.models.signals import Medium, Signals
-from media_archivist.providers.base import (
+from mediavocab import MediaType
+from metadatarr.resolve.entities import EntityKind, ProviderEntity
+from mediavocab.models import ExternalIds
+from mediavocab.models.signals import Signals
+from metadatarr.resolve.base import (
     MetadataProvider,
     ProviderMatch,
     register,
@@ -38,7 +39,7 @@ def _length_to_seconds(value: Optional[str]) -> Optional[float]:
 
 class MetalArchivesProvider(MetadataProvider):
     name = "metal_archives"
-    media = {Medium.MUSIC}
+    media = {MediaType.MUSIC}
 
     def __init__(self) -> None:
         try:
@@ -55,7 +56,7 @@ class MetalArchivesProvider(MetadataProvider):
     def lookup(self, signals: Signals) -> Optional[ProviderMatch]:
         if not (self._available and signals.title and signals.artist):
             return None
-        if signals.medium and signals.medium != Medium.MUSIC:
+        if signals.medium and signals.medium != MediaType.MUSIC:
             return None
 
         try:
@@ -80,7 +81,7 @@ class MetalArchivesProvider(MetadataProvider):
             artist=getattr(band, "name", None),
             runtime=_length_to_seconds(getattr(song, "length", None)),
             country=getattr(band, "country", None),
-            medium=Medium.MUSIC,
+            medium=MediaType.MUSIC,
         )
 
         external = ExternalIds(
