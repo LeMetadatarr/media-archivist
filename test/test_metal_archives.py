@@ -14,7 +14,7 @@ import pytest
 from mediavocab import MediaType
 from mediavocab.models import ExternalIds
 from mediavocab.models.signals import Signals
-from metadatarr.resolve.entities import EntityKind, allocate_entity_id
+from metadatarr.resolve.entities import EntityRole, allocate_entity_id
 from metadatarr.resolve.providers.metal_archives import MetalArchivesProvider
 
 from media_archivist.providers import all_providers
@@ -41,15 +41,15 @@ def test_external_ids_carries_metal_archives_fields():
 def test_dominant_external_for_artist_uses_ma_band():
     """Without a MusicBrainz mbid the MA band id is the dominant identifier."""
     ma_only = allocate_entity_id(
-        EntityKind.ARTIST, name="Mayhem",
+        EntityRole.ARTIST, name="Mayhem",
         external_ids=ExternalIds(metal_archives_band=67),
     )
-    by_name = allocate_entity_id(EntityKind.ARTIST, name="Mayhem")
+    by_name = allocate_entity_id(EntityRole.ARTIST, name="Mayhem")
     # Distinct from name-only because we have a different dominant id.
     assert ma_only != by_name
     # Two providers reporting the same MA band id converge.
     other = allocate_entity_id(
-        EntityKind.ARTIST, name="MAYHEM",
+        EntityRole.ARTIST, name="MAYHEM",
         external_ids=ExternalIds(metal_archives_band=67),
     )
     assert ma_only == other
@@ -57,11 +57,11 @@ def test_dominant_external_for_artist_uses_ma_band():
 
 def test_dominant_external_for_label_uses_ma_label():
     a = allocate_entity_id(
-        EntityKind.LABEL, name="Deathlike Silence",
+        EntityRole.LABEL, name="Deathlike Silence",
         external_ids=ExternalIds(metal_archives_label=99),
     )
     b = allocate_entity_id(
-        EntityKind.LABEL, name="Different Name Same Label",
+        EntityRole.LABEL, name="Different Name Same Label",
         external_ids=ExternalIds(metal_archives_label=99),
     )
     assert a == b

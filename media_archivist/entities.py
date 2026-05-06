@@ -4,16 +4,16 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Iterable, List
+from typing import List
 
 from metadatarr.resolve.entities import (
     EntityKind,
     EntityRecord,
+    EntityRole,
     EntitySidecar,
     ProviderEntity,
-    Role,
-    allocate_entity_id,
     _normalize_name,
+    allocate_entity_id,
 )
 
 LOG = logging.getLogger("media_archivist.entities")
@@ -36,33 +36,32 @@ def save_entities(db_path: str, sidecar: EntitySidecar) -> Path:
     return p
 
 
-def upsert_entity(sidecar: EntitySidecar, candidate: ProviderEntity, *,
-                  role_hint: Role | None = None) -> str:
+def upsert_entity(sidecar: EntitySidecar, candidate: ProviderEntity) -> str:
     """Insert or update a :class:`ProviderEntity`; return its ``entity_id``.
 
     Merge strategy (in order):
 
     1. External-ID match — if we already have a record whose id was derived
-       from the same dominant external id, absorb new aliases/external_ids
+       from the same dominant external id, absorb new aliases / external_ids
        into it.
     2. Name-based collapse — if two providers give *different* external ids
-       for the same entity (e.g. AniList's ``anilist_studio_id`` vs Jikan's
-       ``mal_studio_id`` for "Sunrise"), the second upsert finds an existing
-       record of the same kind with a matching normalized name and merges
-       into it, accumulating both ids on one record.
+       for the same real entity (e.g. AniList's ``anilist_studio_id`` vs
+       Jikan's ``mal_studio_id`` for "Sunrise"), the second upsert finds an
+       existing record of the same role with a matching normalized name and
+       merges into it, accumulating both ids on one record.
     3. New record — genuinely unseen entity; allocate and insert.
     """
-    kind = candidate.kind
-    eid = allocate_entity_id(kind, name=candidate.name,
+    role = candidate.role
+    eid = allocate_entity_id(role, name=candidate.name,
                              external_ids=candidate.external_ids)
     rec = sidecar.entities.get(eid)
     if rec is None:
-        # Secondary: look for same kind + normalized name already under a
+        # Secondary: look for same role + normalized name already under a
         # different id (cross-provider id mismatch for the same real entity).
         norm = _normalize_name(candidate.name)
         existing = next(
             (r for r in sidecar.entities.values()
-             if r.kind == kind and _normalize_name(r.name) == norm),
+             if r.role == role and _normalize_name(r.name) == norm),
             None,
         )
         if existing is not None:
@@ -72,7 +71,8 @@ def upsert_entity(sidecar: EntitySidecar, candidate: ProviderEntity, *,
             return existing.id
         rec = EntityRecord(
             id=eid,
-            kind=kind,
+            role=role,
+            kind=candidate.kind,
             name=candidate.name,
             external_ids=candidate.external_ids,
         )
@@ -95,5 +95,12 @@ def attach_work(sidecar: EntitySidecar, entity_id: str, canonical_id: str) -> No
         rec.touch()
 
 
+def entities_by_role(sidecar: EntitySidecar, role: EntityRole) -> List[EntityRecord]:
+    """Group entities by their role-on-works (DIRECTOR, ACTOR, LABEL, …)."""
+    return [r for r in sidecar.entities.values() if r.role == role]
+
+
 def entities_by_kind(sidecar: EntitySidecar, kind: EntityKind) -> List[EntityRecord]:
+    """Group entities by their structural mediavocab ``EntityKind``
+    (PERSON / GROUP / ORGANISATION / …)."""
     return [r for r in sidecar.entities.values() if r.kind == kind]

@@ -364,7 +364,12 @@ def canonicalize(db_path: str, *,
         for match in verified:
             for role, candidates in (match.relations or {}).items():
                 for cand in candidates:
-                    eid = upsert_entity(entities, cand, role_hint=role)
+                    # Force the candidate's role to match the relations-dict key
+                    # so the role-key on ProviderEntity always agrees with where
+                    # it ended up in the relations map.
+                    if cand.role != role:
+                        cand = cand.model_copy(update={"role": role})
+                    eid = upsert_entity(entities, cand)
                     rec.add_relation(role, eid)
                     attach_work(entities, eid, canonical_id)
 
@@ -372,7 +377,7 @@ def canonicalize(db_path: str, *,
         # Check both the raw local signals and the consolidated result (a
         # provider match may have set include_variants=True via merged()).
         if local.include_variants or consolidated.include_variants:
-            from metadatarr.resolve.entities import EntityKind as _EK
+            from metadatarr.resolve.entities import EntityRole as _EK
             variant_eligible = _providers_for(chosen, local.medium, local.content_genres)
             n_workers = min(len(variant_eligible), max_workers)
             with ThreadPoolExecutor(max_workers=n_workers) as pool:
@@ -382,7 +387,9 @@ def canonicalize(db_path: str, *,
                 }
                 for vfut in as_completed(vfuts):
                     for variant in vfut.result():
-                        eid = upsert_entity(entities, variant, role_hint=_EK.RELEASE)
+                        if variant.role != _EK.RELEASE:
+                            variant = variant.model_copy(update={"role": _EK.RELEASE})
+                        eid = upsert_entity(entities, variant)
                         rec.add_relation(_EK.RELEASE, eid)
                         attach_work(entities, eid, canonical_id)
 

@@ -24,7 +24,7 @@ from mediavocab.models import ExternalIds
 from media_archivist.models.raw import Source
 from mediavocab.models.signals import Signals, compare_signals as compare, signal_hash
 from mediavocab import VariantKind
-from metadatarr.resolve.entities import EntityKind, ProviderEntity
+from metadatarr.resolve.entities import EntityRole, ProviderEntity
 from metadatarr.resolve.base import (
     MetadataProvider,
     ProviderMatch,
@@ -263,7 +263,7 @@ def test_canonicalize_fans_out_list_variants(tmp_path, stub_registered):
         def list_variants(self, external_ids, signals=None):
             return [
                 ProviderEntity(
-                    kind=EntityKind.RELEASE,
+                    role=EntityRole.RELEASE,
                     name="Director's Cut",
                     external_ids=ExternalIds(fanedit_id=42),
                 )
@@ -286,8 +286,8 @@ def test_canonicalize_fans_out_list_variants(tmp_path, stub_registered):
     canonicalize(str(db_path), providers=["variant_stub"])
 
     entities = load_entities(str(db_path))
-    kinds = {e.kind for e in entities.entities.values()}
-    assert EntityKind.RELEASE in kinds, "RELEASE entity should have been upserted"
+    roles = {e.role for e in entities.entities.values()}
+    assert EntityRole.RELEASE in roles, "RELEASE entity should have been upserted"
 
 
 def test_id_stability_across_reruns(tmp_path, stub_registered):

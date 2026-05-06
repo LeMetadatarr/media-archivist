@@ -80,7 +80,7 @@ _al_mod.httpx = _make_json_transport({
 from mediavocab import MediaType
 from metadatarr.resolve.providers.anilist import AniListProvider
 from mediavocab.models.signals import Signals
-from metadatarr.resolve.entities import EntityKind
+from metadatarr.resolve.entities import EntityRole
 
 m = AniListProvider().lookup(Signals(title="Cowboy Bebop", medium=MediaType.EPISODIC_SERIES, content_genres=["anime"]))
 assert m is not None
@@ -88,9 +88,9 @@ print(f"  title        : {m.signals.title}")
 print(f"  year         : {m.signals.year}")
 print(f"  anilist_id   : {m.external_ids.anilist_id}")
 print(f"  title_native : {m.external_ids.extra.get('title_native')}")
-print(f"  director     : {m.relations[EntityKind.DIRECTOR][0].name}")
-print(f"  composer     : {m.relations[EntityKind.COMPOSER][0].name}")
-print(f"  studio       : {m.relations[EntityKind.STUDIO][0].name}")
+print(f"  director     : {m.relations[EntityRole.DIRECTOR][0].name}")
+print(f"  composer     : {m.relations[EntityRole.COMPOSER][0].name}")
+print(f"  studio       : {m.relations[EntityRole.STUDIO][0].name}")
 print(f"  confidence   : {m.confidence}")
 
 # ===========================================================================
@@ -170,7 +170,7 @@ print(f"  title            : {m3.signals.title}")
 print(f"  mal_id           : {m3.external_ids.mal_id}")
 print(f"  year             : {m3.signals.year}")
 print(f"  title_japanese   : {m3.external_ids.extra.get('title_japanese')}")
-print(f"  studio           : {m3.relations[EntityKind.STUDIO][0].name}")
+print(f"  studio           : {m3.relations[EntityRole.STUDIO][0].name}")
 
 # ===========================================================================
 # 4. Jikan — manga lookup + author name flip
@@ -202,7 +202,7 @@ _jikan_mod.httpx = _make_json_transport({
 
 m4 = JikanMangaProvider().lookup(Signals(title="Berserk", medium=MediaType.COMIC, content_genres=["manga"]))
 assert m4 is not None
-author = m4.relations[EntityKind.AUTHOR][0]
+author = m4.relations[EntityRole.AUTHOR][0]
 print(f"  title            : {m4.signals.title}")
 print(f"  mal_id           : {m4.external_ids.mal_id}")
 print(f"  author (flipped) : {author.name}")   # "Kentarou Miura", not "Miura, Kentarou"
@@ -249,7 +249,7 @@ print(f"  isbn_13           : {m5.external_ids.isbn_13}")
 print(f"  isbn_10           : {m5.external_ids.isbn_10}")
 print(f"  language          : {m5.signals.language}")
 print(f"  year              : {m5.signals.year}")
-print(f"  author            : {m5.relations[EntityKind.AUTHOR][0].name}")
+print(f"  author            : {m5.relations[EntityRole.AUTHOR][0].name}")
 print(f"  confidence        : {m5.confidence}")
 
 # ===========================================================================

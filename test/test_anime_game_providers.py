@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from mediavocab import MediaType
-from metadatarr.resolve.entities import EntityKind
+from metadatarr.resolve.entities import EntityRole
 from mediavocab.models.signals import Signals
 from media_archivist.providers import all_providers
 from metadatarr.resolve.providers.anilist import AniListProvider
@@ -130,7 +130,7 @@ def test_anilist_anime_year(anilist_anime):
 
 def test_anilist_anime_director_relation(anilist_anime):
     m = anilist_anime.lookup(Signals(title="Cowboy Bebop", medium=MediaType.EPISODIC_SERIES, content_genres=["anime"]))
-    directors = m.relations.get(EntityKind.DIRECTOR)
+    directors = m.relations.get(EntityRole.DIRECTOR)
     assert directors, "expected director relation"
     names = [e.name for e in directors]
     assert any("Watanabe" in n for n in names)
@@ -138,7 +138,7 @@ def test_anilist_anime_director_relation(anilist_anime):
 
 def test_anilist_anime_studio_relation(anilist_anime):
     m = anilist_anime.lookup(Signals(title="Cowboy Bebop", medium=MediaType.EPISODIC_SERIES, content_genres=["anime"]))
-    studios = m.relations.get(EntityKind.STUDIO)
+    studios = m.relations.get(EntityRole.STUDIO)
     assert studios
     assert studios[0].name == "Sunrise"
     assert studios[0].external_ids.anilist_studio_id == 14
@@ -241,7 +241,7 @@ def test_jikan_anime_title_english(jikan_anime):
 
 def test_jikan_anime_studio_relation(jikan_anime):
     m = jikan_anime.lookup(Signals(title="Cowboy Bebop", medium=MediaType.EPISODIC_SERIES, content_genres=["anime"]))
-    studios = m.relations.get(EntityKind.STUDIO)
+    studios = m.relations.get(EntityRole.STUDIO)
     assert studios
 
 
@@ -313,7 +313,7 @@ def test_jikan_manga_mal_id(jikan_manga):
 
 def test_jikan_manga_author_relation(jikan_manga):
     m = jikan_manga.lookup(Signals(title="Berserk", medium=MediaType.COMIC, content_genres=["manga"]))
-    authors = m.relations.get(EntityKind.AUTHOR)
+    authors = m.relations.get(EntityRole.AUTHOR)
     assert authors
     # Miura Kentarou — MAL stores "Miura, Kentarou", provider should flip it
     names = [e.name for e in authors]
@@ -370,7 +370,7 @@ def test_google_books_language(google_books):
 
 def test_google_books_author_relation(google_books):
     m = google_books.lookup(Signals(title="The Hobbit", medium=MediaType.BOOK))
-    authors = m.relations.get(EntityKind.AUTHOR)
+    authors = m.relations.get(EntityRole.AUTHOR)
     assert authors
     assert any("Tolkien" in a.name for a in authors)
 

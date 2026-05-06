@@ -111,12 +111,12 @@ print(f"  discogs_release  : {ext.discogs_release}")
 
 
 # ---------------------------------------------------------------------------
-# 6. ProviderEntity with EntityKind.RELEASE
+# 6. ProviderEntity with EntityRole.RELEASE
 # ---------------------------------------------------------------------------
-print("\n=== 6. ProviderEntity with EntityKind.RELEASE ===")
+print("\n=== 6. ProviderEntity with EntityRole.RELEASE ===")
 
 release_entity = ProviderEntity(
-    kind=EntityKind.RELEASE,
+    role=EntityRole.RELEASE,
     name="Blade Runner — The Final Cut (Blu-ray, US)",
     external_ids=ExternalIds(
         musicbrainz_release="a1b2c3d4-0000-0000-0000-000000000000",
@@ -134,12 +134,12 @@ print("\n=== 7. allocate_entity_id for a RELEASE entity ===")
 
 # With musicbrainz_release → stable, reproducible
 entity_id = allocate_entity_id(
-    EntityKind.RELEASE,
+    EntityRole.RELEASE,
     name=release_entity.name,
     external_ids=release_entity.external_ids,
 )
 entity_id2 = allocate_entity_id(
-    EntityKind.RELEASE,
+    EntityRole.RELEASE,
     name="anything else",
     external_ids=release_entity.external_ids,
 )
@@ -149,12 +149,12 @@ print(f"  entity_id (musicbrainz_release, stable): {entity_id}")
 # With only fanedit_id → falls back to fanedit_id as dominant
 ext_fanedit = ExternalIds(fanedit_id=99001)
 entity_id_fe = allocate_entity_id(
-    EntityKind.RELEASE,
+    EntityRole.RELEASE,
     name="Some Fanedit",
     external_ids=ext_fanedit,
 )
 entity_id_fe2 = allocate_entity_id(
-    EntityKind.RELEASE,
+    EntityRole.RELEASE,
     name="ignored",
     external_ids=ext_fanedit,
 )
@@ -164,7 +164,7 @@ print(f"  entity_id (fanedit_id, stable):          {entity_id_fe}")
 # Without any dominant id → name-based
 ext_none = ExternalIds(imdb="tt0083658")  # imdb not dominant for RELEASE
 entity_id_name = allocate_entity_id(
-    EntityKind.RELEASE,
+    EntityRole.RELEASE,
     name="Blade Runner — The Final Cut (Blu-ray, US)",
     external_ids=ext_none,
 )
@@ -198,7 +198,7 @@ class FaneditProvider(MetadataProvider):
             return []
         return [
             ProviderEntity(
-                kind=EntityKind.RELEASE,
+                role=EntityRole.RELEASE,
                 name=f"Blade Runner: Workprint [Fanedit] (from {external_ids.imdb})",
                 external_ids=ExternalIds(
                     fanedit_id=99001,
@@ -214,7 +214,7 @@ provider = FaneditProvider()
 parent_ext = ExternalIds(imdb="tt0083658")
 variants = provider.list_variants(parent_ext)
 assert len(variants) == 1
-assert variants[0].kind == EntityKind.RELEASE
+assert variants[0].kind == EntityRole.RELEASE
 print(f"  variant name     : {variants[0].name}")
 print(f"  fanedit_id       : {variants[0].external_ids.fanedit_id}")
 print(f"  derived_from_imdb: {variants[0].external_ids.derived_from_imdb}")

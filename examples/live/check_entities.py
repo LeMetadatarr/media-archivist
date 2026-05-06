@@ -8,7 +8,7 @@ import tempfile
 from pathlib import Path
 
 from media_archivist.canonicalize import canonicalize
-from metadatarr.resolve.entities import EntityKind
+from metadatarr.resolve.entities import EntityRole
 from media_archivist.storage import EnvelopeJsonStorage
 
 
@@ -31,7 +31,7 @@ def main() -> int:
             str(db_path), providers=["musicbrainz"],
         )
     artists = [r for r in entities.entities.values()
-               if r.kind == EntityKind.ARTIST]
+               if r.kind == EntityRole.ARTIST]
     if not artists:
         print("FAIL: no artist entity allocated", file=sys.stderr)
         return 1

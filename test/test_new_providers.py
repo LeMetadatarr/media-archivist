@@ -13,7 +13,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from mediavocab import MediaType
-from metadatarr.resolve.entities import EntityKind
+from metadatarr.resolve.entities import EntityRole
 from mediavocab.models.signals import Signals
 from media_archivist.providers import all_providers
 from metadatarr.resolve.providers.librivox import LibriVoxProvider
@@ -137,7 +137,7 @@ def test_librivox_language(librivox_fixture):
 
 def test_librivox_author_relation(librivox_fixture):
     m = librivox_fixture.lookup(Signals(title="Dracula", medium=MediaType.AUDIOBOOK))
-    authors = m.relations.get(EntityKind.AUTHOR)
+    authors = m.relations.get(EntityRole.AUTHOR)
     assert authors and len(authors) == 1
     assert authors[0].name == "Bram Stoker"
     assert authors[0].external_ids.extra.get("librivox_author_id") == "138"
@@ -216,7 +216,7 @@ def test_apple_podcasts_external_id(apple_fixture):
 
 def test_apple_podcasts_host_relation(apple_fixture):
     m = apple_fixture.lookup(Signals(title="Serial", medium=MediaType.PODCAST))
-    hosts = m.relations.get(EntityKind.HOST)
+    hosts = m.relations.get(EntityRole.HOST)
     assert hosts and hosts[0].name == "Serial Productions & The New York Times"
 
 
@@ -224,7 +224,7 @@ def test_apple_podcasts_audiodrama_uses_voice_actor(apple_fixture):
     m = apple_fixture.lookup(Signals(title="Serial", medium=MediaType.AUDIO_DRAMA))
     assert m is not None
     assert m.signals.medium == MediaType.AUDIO_DRAMA
-    voice_actors = m.relations.get(EntityKind.VOICE_ACTOR)
+    voice_actors = m.relations.get(EntityRole.VOICE_ACTOR)
     assert voice_actors and voice_actors[0].name == "Serial Productions & The New York Times"
 
 

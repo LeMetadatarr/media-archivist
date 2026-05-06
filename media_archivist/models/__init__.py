@@ -8,9 +8,9 @@ from media_archivist.models.archive import ArchiveMeta, MediaArchive
 from metadatarr.resolve.entities import (
     EntityKind,
     EntityRecord,
+    EntityRole,
     EntitySidecar,
     ProviderEntity,
-    Role,
     allocate_entity_id,
 )
 from mediavocab import VariantKind
@@ -30,9 +30,9 @@ __all__ = [
     "MediaArchive",
     "EntityKind",
     "EntityRecord",
+    "EntityRole",
     "EntitySidecar",
     "ProviderEntity",
-    "Role",
     "allocate_entity_id",
     "VariantKind",
     "RawBandcampEntry",

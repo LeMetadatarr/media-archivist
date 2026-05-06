@@ -23,7 +23,7 @@ except ImportError:
 
 
 from mediavocab import MediaType
-from metadatarr.resolve.entities import EntityKind
+from metadatarr.resolve.entities import EntityRole
 from mediavocab.models.signals import Signals
 
 
@@ -58,7 +58,7 @@ def main() -> int:
     book = MetadatarrOpenLibraryProvider().lookup(
         Signals(title="The Hobbit", artist="Tolkien", medium=MediaType.BOOK))
     if book and book.external_ids.olid:
-        authors = (book.relations or {}).get(EntityKind.AUTHOR) or []
+        authors = (book.relations or {}).get(EntityRole.AUTHOR) or []
         author_name = authors[0].name if authors else None
         print(f"  metadatarr_openlibrary The Hobbit  → olid "
               f"{book.external_ids.olid} (author={author_name})")

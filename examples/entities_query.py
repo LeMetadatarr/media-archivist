@@ -15,7 +15,7 @@ from pathlib import Path
 
 from media_archivist import Index
 from media_archivist.entities import load_entities
-from metadatarr.resolve.entities import EntityKind
+from metadatarr.resolve.entities import EntityRole
 
 
 def main(argv: list[str]) -> int:
@@ -41,7 +41,7 @@ def main(argv: list[str]) -> int:
         print(f"   {kind:12} {n}")
 
     artists = [r for r in sidecar.entities.values()
-               if r.kind == EntityKind.ARTIST]
+               if r.kind == EntityRole.ARTIST]
     if needle:
         artists = [r for r in artists if needle in r.name.lower()]
 
