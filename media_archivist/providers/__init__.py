@@ -1,22 +1,26 @@
-"""External metadata providers — registry and lookup helpers.
+"""Provider registry — re-export of the metadatarr resolver registry.
 
-The provider framework and all generic external-API providers live in
-``metadatarr.resolve``. media-archivist imports the metadatarr registry
-so that ``from metadatarr.resolve.providers`` triggers self-registration
-of every built-in provider, and exposes them through the same
-``all_providers()`` / ``active_providers()`` helpers used by the
-canonicalize orchestrator.
+The provider framework and every built-in resolver provider live in
+``metadatarr.resolve``. media-archivist imports the metadatarr
+registry as-is and exposes the same ``all_providers()`` /
+``active_providers()`` helpers used by the canonicalize orchestrator.
 
-The only media-archivist-specific provider that remains here is
-``metalarchives`` (uses the ``pymetal`` scraper). Future media-archivist-
-internal providers can be added next to it.
+There are currently no media-archivist-specific providers; the
+metal-archives resolver is in metadatarr. The local-source
+*archivist* for Encyclopaedia Metallum (``MetalArchivesArchivist`` in
+``media_archivist.metalarchives``) is unrelated — it indexes a local
+metalarchives source into the source DB; the resolver provider does
+metadata cross-referencing.
 """
 from __future__ import annotations
 
 from typing import Dict, List
 
-# Importing metadatarr.resolve.providers triggers self-registration of every
-# generic provider (musicbrainz, wikidata, tmdb, anilist, jikan, …).
+# Importing metadatarr.resolve.providers triggers self-registration of
+# every built-in provider (musicbrainz, wikidata, tmdb, anilist, jikan,
+# google_books, librivox, apple_podcasts, arr_*, discogs, bluray_com,
+# dvdcompare, openlibrary, annas_archive, bandcamp, soundcloud,
+# youtube, youtube_music, metal_archives, …).
 import metadatarr.resolve.providers  # noqa: F401
 from metadatarr.resolve.base import (
     MetadataProvider,
@@ -24,14 +28,6 @@ from metadatarr.resolve.base import (
     _REGISTRY,
     register,
 )
-
-# media-archivist-specific providers — self-register on import.
-try:
-    from media_archivist.providers.metalarchives import (  # noqa: F401
-        MetalArchivesProvider,
-    )
-except ImportError:  # pragma: no cover — pymetal is optional
-    pass
 
 
 def all_providers() -> Dict[str, MetadataProvider]:

@@ -12,10 +12,7 @@ from media_archivist.models import (
 from metadatarr.resolve.entities import EntityKind, allocate_entity_id
 from mediavocab.models import ExternalIds
 from media_archivist.providers import all_providers
-from media_archivist.providers.metalarchives import (
-    MetalArchivesProvider,
-    _length_to_seconds as provider_length,
-)
+from metadatarr.resolve.providers.metal_archives import MetalArchivesProvider
 from media_archivist.views import to_media_entry
 
 
@@ -31,11 +28,6 @@ def test_length_parser_hh_mm_ss():
 def test_length_parser_returns_none_on_garbage():
     assert _length_to_seconds(None) is None
     assert _length_to_seconds("nope") is None
-
-
-def test_provider_length_helper():
-    assert provider_length("4:32") == 272.0
-    assert provider_length(None) is None
 
 
 def test_provider_registered_and_available():

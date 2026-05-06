@@ -52,11 +52,11 @@ and `metadatarr.resolve.providers.arr` for the source.
 
 ## media-archivist-specific providers
 
-Currently only one — `metalarchives`, in
-`media_archivist/providers/metalarchives.py`. Uses the `pymetal`
-scraper directly and lives next to the source-DB orchestrator until
-the metalarchives data flow generalises enough to lift into
-metadatarr.
+None. Every resolver provider — including `metal_archives` — lives in
+metadatarr. The local-source *archivist* for Encyclopaedia Metallum
+(`MetalArchivesArchivist` in `media_archivist.metalarchives`) is a
+different abstraction: it indexes a local metalarchives library into
+the source DB, it isn't a metadata-resolver provider.
 
 ## Routing
 

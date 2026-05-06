@@ -275,8 +275,12 @@ SoundCloud, YouTube / YouTube Music, Metal Archives, …) all live in
 metadatarr and self-register on import. See
 [`docs/metadatarr.md`](docs/metadatarr.md) for the full table.
 
-The only media-archivist-specific provider is `metalarchives` (uses the
-`pymetal` scraper directly).
+All resolver providers — including `metal_archives` — live in metadatarr.
+There are no media-archivist-specific resolver providers. (The unrelated
+`MetalArchivesArchivist` in `media_archivist.metalarchives` is a
+*source-DB indexer* for a local metalarchives library, not a resolver
+provider — it walks a user's local Encyclopaedia Metallum data and writes
+it into the source DB.)
 
 ## License
 

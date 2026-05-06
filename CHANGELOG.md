@@ -45,15 +45,21 @@ These provider modules were re-homed:
 - `media_archivist.models.signals` / `external_ids` / `entities` —
   redirected to metadatarr's modules.
 
+- `media_archivist.providers.metalarchives` — duplicate of
+  metadatarr's `metal_archives` provider (both registered under
+  `name="metal_archives"`, second-import wins). The metadatarr version
+  is more capable (`lookup_candidates`, `enrich`).
+
 ### Kept
 
-- `media_archivist.providers.metalarchives` (uses `pymetal`; lives here
-  next to the source-DB orchestrator until the metalarchives data flow
-  generalises).
 - `canonicalize.py` — the source-DB orchestrator (sidecars, walks the
   local index, applies quarantine policy).
 - `models/canonical_record.py`, `models/raw.py`, the index/discover/sync/
   CLI/server stack.
+- `media_archivist.metalarchives.MetalArchivesArchivist` — the
+  *source-DB indexer* for a local Encyclopaedia Metallum library
+  (different abstraction from the resolver provider; walks a user's
+  data and writes it into the source DB).
 
 ### MediaType-split downstream
 
