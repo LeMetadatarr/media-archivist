@@ -258,8 +258,6 @@ def backend_from_namespace(ns: argparse.Namespace) -> Backend:
         return "bandcamp"
     if getattr(ns, "soundcloud", False):
         return "soundcloud"
-    if getattr(ns, "metal_archives", False):
-        return "metal_archives"
     return "youtube"
 
 

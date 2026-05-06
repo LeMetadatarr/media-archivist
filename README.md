@@ -276,11 +276,7 @@ metadatarr and self-register on import. See
 [`docs/metadatarr.md`](docs/metadatarr.md) for the full table.
 
 All resolver providers — including `metal_archives` — live in metadatarr.
-There are no media-archivist-specific resolver providers. (The unrelated
-`MetalArchivesArchivist` in `media_archivist.metalarchives` is a
-*source-DB indexer* for a local metalarchives library, not a resolver
-provider — it walks a user's local Encyclopaedia Metallum data and writes
-it into the source DB.)
+There are no media-archivist-specific resolver providers.
 
 ## License
 

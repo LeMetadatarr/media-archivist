@@ -1,86 +1,29 @@
-"""Encyclopaedia Metallum backend + provider — fully offline."""
+"""metal-archives resolver provider — fully offline.
+
+The metal-archives backend was removed in 0.2 — metal-archives.com is a
+metadata catalogue, not a streaming source, so it didn't fit the
+"index streams; download on demand" abstraction. The resolver provider
+in metadatarr (``metadatarr.resolve.providers.metal_archives``) covers
+the metadata side, including the `metal_archives_*` ExternalIds fields
+and the artist/label dominant-id rules.
+"""
 from __future__ import annotations
 
 import pytest
 
 from mediavocab import MediaType
-from media_archivist.metalarchives import _length_to_seconds
-from media_archivist.models import (
-    RawMetalArchivesEntry,
-    Source,
-)
-from metadatarr.resolve.entities import EntityKind, allocate_entity_id
 from mediavocab.models import ExternalIds
-from media_archivist.providers import all_providers
+from mediavocab.models.signals import Signals
+from metadatarr.resolve.entities import EntityKind, allocate_entity_id
 from metadatarr.resolve.providers.metal_archives import MetalArchivesProvider
-from media_archivist.views import to_media_entry
 
-
-def test_length_parser_mm_ss():
-    assert _length_to_seconds("4:32") == 272.0
-    assert _length_to_seconds("0:45") == 45.0
-
-
-def test_length_parser_hh_mm_ss():
-    assert _length_to_seconds("1:02:03") == 3723.0
-
-
-def test_length_parser_returns_none_on_garbage():
-    assert _length_to_seconds(None) is None
-    assert _length_to_seconds("nope") is None
+from media_archivist.providers import all_providers
 
 
 def test_provider_registered_and_available():
     providers = all_providers()
     assert "metal_archives" in providers
-    # Available iff pymetal is importable; in this venv it is.
     assert isinstance(providers["metal_archives"], MetalArchivesProvider)
-
-
-def test_raw_entry_round_trip():
-    e = RawMetalArchivesEntry(
-        url="https://www.metal-archives.com/release.php?releaseID=1&songID=2",
-        title="De Mysteriis Dom Sathanas",
-        artist="Mayhem",
-        album="De Mysteriis Dom Sathanas",
-        band_id=67,
-        release_id=1,
-        song_id=2,
-        duration=389.0,
-        length="6:29",
-        release_date="May 24th, 1994",
-        release_type="full-length",
-        country="Norway",
-        genres=["Black Metal"],
-        themes=["Anti-Christianity", "Death", "Evil"],
-        label_name="Deathlike Silence Productions",
-    )
-    again = RawMetalArchivesEntry.model_validate(e.model_dump(mode="json"))
-    assert again.source == Source.METAL_ARCHIVES
-    assert again.duration == 389.0
-    assert "Black Metal" in again.genres
-
-
-def test_view_adapter_dispatches_to_metal_archives():
-    raw = {
-        "source": "metal_archives",
-        "url": "https://www.metal-archives.com/release.php?releaseID=1&songID=2",
-        "title": "Freezing Moon",
-        "artist": "Mayhem",
-        "album": "De Mysteriis Dom Sathanas",
-        "duration": 386.0,
-        "release_date": "May 24th, 1994",
-        "tags": ["Black Metal"],
-        "thumbnail": "https://example/cover.jpg",
-        "band_id": 67, "release_id": 1, "song_id": 2,
-    }
-    e = to_media_entry(raw)
-    assert e.source == Source.METAL_ARCHIVES
-    assert e.title == "Freezing Moon"
-    assert e.artist == "Mayhem"
-    assert e.duration == 386.0
-    assert "Black Metal" in e.tags
-    assert e.thumbnail == "https://example/cover.jpg"
 
 
 def test_external_ids_carries_metal_archives_fields():
@@ -96,7 +39,7 @@ def test_external_ids_carries_metal_archives_fields():
 
 
 def test_dominant_external_for_artist_uses_ma_band():
-    """Without a MusicBrainz mbid we fall back to the MA band id."""
+    """Without a MusicBrainz mbid the MA band id is the dominant identifier."""
     ma_only = allocate_entity_id(
         EntityKind.ARTIST, name="Mayhem",
         external_ids=ExternalIds(metal_archives_band=67),
@@ -124,19 +67,15 @@ def test_dominant_external_for_label_uses_ma_label():
     assert a == b
 
 
-def test_metalarchives_provider_skips_non_music(monkeypatch):
-    # MediaType moved to mediavocab
-
+def test_metalarchives_provider_skips_non_music():
     p = MetalArchivesProvider()
     if not p.is_available():
         pytest.skip("pymetal not installed in this environment")
-    from mediavocab.models.signals import Signals
     sig = Signals(title="Tenet", artist="Christopher Nolan", medium=MediaType.MOVIE)
     assert p.lookup(sig) is None
 
 
 def test_metalarchives_provider_no_artist_signal():
-    from mediavocab.models.signals import Signals
     p = MetalArchivesProvider()
     if not p.is_available():
         pytest.skip("pymetal not installed in this environment")

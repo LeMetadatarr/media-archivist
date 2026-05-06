@@ -5,12 +5,8 @@ The provider framework and every built-in resolver provider live in
 registry as-is and exposes the same ``all_providers()`` /
 ``active_providers()`` helpers used by the canonicalize orchestrator.
 
-There are currently no media-archivist-specific providers; the
-metal-archives resolver is in metadatarr. The local-source
-*archivist* for Encyclopaedia Metallum (``MetalArchivesArchivist`` in
-``media_archivist.metalarchives``) is unrelated — it indexes a local
-metalarchives source into the source DB; the resolver provider does
-metadata cross-referencing.
+There are currently no media-archivist-specific providers — every
+resolver provider lives in metadatarr.
 """
 from __future__ import annotations
 
@@ -20,7 +16,7 @@ from typing import Dict, List
 # every built-in provider (musicbrainz, wikidata, tmdb, anilist, jikan,
 # google_books, librivox, apple_podcasts, arr_*, discogs, bluray_com,
 # dvdcompare, openlibrary, annas_archive, bandcamp, soundcloud,
-# youtube, youtube_music, metal_archives, …).
+# youtube, youtube_music, metal_archives, audiodb, tvmaze, …).
 import metadatarr.resolve.providers  # noqa: F401
 from metadatarr.resolve.base import (
     MetadataProvider,

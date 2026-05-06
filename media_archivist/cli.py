@@ -41,10 +41,6 @@ try:
     from media_archivist.soundcloud import SoundCloudArchivist
 except Exception:  # pragma: no cover
     SoundCloudArchivist = None  # type: ignore
-try:
-    from media_archivist.metalarchives import MetalArchivesArchivist
-except Exception:  # pragma: no cover
-    MetalArchivesArchivist = None  # type: ignore
 
 from pydantic import ValidationError
 
@@ -60,7 +56,6 @@ _BACKEND_TO_CLS = {
     "music": ("YoutubeMusicArchivist", lambda: YoutubeMusicArchivist),
     "bandcamp": ("BandcampArchivist", lambda: BandcampArchivist),
     "soundcloud": ("SoundCloudArchivist", lambda: SoundCloudArchivist),
-    "metal_archives": ("MetalArchivesArchivist", lambda: MetalArchivesArchivist),
 }
 
 
@@ -83,7 +78,6 @@ def _make_archivist(args, *, db_override: Optional[str] = None,
         extra = {
             "bandcamp": "py_bandcamp",
             "soundcloud": "nuvem_de_som",
-            "metal_archives": "pymetal",
         }.get(backend)
         raise SystemExit(f"error: {backend} backend requires `pip install {extra}`")
     db_name = db_override if db_override is not None else args.db
@@ -708,9 +702,6 @@ def build_parser() -> argparse.ArgumentParser:
                          help="use the Bandcamp backend (py_bandcamp)")
     backend.add_argument("--soundcloud", action="store_true",
                          help="use the SoundCloud backend (nuvem_de_som)")
-    backend.add_argument("--metal-archives", dest="metal_archives",
-                         action="store_true",
-                         help="use the Encyclopaedia Metallum backend (pymetal)")
     common.add_argument("--skip-explicit", action="store_true",
                         help="(YT Music) skip tracks flagged explicit")
     common.add_argument("--only-audio", action="store_true",
