@@ -1,5 +1,4 @@
-"""Offline tests for AniListProvider, JikanAnimeProvider, JikanMangaProvider,
-GoogleBooksProvider — all captured fixtures, no live HTTP calls."""
+"""Offline tests for AniListProvider, JikanAnimeProvider, JikanMangaProvider — all captured fixtures, no live HTTP calls."""
 from __future__ import annotations
 
 import json
@@ -13,7 +12,6 @@ from metadatarr.resolve.entities import EntityRole
 from mediavocab.models.signals import Signals
 from media_archivist.providers import all_providers
 from metadatarr.resolve.providers.anilist import AniListProvider
-from metadatarr.resolve.providers.google_books import GoogleBooksProvider
 from metadatarr.resolve.providers.jikan import JikanAnimeProvider, JikanMangaProvider
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -52,14 +50,6 @@ class _EmptyListTransport:
                               request=request)
 
 
-class _EmptyBooksTransport:
-    def handle_request(self, request):
-        import httpx
-        return httpx.Response(200,
-                              content=b'{"totalItems":0}',
-                              headers={"content-type": "application/json"},
-                              request=request)
-
 
 def _make_get(transport):
     import httpx
@@ -85,12 +75,12 @@ def _make_post(transport):
 
 def test_all_new_providers_registered():
     keys = set(all_providers())
-    assert {"anilist", "jikan_anime", "jikan_manga", "google_books"}.issubset(keys)
+    assert {"anilist", "jikan_anime", "jikan_manga"}.issubset(keys)
 
 
 def test_all_new_providers_available():
     p = all_providers()
-    for name in ("anilist", "jikan_anime", "jikan_manga", "google_books"):
+    for name in ("anilist", "jikan_anime", "jikan_manga"):
         assert p[name].is_available(), f"{name} should be available"
 
 
@@ -328,90 +318,3 @@ def test_jikan_manga_no_title_returns_none():
     assert JikanMangaProvider().lookup(Signals()) is None
 
 
-# ---------------------------------------------------------------------------
-# Google Books — The Hobbit
-# ---------------------------------------------------------------------------
-
-@pytest.fixture()
-def google_books(monkeypatch):
-    import metadatarr.resolve.providers.google_books as mod
-    transport = _FixtureTransport(FIXTURES / "google_books_hobbit.json")
-    monkeypatch.setattr(mod, "httpx", MagicMock(get=_make_get(transport)))
-    return GoogleBooksProvider()
-
-
-def test_google_books_returns_match(google_books):
-    m = google_books.lookup(Signals(title="The Hobbit", artist="Tolkien", medium=MediaType.BOOK))
-    assert m is not None
-    assert m.provider == "google_books"
-    assert m.signals.medium == MediaType.BOOK
-
-
-def test_google_books_volume_id(google_books):
-    m = google_books.lookup(Signals(title="The Hobbit", medium=MediaType.BOOK))
-    assert m.external_ids.google_books_id == "UGmrEAAAQBAJ"
-
-
-def test_google_books_isbn(google_books):
-    m = google_books.lookup(Signals(title="The Hobbit", medium=MediaType.BOOK))
-    assert m.external_ids.isbn_13 == "9780261102217"
-    assert m.external_ids.isbn_10 == "0261102214"
-
-
-def test_google_books_year(google_books):
-    m = google_books.lookup(Signals(title="The Hobbit", medium=MediaType.BOOK))
-    assert m.signals.year == 1937
-
-
-def test_google_books_language(google_books):
-    m = google_books.lookup(Signals(title="The Hobbit", medium=MediaType.BOOK))
-    assert m.signals.language == "en"
-
-
-def test_google_books_author_relation(google_books):
-    m = google_books.lookup(Signals(title="The Hobbit", medium=MediaType.BOOK))
-    authors = m.relations.get(EntityRole.AUTHOR)
-    assert authors
-    assert any("Tolkien" in a.name for a in authors)
-
-
-def test_google_books_also_matches_audiobook(monkeypatch):
-    import metadatarr.resolve.providers.google_books as mod
-    transport = _FixtureTransport(FIXTURES / "google_books_hobbit.json")
-    monkeypatch.setattr(mod, "httpx", MagicMock(get=_make_get(transport)))
-    m = GoogleBooksProvider().lookup(Signals(title="The Hobbit", medium=MediaType.AUDIOBOOK))
-    assert m is not None
-    assert m.signals.medium == MediaType.AUDIOBOOK
-
-
-def test_google_books_skips_other_media():
-    p = GoogleBooksProvider()
-    assert p.lookup(Signals(title="X", medium=MediaType.MOVIE)) is None
-    assert p.lookup(Signals(title="X", medium=MediaType.EPISODIC_SERIES, content_genres=["anime"])) is None
-
-
-def test_google_books_no_title_returns_none():
-    assert GoogleBooksProvider().lookup(Signals()) is None
-
-
-def test_google_books_no_httpx(monkeypatch):
-    import metadatarr.resolve.providers.google_books as mod
-    monkeypatch.setattr(mod, "httpx", None)
-    assert GoogleBooksProvider().lookup(Signals(title="X", medium=MediaType.BOOK)) is None
-
-
-def test_google_books_network_error(monkeypatch):
-    import metadatarr.resolve.providers.google_books as mod
-    import httpx
-
-    def _fail(*a, **kw):
-        raise httpx.ConnectError("timeout")
-
-    monkeypatch.setattr(mod, "httpx", MagicMock(get=_fail))
-    assert GoogleBooksProvider().lookup(Signals(title="X", medium=MediaType.BOOK)) is None
-
-
-def test_google_books_empty_response(monkeypatch):
-    import metadatarr.resolve.providers.google_books as mod
-    monkeypatch.setattr(mod, "httpx", MagicMock(get=_make_get(_EmptyBooksTransport())))
-    assert GoogleBooksProvider().lookup(Signals(title="ZZZNOTFOUND", medium=MediaType.BOOK)) is None

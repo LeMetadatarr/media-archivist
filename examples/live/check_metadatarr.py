@@ -29,7 +29,12 @@ def _check(name: str, signals: Signals, id_field: str,
         print(f"  {name:<22} SKIP (not available)")
         return
     result = provider.lookup(signals)
-    value = getattr(result.external_ids, id_field, None) if result else None
+    if result is None:
+        value = None
+    else:
+        value = getattr(result.external_ids, id_field, None)
+        if value is None:
+            value = (result.external_ids.extra or {}).get(id_field)
     if value:
         print(f"  {name:<22} → {id_field}={value}")
     else:
@@ -42,7 +47,7 @@ def main() -> int:
 
     _check("arr_radarr",   Signals(title="Inception",  medium=MediaType.MOVIE),
            "tmdb_movie",   failures)
-    _check("metadatarr",   Signals(title="The Boys",   medium=MediaType.EPISODIC_SERIES),
+    _check("skyhook",   Signals(title="The Boys",   medium=MediaType.EPISODIC_SERIES),
            "tvdb",         failures)
     _check("arr_lidarr",   Signals(title="Random Access Memories", artist="Daft Punk",
                                    medium=MediaType.MUSIC),
@@ -50,9 +55,10 @@ def main() -> int:
     _check("openlibrary",  Signals(title="The Hobbit", artist="Tolkien",
                                    medium=MediaType.BOOK),
            "olid",         failures)
+    # annas_archive populates extra["annas_archive_md5"] not a typed isbn field
     _check("annas_archive", Signals(title="The Hobbit", artist="Tolkien",
                                     medium=MediaType.BOOK),
-           "isbn_13",      failures)
+           "annas_archive_md5", failures)
 
     if failures:
         print(f"FAIL: {', '.join(failures)}", file=sys.stderr)
