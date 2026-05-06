@@ -470,7 +470,7 @@ Fixed: `0.85`
 ### Base Class
 
 ```python
-from media_archivist.providers.base import MetadataProvider, ProviderMatch
+from mediavocab import MetadataProvider, ProviderMatch
 
 class MetadataProvider(ABC):
     """Abstract base for metadata providers."""
@@ -541,9 +541,9 @@ To write a third-party provider:
 ### 1. Subclass MetadataProvider
 
 ```python
-from media_archivist.providers.base import MetadataProvider, ProviderMatch
-from media_archivist.models.signals import Medium, Signals
-from media_archivist.models.external_ids import ExternalIds
+from mediavocab import MetadataProvider, ProviderMatch
+from mediavocab import MediaType, Signals
+from mediavocab import ExternalIds
 
 class MyCustomProvider(MetadataProvider):
     name = "my_custom"
@@ -708,7 +708,8 @@ Adjust signal comparison tolerances or configure providers with better coverage.
 When providers return matches, the canonicalize system compares their signals to the local entry:
 
 ```python
-from media_archivist.models.signals import compare, Signals
+from mediavocab import Signals
+from mediavocab.models.signals import compare_signals as compare
 
 local = Signals(title="Bohemian Rhapsody", artist="Queen", year=1975)
 provider = Signals(title="Bohemian Rhapsody", artist="Queen", year=1975)

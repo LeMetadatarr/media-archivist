@@ -30,7 +30,7 @@ external_ids   mbid, tt-id, tmdb, tvdb, isbn, …  — populated by providers
 
 ## Disambiguation signals
 
-`metadatarr.resolve.signals.Signals` carries the bag of facts we
+`mediavocab.Signals` carries the bag of facts we
 compare. Tolerances are conservative:
 
 | Signal     | Compared by               | Tolerance              |
@@ -47,7 +47,7 @@ compare. Tolerances are conservative:
 | `source_format` | exact (case-insensitive)          | exact                  |
 | `edition`       | exact (case-insensitive)          | exact                  |
 
-Comparison rules (`metadatarr.resolve.signals.compare` — `metadatarr/resolve/signals.py`):
+Comparison rules (`mediavocab.compare_signals`):
 
 - A signal absent on either side is **not** a disagreement.
 - All overlapping signals must agree → matched.

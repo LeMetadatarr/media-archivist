@@ -10,7 +10,7 @@ and exposes the disambiguation signals needed to tell them apart.
 
 ## `VariantKind` enum
 
-`metadatarr.resolve.signals.VariantKind` — `metadatarr/resolve/signals.py`
+`mediavocab.VariantKind`
 
 Values are grouped by the medium they typically apply to:
 
@@ -45,7 +45,7 @@ Values are grouped by the medium they typically apply to:
 
 ## New `Signals` fields
 
-`metadatarr.resolve.signals.Signals` — `metadatarr/resolve/signals.py`
+`mediavocab.Signals`
 
 | Field              | Type                      | Default  | Purpose                                                                  |
 | ------------------ | ------------------------- | -------- | ------------------------------------------------------------------------ |
@@ -57,15 +57,15 @@ Values are grouped by the medium they typically apply to:
 
 ### Comparison behaviour
 
-`compare()` — `metadatarr/resolve/signals.py` — treats all four
+`compare()` — treats all four
 descriptive fields as exact matches (case-insensitive). An absent value on
 either side is not a disagreement; two present values that differ produce a
 `SignalConflict`.
 
-`signal_hash()` — `metadatarr/resolve/signals.py` — includes all four
+`signal_hash()` — includes all four
 fields so different variants of the same work get different canonical IDs.
 
-`merged()` — `metadatarr/resolve/signals.py` — first non-`None` value
+`merged()` — first non-`None` value
 wins per field. `include_variants` is ORed across all bags.
 
 `include_variants` does **not** participate in comparison or hashing; it is a
@@ -88,7 +88,7 @@ The dominant external id for `RELEASE` is resolved in
 
 ## New `ExternalIds` fields
 
-`metadatarr.resolve.external_ids.ExternalIds` — `metadatarr/resolve/external_ids.py`
+`mediavocab.ExternalIds`
 
 | Field             | Type            | Source                                          |
 | ----------------- | --------------- | ----------------------------------------------- |
@@ -119,7 +119,7 @@ the provider knows which catalogue record to fan out from.
 ### Constructing `Signals` with variant fields
 
 ```python
-from metadatarr.resolve.signals import Signals, VariantKind
+from mediavocab import Signals, VariantKind
 
 # Director's cut of a 1982 film released on Blu-ray in the US
 signals = Signals(
@@ -136,7 +136,8 @@ signals = Signals(
 ### Checking for conflicts between variants
 
 ```python
-from metadatarr.resolve.signals import Signals, VariantKind, compare
+from mediavocab import Signals, VariantKind
+from mediavocab.models.signals import compare_signals as compare
 
 theatrical = Signals(
     title="Blade Runner",
@@ -160,7 +161,8 @@ assert same == []
 ### Differentiating variants via `signal_hash()`
 
 ```python
-from metadatarr.resolve.signals import Signals, VariantKind, signal_hash
+from mediavocab import Signals, VariantKind
+from mediavocab.models.signals import signal_hash
 
 h_theatrical = signal_hash(Signals(title="Blade Runner", medium=MediaType.MOVIE,
                                     variant_kind=VariantKind.THEATRICAL))
@@ -172,7 +174,7 @@ assert h_theatrical != h_directors
 ### Creating `ExternalIds` with variant fields
 
 ```python
-from metadatarr.resolve.external_ids import ExternalIds
+from mediavocab import ExternalIds
 
 ext = ExternalIds(
     imdb="tt0083658",              # Blade Runner (1982) — the parent film
@@ -186,7 +188,7 @@ ext = ExternalIds(
 
 ```python
 from metadatarr.resolve.entities import EntityKind, ProviderEntity, allocate_entity_id
-from metadatarr.resolve.external_ids import ExternalIds
+from mediavocab import ExternalIds
 
 ext = ExternalIds(musicbrainz_release="a1b2c3d4-...")
 
@@ -204,9 +206,9 @@ entity_id = allocate_entity_id(EntityKind.RELEASE, name=entity.name,
 
 ```python
 from typing import List, Optional
-from metadatarr.resolve.external_ids import ExternalIds
+from mediavocab import ExternalIds
 from metadatarr.resolve.entities import EntityKind, ProviderEntity
-from metadatarr.resolve.signals import Medium, Signals, VariantKind
+from mediavocab import MediaType, Signals, VariantKind
 from metadatarr.resolve.base import MetadataProvider, ProviderMatch, register
 
 

@@ -36,7 +36,7 @@ Confidence: **0.90**
 
 ```python
 from metadatarr.resolve.providers.anilist import AniListProvider
-from metadatarr.resolve.signals import Signals
+from mediavocab import Signals
 
 p = AniListProvider()
 m = p.lookup(Signals(title="Cowboy Bebop", medium=MediaType.EPISODIC_SERIES (with content_genres=["anime"])))
@@ -79,7 +79,7 @@ preferred over the raw top result.
 
 ```python
 from metadatarr.resolve.providers.jikan import JikanAnimeProvider, JikanMangaProvider
-from metadatarr.resolve.signals import Signals
+from mediavocab import Signals
 
 anime = JikanAnimeProvider()
 m = anime.lookup(Signals(title="Cowboy Bebop", medium=MediaType.EPISODIC_SERIES (with content_genres=["anime"])))
@@ -125,7 +125,7 @@ Query format: `intitle:{title}` + optional `+inauthor:{artist}`. When
 
 ```python
 from metadatarr.resolve.providers.google_books import GoogleBooksProvider
-from metadatarr.resolve.signals import Signals
+from mediavocab import Signals
 
 p = GoogleBooksProvider()
 m = p.lookup(Signals(title="The Hobbit", artist="Tolkien", medium=MediaType.BOOK))

@@ -1,152 +1,87 @@
-# metadatarr-backed providers
+# metadatarr resolver integration
 
-`metadatarr` ships typed clients for the public catalogues media_archivist
-otherwise hand-rolls HTTP calls against. Each metadatarr client is exposed
-as a separate provider — same `name` pattern as the `arr_*` providers —
-so users can pick exactly which catalogues to consult via
-`--providers metadatarr_radarr,metadatarr_openlibrary,…`.
+`media_archivist` consumes `metadatarr.resolve` as its cross-source
+metadata resolver. The provider framework, registry, signals model,
+external-id model, entity layer, and ~24 built-in providers all live
+in metadatarr (which in turn imports the foundation primitives from
+`mediavocab`).
 
-| Provider                  | Backed by                                                  | Media       | External ids produced       |
-| ------------------------- | ---------------------------------------------------------- | ----------- | --------------------------- |
-| `metadatarr_skyhook`      | `ArrMetadataClient.search_series` (skyhook.sonarr.tv)     | TV          | `tvdb`, year                |
-| `metadatarr_radarr`       | `ArrMetadataClient.search_movie` (radarrapi.servarr.com)   | movie       | `tmdb_movie`, year          |
-| `metadatarr_lidarr`       | `ArrMetadataClient.search_artist` (api.lidarr.audio)      | music       | `musicbrainz_artist`, artist relation with mbid |
-| `metadatarr_openlibrary`  | `OpenLibraryClient.search` (openlibrary.org)               | book        | `olid`, `isbn_10`, `isbn_13`, `author` relations with OLIDs |
-| `metadatarr_bookinfo`     | `BookInfoClient.search` (Goodreads / Hardcover proxy)     | book        | `goodreads` (work), `extra.goodreads_book`, `isbn_13`, `author` relation with `extra.goodreads_author` |
-| `metadatarr_discogs`      | `DiscogsClient.search_film` / `.search` (discogs.com API) | movie/music | `discogs_release`, `source_format`, `country` |
-| `metadatarr_bluray`       | `BlurayComClient.search` (blu-ray.com HTML scraper)        | movie/TV    | `bluray_com_id`, `source_format="Blu-ray"` |
-| `metadatarr_dvdcompare`   | `DVDCompareClient.search` (dvdcompare.net HTML scraper)    | movie/TV    | `dvdcompare_id`, `imdb`, `edition`, `region` |
+There are **no** `metadatarr_*` wrapper providers in
+`media_archivist.providers/` — those existed pre-0.2 but were
+collapsed when the resolver moved to metadatarr. Instead,
+`media_archivist.providers` re-exports metadatarr's registry as-is:
 
-None of these need configuration — no env vars, no API keys, no
-self-hosted instances. `metadatarr_discogs` optionally reads `DISCOGS_TOKEN`
-for a higher rate limit (60 vs 25 req/min) but works without one.
-
-## Why split it five ways
-
-Earlier the integration was a single `metadatarr` umbrella provider that
-dispatched on `signals.medium`. Splitting matches:
-
-- the existing `arr_*` pattern (Sonarr / Radarr / Readarr / Lidarr are
-  separate providers), so `media-archivist providers` and
-  `--providers …` show one-name-one-endpoint;
-- per-source rate-limit budgets — skipping `metadatarr_bookinfo` for a
-  music DB no longer drags every other metadatarr endpoint along;
-- enrichment composability — `metadatarr_openlibrary` and `metadatarr_bookinfo`
-  emit complementary book ids (OLID/ISBN vs Goodreads), so users can
-  enable both for fuller cross-references or one for less network noise.
-
-## Install
-
-```bash
-pip install /path/to/api_clients/metadatarr
-# or, once on PyPI:
-pip install media_archivist[metadatarr]
+```python
+from media_archivist.providers import all_providers, active_providers
 ```
 
-`metadatarr` itself depends on `requests`, `pydantic>=2`, `bs4` and `lxml`.
+Both helpers walk the registry self-populated by
+`metadatarr.resolve.providers.__init__` plus any media-archivist-
+specific providers (currently just `metalarchives`).
 
-## Activation
+## Built-in providers (from metadatarr)
 
-All eight providers self-register when `metadatarr` imports cleanly:
+| Provider name | Backed by | Media | External ids produced |
+|---|---|---|---|
+| `musicbrainz` | musicbrainz.org public API | MUSIC | `musicbrainz_recording`, `musicbrainz_release`, `musicbrainz_artist` |
+| `wikidata` | wikidata.org SPARQL / wbsearch | * | `wikidata`, plus IMDb / TMDB / TVDB / MB cross-refs |
+| `metadatarr` | Skyhook (`skyhook.sonarr.tv`) — Sonarr-side | EPISODIC_SERIES | `tvdb`, year |
+| `audiodb` | TheAudioDB | MUSIC | `extra.audiodb_artist_id`, `extra.audiodb_album_id` |
+| `tvmaze` | TVmaze public API | EPISODIC_SERIES | `extra.tvmaze` |
+| `pyfanedit` | fanedit.org IFDB scraper (variant-only) | MOVIE | `fanedit_id` |
+| `anilist` | AniList GraphQL | EPISODIC_SERIES + `"anime"` / COMIC + `"manga"` | `anilist_id`, plus staff / studio / character ids |
+| `jikan_anime` / `jikan_manga` | MyAnimeList Jikan REST | same as AniList | `mal_id` |
+| `google_books` | Google Books volumes API | BOOK / AUDIOBOOK | `google_books_id`, ISBN |
+| `librivox` | librivox.org/api | AUDIOBOOK | `librivox_id` |
+| `apple_podcasts` | Apple Podcasts iTunes Search | PODCAST / AUDIO_DRAMA | `apple_podcast_id` |
+| `tmdb` | TMDB public API (key required) | MOVIE / EPISODIC_SERIES | `tmdb_movie`, `tmdb_tv`, `tmdb_person` |
+| `arr_sonarr` / `arr_radarr` / `arr_lidarr` / `arr_readarr` | self-hosted *arr instances (URL + API key required) | EPISODIC_SERIES / MOVIE / MUSIC / BOOK | `tvdb`, `tmdb_movie`, `musicbrainz_artist`, `goodreads` |
+| `discogs` | Discogs public API (optional `DISCOGS_TOKEN`) | MOVIE / MUSIC | `discogs_release`, `source_format`, `country` |
+| `bluray_com` | blu-ray.com HTML scraper | MOVIE / EPISODIC_SERIES | `bluray_com_id`, `source_format="Blu-ray"` |
+| `dvdcompare` | dvdcompare.net HTML scraper | MOVIE / EPISODIC_SERIES | `dvdcompare_id`, `imdb`, `edition`, `region` |
+| `openlibrary` | openlibrary.org | BOOK | `olid`, `isbn_10`, `isbn_13` |
+| `annas_archive` | annas-archive.org | BOOK | `extra.libgen_md5`, `isbn_13` |
+| `bandcamp` | py_bandcamp scraper | MUSIC | `extra.bandcamp_album_url`, `extra.bandcamp_track_url` |
+| `soundcloud` | nuvem_de_som API / HTML | MUSIC | `extra.soundcloud_track_url`, `extra.soundcloud_user_id` |
+| `youtube` / `youtube_music` | tutubo (YouTube Data API + YT Music) | MUSIC / MUSIC_VIDEO / EPISODIC_SERIES | `extra.youtube_video_id`, `extra.youtube_music_video_id`, `extra.youtube_channel_id` |
+| `metal_archives` (in metadatarr) | pymetal scraper | MUSIC | `metal_archives_band`, `metal_archives_release`, `metal_archives_song` |
 
-```bash
-$ media-archivist providers
-[
-  {"name": "metadatarr_bookinfo",    "active": true, "media": ["book"]},
-  {"name": "metadatarr_bluray",      "active": true, "media": ["movie", "tv"]},
-  {"name": "metadatarr_discogs",     "active": true, "media": ["movie", "music", "tv"]},
-  {"name": "metadatarr_dvdcompare",  "active": true, "media": ["movie", "tv"]},
-  {"name": "metadatarr_lidarr",      "active": true, "media": ["music"]},
-  {"name": "metadatarr_openlibrary", "active": true, "media": ["book"]},
-  {"name": "metadatarr_radarr",      "active": true, "media": ["movie"]},
-  {"name": "metadatarr_skyhook",     "active": true, "media": ["tv"]},
-  ...
-]
-```
+The Skyhook / *arr provider naming is metadatarr's, not
+media-archivist's — see `metadatarr.resolve.providers.servarr_proxy`
+and `metadatarr.resolve.providers.arr` for the source.
 
-There's nothing to configure — no env var, no URL, no key.
+## media-archivist-specific providers
 
-## Pairing recipes
+Currently only one — `metalarchives`, in
+`media_archivist/providers/metalarchives.py`. Uses the `pymetal`
+scraper directly and lives next to the source-DB orchestrator until
+the metalarchives data flow generalises enough to lift into
+metadatarr.
 
-The Servarr proxies return canonical ids and a year, but no cast / crew
-/ runtime / country. Pair them with TMDB or your self-hosted Arr stack
-to get full credits:
+## Routing
 
-```bash
-# Cheap id seed + full cast/crew
-media-archivist canonicalize --db-file films.json \
-    --providers metadatarr_radarr --providers tmdb
+Providers are gated by the two-axis `(media, genre_filter)` rule from
+`mediavocab.MetadataProvider`:
 
-# OpenLibrary + Goodreads for fuller book cross-references
-media-archivist canonicalize --db-file books.json \
-    --providers metadatarr_openlibrary --providers metadatarr_bookinfo
+- `media: Set[MediaType]` — the candidate's `signals.medium` must be
+  in the set, OR the set is empty (universal), OR the signals do not
+  declare a medium.
+- `genre_filter: Set[str]` — at least one tag in
+  `signals.content_genres` must overlap the filter, OR the filter is
+  empty (no gate).
 
-# Physical-media enrichment for a film archive
-media-archivist canonicalize --db-file films.json \
-    --providers metadatarr_radarr \
-    --providers metadatarr_bluray \
-    --providers metadatarr_dvdcompare \
-    --providers metadatarr_discogs
-```
+Anime / manga providers therefore declare e.g.
+`media = {EPISODIC_SERIES, MOVIE}` plus `genre_filter = {"anime"}`
+rather than a fake `MediaType.ANIME` value. Anime is a *genre* per
+mediavocab spec axiom 2, not a media type.
 
-All providers run concurrently per row (up to 8 threads), so adding the
-physical-media providers costs only as long as the slowest one, not their
-sum.
+`media_archivist.canonicalize._providers_for(providers, medium,
+content_genres)` is the dispatcher.
 
-Both metadatarr book providers emit `EntityKind.AUTHOR` relations; running
-both populates entity records with both an `openlibrary_author` OLID
-and a `goodreads_author` id under `extra`, deduplicated to one entity
-when names match.
+## Configuration
 
-## Physical-media providers
-
-`metadatarr_discogs`, `metadatarr_bluray`, and `metadatarr_dvdcompare`
-fill in the physical-release `ExternalIds` fields that have no other source:
-
-| Field             | Provider             | What it unlocks                                      |
-| ----------------- | -------------------- | ---------------------------------------------------- |
-| `discogs_release` | `metadatarr_discogs` | Discogs pressing-level id; label, catalogue number, cover image in `extra` |
-| `bluray_com_id`   | `metadatarr_bluray`  | blu-ray.com movie id; regional specs, audio tracks via `enrich` |
-| `dvdcompare_id`   | `metadatarr_dvdcompare` | dvdcompare.net film id; infers `edition` + `region` + `source_format` signals |
-
-`metadatarr_dvdcompare` is the only provider that writes `Signals.edition`
-and `Signals.region` — it will cause quarantine for rows where the local
-signals disagree on those fields, which is the correct behaviour (a US
-theatrical cut and a UK director's cut are different records).
-
-## Variant support
-
-When `signals.include_variants=True`, the canonicalize orchestrator calls
-`list_variants()` on each active provider after the primary `lookup()` step.
-metadatarr's own providers are positioned to fan out two catalogues:
-
-- **MusicBrainz release expansion** — can resolve a release-group MBID into
-  individual `EntityKind.RELEASE` entities, each carrying a `musicbrainz_release`
-  MBID.
-- **pyfanedit** (optional dep) — can query IFDB by parent IMDb `tt-id` and return
-  `EntityKind.RELEASE` entities with `fanedit_id` and `derived_from_imdb` populated.
-
-**Current status:** `list_variants()` is available as an extension point on
-`MetadataProvider` (`metadatarr/resolve/base.py`) but is not yet wired
-into the CLI `canonicalize` command. The metadatarr providers currently use
-metadatarr for primary `lookup()` only. Variant fan-out is planned for a future
-release.
-
-See [Release variants](./variants.md) for the full model.
-
-## Verification
-
-- 15 offline unit tests in
-  [`test/test_metadatarr_provider.py`](../test/test_metadatarr_provider.py):
-  one per provider for happy-path dispatch, plus medium-mismatch
-  rejections, no-title short-circuits, registration assertions, and
-  relation-emission checks for the music-artist and book-author
-  cases. Stub clients mirror metadatarr's surface so no network is needed.
-- Live check
-  [`examples/live/check_metadatarr.py`](../examples/live/check_metadatarr.py)
-  hits all five endpoints; latest run:
-  - `metadatarr_radarr` Inception → tmdb 27205
-  - `metadatarr_skyhook` The Boys → tvdb 355567
-  - `metadatarr_lidarr` Daft Punk → mbid `056e4f3e-d505-4dad-8ec1-d04f521cbb56`
-  - `metadatarr_openlibrary` The Hobbit → OL27482W (Tolkien OL26320A)
-  - `metadatarr_bookinfo` The Hobbit → goodreads `1540236`, isbn13 `9783423085595`
+Most providers self-disable via `is_available()` if their optional
+upstream dependency or required API key is missing — the registry
+stays consistent across environments. Set keys via env vars
+documented in each provider's docstring (`TMDB_API_KEY`,
+`DISCOGS_TOKEN`, `SONARR_URL` + `SONARR_API_KEY`, etc.).
