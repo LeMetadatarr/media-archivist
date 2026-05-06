@@ -58,20 +58,20 @@ class SoundCloudArchivist(JsonArchivist):
                               unit="trk"):
             self._archive_track(track, extra_data={"source_url": url})
 
-    def _archive_track(self, track: dict, extra_data: Optional[dict] = None) -> bool:
-        url = track.get("url") or ""
+    def _archive_track(self, track, extra_data: Optional[dict] = None) -> bool:
+        # nuvem_de_som returns mediavocab.Release objects
+        url = track.uri or ""
         if not url or url in self.db:
             return False
 
-        title = track.get("title") or ""
+        title = track.work.title or ""
         title_l = title.lower()
         if any(k.lower() in title_l for k in self.blacklisted_kwords):
             return False
         if self.required_kwords and not all(k.lower() in title_l for k in self.required_kwords):
             return False
 
-        duration_ms = track.get("duration")  # nuvem_de_som returns ms or None
-        duration_s = duration_ms / 1000 if isinstance(duration_ms, (int, float)) else None
+        duration_s = track.work.runtime  # mediavocab Work.runtime is seconds
         if self.min_duration and self.min_duration > 0 and duration_s is not None:
             if duration_s < self.min_duration:
                 return False
@@ -88,12 +88,20 @@ class SoundCloudArchivist(JsonArchivist):
         known_keys = {"source_query", "source_url"}
         carried = {k: v for k, v in (extra_data or {}).items() if k in known_keys}
         unknown_extras = {k: v for k, v in (extra_data or {}).items() if k not in known_keys}
+        # Pull SoundCloud-specific fields off the mediavocab Release
+        artist = ""
+        artist_url = ""
+        for credit in track.work.credits:
+            if credit.role and credit.role.lower() == "artist":
+                artist = credit.entity.name
+                break
+        artist_url = (track.work.extra or {}).get("artist_url") or ""
         entry = RawSoundcloudEntry(
             url=url,
             title=title,
-            artist=track.get("artist") or "",
-            artist_url=track.get("artist_url") or "",
-            thumbnail=track.get("image") or "",
+            artist=artist,
+            artist_url=artist_url,
+            thumbnail=track.image or "",
             duration=duration_s,
             stream=stream,
             source_query=carried.get("source_query"),

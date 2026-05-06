@@ -31,7 +31,7 @@ def main() -> int:
             str(db_path), providers=["musicbrainz"],
         )
     artists = [r for r in entities.entities.values()
-               if r.kind == EntityRole.ARTIST]
+               if r.role == EntityRole.ARTIST]
     if not artists:
         print("FAIL: no artist entity allocated", file=sys.stderr)
         return 1
