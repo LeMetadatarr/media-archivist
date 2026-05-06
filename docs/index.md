@@ -45,12 +45,12 @@ media_archivist/
   dotted access (`relations.director`, `external_ids.imdb`).
 - [Release variants](./variants.md) — `VariantKind`, edition/region/source_format signals, `EntityKind.RELEASE`, `include_variants` flag, `list_variants()` extension point.
 - [Anime, manga & books providers](./providers_anime_books.md) — `anilist`, `jikan_anime`, `jikan_manga`, `google_books`; zero-setup, no keys; `MediaType.EPISODIC_SERIES + content_genres=["anime"]`, `MediaType.COMIC + content_genres=["manga"]`; `EntityKind.STUDIO`.
-- [Encyclopaedia Metallum](./metal_archives.md) — heavy-metal-specific
-  backend + enrichment provider via `pymetal`.
-- [metadatarr-backed providers](./metadatarr.md) — TVDB / TMDB / MusicBrainz /
-  OpenLibrary OLID / Goodreads ids without self-hosting anything; one
-  provider per endpoint (`metadatarr_skyhook`, `metadatarr_radarr`,
-  `metadatarr_lidarr`, `metadatarr_openlibrary`, `metadatarr_bookinfo`).
+- [metadatarr resolver integration](./metadatarr.md) — all ~24 built-in
+  providers (MusicBrainz, Wikidata, TMDB, AniList, Jikan, Google Books,
+  LibriVox, Apple Podcasts, *arr family, Discogs, Blu-ray.com,
+  DVDCompare, OpenLibrary, Anna's Archive, Bandcamp, SoundCloud,
+  YouTube/YT Music, Metal Archives, AudioDB, TVMaze, …) live in
+  metadatarr; `media_archivist.providers` is a thin re-export.
 - [Datasets, enrichment & sharing](./datasets.md) — `enrich`, `export
   --split`, `snapshot` / `diff`, HuggingFace `hub-publish`.
 - [Running as a service](./deploy.md) — Docker + systemd templates,

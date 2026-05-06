@@ -14,15 +14,27 @@ All providers are opt-in and disabled if their configuration is missing.
 
 ## Built-In Providers
 
+All ~24 built-in providers live in `metadatarr` and self-register on import.
+For the full table — including AniList, Jikan, Google Books, LibriVox, Apple
+Podcasts, Discogs, Blu-ray.com, DVDCompare, OpenLibrary, Anna's Archive,
+Bandcamp, SoundCloud, YouTube/YT Music, Metal Archives, AudioDB, TVMaze, and
+the *arr family — see
+[metadatarr resolver integration](../metadatarr.md).
+
+The sections below document the most commonly used providers in detail.
+
 | Provider | Media Types | Config | Rate Limit | Availability |
 |----------|-------------|--------|-----------|--------------|
-| MusicBrainz | Music | None (free) | 1 req/s | Always (rate-limited) |
-| Wikidata | Movies, TV, Music, Books, Podcasts | None (free) | API limits | Always |
-| TMDB | Movies, TV | `MEDIA_ARCHIVIST_TMDB_KEY` env var | Depends on plan | If key provided |
-| Sonarr | TV | `MEDIA_ARCHIVIST_SONARR_URL` + `MEDIA_ARCHIVIST_SONARR_KEY` | Depends on Sonarr | If both env vars set |
-| Radarr | Movies | `MEDIA_ARCHIVIST_RADARR_URL` + `MEDIA_ARCHIVIST_RADARR_KEY` | Depends on Radarr | If both env vars set |
-| Readarr | Books | `MEDIA_ARCHIVIST_READARR_URL` + `MEDIA_ARCHIVIST_READARR_KEY` | Depends on Readarr | If both env vars set |
-| Lidarr | Music | `MEDIA_ARCHIVIST_LIDARR_URL` + `MEDIA_ARCHIVIST_LIDARR_KEY` | Depends on Lidarr | If both env vars set |
+| MusicBrainz (`musicbrainz`) | Music | None (free) | 1 req/s | Always |
+| Wikidata (`wikidata`) | All | None (free) | ~1000 req/hour | Always |
+| TMDB (`tmdb`) | Movie, TV | `TMDB_API_KEY` | 40 req/10s | If key set |
+| Sonarr (`arr_sonarr`) | EPISODIC_SERIES | `SONARR_URL` + `SONARR_API_KEY` | Sonarr instance | If both set |
+| Radarr (`arr_radarr`) | Movie | `RADARR_URL` + `RADARR_API_KEY` | Radarr instance | If both set |
+| Readarr (`arr_readarr`) | Book | `READARR_URL` + `READARR_API_KEY` | Readarr instance | If both set |
+| Lidarr (`arr_lidarr`) | Music | `LIDARR_URL` + `LIDARR_API_KEY` | Lidarr instance | If both set |
+
+Env-var names for the *arr providers follow the pattern defined in
+`metadatarr/resolve/providers/arr.py`.
 
 ---
 
@@ -470,7 +482,7 @@ Fixed: `0.85`
 ### Base Class
 
 ```python
-from mediavocab import MetadataProvider, ProviderMatch
+from metadatarr.resolve.base import MetadataProvider, ProviderMatch
 
 class MetadataProvider(ABC):
     """Abstract base for metadata providers."""
@@ -541,7 +553,7 @@ To write a third-party provider:
 ### 1. Subclass MetadataProvider
 
 ```python
-from mediavocab import MetadataProvider, ProviderMatch
+from metadatarr.resolve.base import MetadataProvider, ProviderMatch
 from mediavocab import MediaType, Signals
 from mediavocab import ExternalIds
 

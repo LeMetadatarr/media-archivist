@@ -16,8 +16,8 @@ from media_archivist.providers import all_providers, active_providers
 ```
 
 Both helpers walk the registry self-populated by
-`metadatarr.resolve.providers.__init__` plus any media-archivist-
-specific providers (currently just `metalarchives`).
+`metadatarr.resolve.providers.__init__`. There are no
+media-archivist-specific providers.
 
 ## Built-in providers (from metadatarr)
 
@@ -53,10 +53,10 @@ and `metadatarr.resolve.providers.arr` for the source.
 ## media-archivist-specific providers
 
 None. Every resolver provider — including `metal_archives` — lives in
-metadatarr. The local-source *archivist* for Encyclopaedia Metallum
-(`MetalArchivesArchivist` in `media_archivist.metalarchives`) is a
-different abstraction: it indexes a local metalarchives library into
-the source DB, it isn't a metadata-resolver provider.
+metadatarr. There is no `MetalArchivesArchivist` or
+`media_archivist.metalarchives` module; that symbol was removed in 0.2
+because metal-archives.com hosts no streamable audio and did not fit
+this package's "index streams, download on demand" abstraction.
 
 ## Routing
 

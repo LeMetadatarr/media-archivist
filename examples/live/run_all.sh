@@ -18,7 +18,6 @@ declare -a CHECKS=(
     "musicbrainz"
     "wikidata"
     "entities"
-    "metal_archives"
     "metadatarr"
 )
 

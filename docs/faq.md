@@ -455,7 +455,10 @@ class MyProvider(MetadataProvider):
 register(MyProvider())
 ```
 
-Place your provider in `media_archivist/providers/` and import it from `__init__.py` so the registration side-effect runs at startup.
+Call `register(MyProvider())` at module import time in your own package.
+`media_archivist.providers` is a thin re-export of metadatarr's registry —
+do not add files into it. Any import that calls `register()` before
+`canonicalize()` runs will wire the provider in correctly.
 
 ## Data Integrity & Troubleshooting
 

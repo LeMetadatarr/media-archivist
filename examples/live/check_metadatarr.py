@@ -1,84 +1,63 @@
-"""Live check: every metadatarr-backed provider in one shot.
+"""Live check: metadatarr-backed providers.
 
-Hits skyhook (TV), the Radarr proxy (movies), the Lidarr proxy (music
-artists), OpenLibrary (books) and the BookInfo / Goodreads proxy
-(books). Skips when ``metadatarr`` isn't installed.
+Looks up arr_radarr (movies), arr_sonarr / metadatarr (TV), arr_lidarr
+(music), openlibrary (books), and annas_archive (books) via the provider
+registry. Skips any provider that is not available (missing API key / URL).
+Skips entirely when ``metadatarr`` is not installed.
 """
 from __future__ import annotations
 
 import sys
 
 try:
-    from media_archivist.providers.metadatarr import (
-        MetadatarrBookInfoProvider,
-        MetadatarrLidarrProvider,
-        MetadatarrOpenLibraryProvider,
-        MetadatarrRadarrProvider,
-        MetadatarrSkyhookProvider,
-    )
+    import metadatarr.resolve.providers  # noqa: F401 — triggers self-registration
 except ImportError:
-    print("SKIP: install metadatarr (pip install /path/to/api_clients/metadatarr)",
-          file=sys.stderr)
+    print("SKIP: install metadatarr (pip install metadatarr)", file=sys.stderr)
     raise SystemExit(0)
 
-
 from mediavocab import MediaType
-from metadatarr.resolve.entities import EntityRole
 from mediavocab.models.signals import Signals
+from metadatarr.resolve.entities import EntityRole
+from media_archivist.providers import all_providers
+
+
+def _check(name: str, signals: Signals, id_field: str,
+           failures: list[str]) -> None:
+    registry = all_providers()
+    provider = registry.get(name)
+    if provider is None or not provider.is_available():
+        print(f"  {name:<22} SKIP (not available)")
+        return
+    result = provider.lookup(signals)
+    value = getattr(result.external_ids, id_field, None) if result else None
+    if value:
+        print(f"  {name:<22} → {id_field}={value}")
+    else:
+        print(f"  {name:<22} FAIL (no {id_field})", file=sys.stderr)
+        failures.append(name)
 
 
 def main() -> int:
-    if not MetadatarrRadarrProvider().is_available():
-        print("SKIP: metadatarr not importable", file=sys.stderr)
-        return 0
     failures: list[str] = []
 
-    movie = MetadatarrRadarrProvider().lookup(
-        Signals(title="Inception", medium=MediaType.MOVIE))
-    if movie and movie.external_ids.tmdb_movie:
-        print(f"  metadatarr_radarr      Inception   → tmdb {movie.external_ids.tmdb_movie}")
-    else:
-        failures.append("metadatarr_radarr")
-
-    series = MetadatarrSkyhookProvider().lookup(
-        Signals(title="The Boys", medium=MediaType.EPISODIC_SERIES))
-    if series and series.external_ids.tvdb:
-        print(f"  metadatarr_skyhook     The Boys    → tvdb {series.external_ids.tvdb}")
-    else:
-        failures.append("metadatarr_skyhook")
-
-    artist = MetadatarrLidarrProvider().lookup(
-        Signals(title="Random", artist="Daft Punk", medium=MediaType.MUSIC))
-    if artist and artist.external_ids.musicbrainz_artist:
-        print(f"  metadatarr_lidarr      Daft Punk   → mbid "
-              f"{artist.external_ids.musicbrainz_artist}")
-    else:
-        failures.append("metadatarr_lidarr")
-
-    book = MetadatarrOpenLibraryProvider().lookup(
-        Signals(title="The Hobbit", artist="Tolkien", medium=MediaType.BOOK))
-    if book and book.external_ids.olid:
-        authors = (book.relations or {}).get(EntityRole.AUTHOR) or []
-        author_name = authors[0].name if authors else None
-        print(f"  metadatarr_openlibrary The Hobbit  → olid "
-              f"{book.external_ids.olid} (author={author_name})")
-    else:
-        failures.append("metadatarr_openlibrary")
-
-    info = MetadatarrBookInfoProvider().lookup(
-        Signals(title="The Hobbit", artist="Tolkien", medium=MediaType.BOOK))
-    if info and info.external_ids.goodreads:
-        print(f"  metadatarr_bookinfo    The Hobbit  → goodreads "
-              f"{info.external_ids.goodreads}, "
-              f"isbn13 {info.external_ids.isbn_13}")
-    else:
-        failures.append("metadatarr_bookinfo")
+    _check("arr_radarr",   Signals(title="Inception",  medium=MediaType.MOVIE),
+           "tmdb_movie",   failures)
+    _check("metadatarr",   Signals(title="The Boys",   medium=MediaType.EPISODIC_SERIES),
+           "tvdb",         failures)
+    _check("arr_lidarr",   Signals(title="Random Access Memories", artist="Daft Punk",
+                                   medium=MediaType.MUSIC),
+           "musicbrainz_artist", failures)
+    _check("openlibrary",  Signals(title="The Hobbit", artist="Tolkien",
+                                   medium=MediaType.BOOK),
+           "olid",         failures)
+    _check("annas_archive", Signals(title="The Hobbit", artist="Tolkien",
+                                    medium=MediaType.BOOK),
+           "isbn_13",      failures)
 
     if failures:
-        print(f"FAIL: {', '.join(failures)} returned no ids", file=sys.stderr)
+        print(f"FAIL: {', '.join(failures)}", file=sys.stderr)
         return 1
-    print("PASS: skyhook + radarr-proxy + lidarr-proxy + openlibrary + "
-          "bookinfo all returned ids")
+    print("PASS: all available metadatarr-backed providers returned ids")
     return 0
 
 

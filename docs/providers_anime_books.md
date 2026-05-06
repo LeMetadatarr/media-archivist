@@ -150,15 +150,17 @@ The canonicalizer runs both AniList and Jikan concurrently. They produce
 complementary IDs (`anilist_id` + `mal_id`) on the same canonical record —
 no conflict, just additive enrichment.
 
-For a book-heavy database, stack all three book providers:
+For a book-heavy database, stack all book providers:
 
 ```bash
 media-archivist canonicalize --db-file books.json \
-    --providers metadatarr_openlibrary,metadatarr_bookinfo,google_books
+    --providers openlibrary --providers google_books \
+    --providers annas_archive --providers arr_readarr
 ```
 
-Google Books fills ISBN gaps that OpenLibrary misses and Goodreads doesn't
-expose directly.
+Google Books fills ISBN gaps that OpenLibrary misses; Anna's Archive adds
+`libgen_md5` and additional ISBN-13 coverage; Readarr (if self-hosted) adds
+Goodreads IDs.
 
 ---
 

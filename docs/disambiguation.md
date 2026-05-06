@@ -99,25 +99,15 @@ hits with timestamps + confidence.
 
 ## Built-in providers
 
-All providers ship in core. Missing API keys / endpoint URLs disable
-the corresponding provider at runtime; `media-archivist providers`
-reports which are active.
+All providers live in `metadatarr` and self-register on import. Missing
+API keys or endpoint URLs disable the corresponding provider at runtime;
+`media-archivist providers` reports which are active.
 
-| Provider          | External IDs produced                          | Configuration                            | Cost     |
-| ----------------- | ---------------------------------------------- | ---------------------------------------- | -------- |
-| `musicbrainz`     | recording / release / artist MBIDs             | none (rate-limited free API)             | free     |
-| `wikidata`        | Q-id, IMDb / TMDB / TVDB / MB cross-refs       | none                                     | free     |
-| `tmdb`            | tmdb movie/tv id, IMDb tt, runtime, country, year | `MEDIA_ARCHIVIST_TMDB_KEY`             | free key |
-| `arr_sonarr`      | tvdb, imdb tt, runtime, country                | `MEDIA_ARCHIVIST_SONARR_URL` + `_KEY`    | self-hosted |
-| `arr_radarr`      | tmdb id, imdb tt, runtime, country             | `MEDIA_ARCHIVIST_RADARR_URL` + `_KEY`    | self-hosted |
-| `arr_readarr`     | goodreads, isbn-13                             | `MEDIA_ARCHIVIST_READARR_URL` + `_KEY`   | self-hosted |
-| `arr_lidarr`      | musicbrainz artist + release group             | `MEDIA_ARCHIVIST_LIDARR_URL` + `_KEY`    | self-hosted |
-
-> Planned: dedicated `tvdb`, `openlibrary`, and `imdb` providers
-> (currently reachable via `wikidata` / `tmdb` joins). All other
-> providers are extension points — subclass
-> `metadatarr.resolve.base.MetadataProvider` and call
-> `register()` from your import-side effect.
+For the full table of ~24 providers (MusicBrainz, Wikidata, TMDB, AniList,
+Jikan, Google Books, LibriVox, Apple Podcasts, *arr family, Discogs,
+Blu-ray.com, DVDCompare, OpenLibrary, Anna's Archive, Bandcamp, SoundCloud,
+YouTube/YT Music, Metal Archives, AudioDB, TVMaze, …) and their env-var
+configuration keys, see [metadatarr resolver integration](./metadatarr.md).
 
 ### Provider contract
 

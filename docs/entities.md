@@ -17,26 +17,65 @@ entity_id      sha1(kind:dominant_external)   — per *artist / actor / album / 
 Every layer is independently allocated; an entity exists whether or
 not the works it appears in have been canonicalized yet.
 
-## Entity kinds
+## Two enums: EntityKind and EntityRole
 
-`metadatarr.resolve.entities.EntityKind`:
+Since 0.2, two separate enums serve different purposes.
 
-| Kind        | Typical use                                          |
-| ----------- | ---------------------------------------------------- |
-| `artist`    | Music performers, recording artists, channel hosts.  |
-| `album`     | A grouping of tracks; carries its own external ids (release-group level). |
-| `release`   | A specific release variant of a work (director's cut, regional pressing, fanedit, MusicBrainz release). |
-| `label`     | Record labels, publishing imprints.                  |
-| `channel`   | A YouTube / Bandcamp / SoundCloud profile.           |
-| `actor`     | Cast member of a film / show / drama.                |
-| `director`  | Director or showrunner.                              |
-| `producer`  | Producer credit.                                     |
-| `composer`  | Music composer (film score, song co-write).          |
-| `writer`    | Screenwriter, lyricist.                              |
-| `narrator`  | Audiobook / documentary narrator.                    |
-| `host`      | Podcast / interview host.                            |
-| `author`    | Book author.                                         |
-| `other`     | Anything else; preserved verbatim.                   |
+`mediavocab.EntityKind` — **structural**: what shape the entity record is.
+
+| Kind           | Meaning                                              |
+| -------------- | ---------------------------------------------------- |
+| `PERSON`       | A human being (actor, director, author, narrator, …).|
+| `GROUP`        | An ensemble: band, orchestra, film crew, etc.        |
+| `ORGANISATION` | Label, studio, publisher, distributor, channel.      |
+| `SERIES`       | A franchise or connected series of works.            |
+| `DEVICE`       | Software agent or hardware (rare).                   |
+| `OTHER`        | Anything structurally unclassifiable.                |
+
+`metadatarr.resolve.entities.EntityRole` — **relational**: what role the
+entity plays in a specific work.
+
+| Role          | Typical use                                          |
+| ------------- | ---------------------------------------------------- |
+| `artist`      | Music performer or recording project.                |
+| `album`       | A release-group of tracks (abstract work level).     |
+| `release`     | A specific pressing / variant (MusicBrainz release, fanedit, Discogs pressing). |
+| `label`       | Record label or publishing imprint.                  |
+| `channel`     | A YouTube / Bandcamp / SoundCloud profile.           |
+| `studio`      | Production studio (film, anime).                     |
+| `actor`       | On-screen cast member.                               |
+| `voice_actor` | Voice cast.                                          |
+| `director`    | Director or showrunner.                              |
+| `producer`    | Producer credit.                                     |
+| `composer`    | Music composer (film score, song co-write).          |
+| `writer`      | Screenwriter or lyricist.                            |
+| `narrator`    | Audiobook / documentary narrator.                    |
+| `host`        | Podcast / interview host.                            |
+| `author`      | Book author.                                         |
+| `character`   | Fictional character (anime, film).                   |
+| `other`       | Anything else.                                       |
+
+`ProviderEntity.role` (required) drives which `EntityRole` bucket the entity
+lands in. `ProviderEntity.kind` is optional — if omitted it is auto-derived
+from `role.to_mediavocab_kind()`. — `metadatarr/resolve/entities.py:83`
+
+`EntityRecord` stores both: `role` (the relational label) and `kind` (the
+structural shape). Query helpers accept either axis:
+
+```python
+from media_archivist.entities import entities_by_role, entities_by_kind
+from metadatarr.resolve.entities import EntityRole
+from mediavocab import EntityKind
+
+# All directors (by relational role)
+directors = entities_by_role(sidecar, EntityRole.DIRECTOR)
+
+# All person-shaped entities (by structural kind)
+people = entities_by_kind(sidecar, EntityKind.PERSON)
+```
+
+`entities_by_role` — `media_archivist/entities.py:98`
+`entities_by_kind` — `media_archivist/entities.py:103`
 
 ## Relations on a `CanonicalRecord`
 
@@ -74,7 +113,8 @@ Each `CanonicalRecord.relations` is a `dict[role, list[entity_id]]`.
   "entities": {
     "<entity_id>": {
       "id": "<entity_id>",
-      "kind": "artist",
+      "role": "artist",
+      "kind": "GROUP",
       "name": "Aphex Twin",
       "aliases": ["AFX", "aphex twin"],
       "external_ids": {
@@ -90,24 +130,27 @@ Each `CanonicalRecord.relations` is a `dict[role, list[entity_id]]`.
 }
 ```
 
+`role` is the `EntityRole` value; `kind` is the `EntityKind` (structural
+shape) auto-derived unless explicitly provided by the provider.
+
 ## Allocation rule
 
-`allocate_entity_id(kind, name, external_ids)`:
+`allocate_entity_id(role, *, name, external_ids)` — `metadatarr/resolve/entities.py:214`
 
-1. If the candidate has any *dominant external id* for its kind, the
-   `entity_id` is `sha1("<kind>|ext:<dominant>")`. Two providers
+1. If the candidate has any *dominant external id* for its role, the
+   `entity_id` is `sha1("<role>|ext:<dominant>")`. Two providers
    reporting the same MBID always converge.
-2. Else, `entity_id = sha1("<kind>|name:<normalized>")`. Same name
+2. Else, `entity_id = sha1("<role>|name:<normalized>")`. Same name
    collapses to one entity; the resulting record's `external_ids`
    accumulate as more providers chime in.
 
-The "dominant external id" is per-kind, defined in
-`metadatarr.resolve.entities._dominant_external_id` —
-`metadatarr/resolve/entities.py`. For artists that's MusicBrainz
-first, then Wikidata, then TMDB / IMDb person ids; for actors / directors /
-producers it's TMDB person id first, then IMDb, then Wikidata; for `release`
-it's `musicbrainz_release` first, then `fanedit_id`. The point is to pick
-the most stable identifier each ecosystem owns.
+The "dominant external id" is per-role, defined in
+`_dominant_external_id(ext, role)` — `metadatarr/resolve/entities.py:145`.
+For `artist` that's MusicBrainz first, then metal-archives band id, then
+Wikidata; for `actor` / `director` / `producer` it's TMDB person id first,
+then IMDb, then AniList staff id; for `release` it's `musicbrainz_release`
+first, then `fanedit_id`; for `author` it's OLID first, then Goodreads.
+The point is to pick the most stable identifier each ecosystem owns.
 
 ## Provider contract
 
