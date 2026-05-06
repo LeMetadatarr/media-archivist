@@ -41,7 +41,7 @@ def main() -> int:
         failures.append("metadatarr_radarr")
 
     series = MetadatarrSkyhookProvider().lookup(
-        Signals(title="The Boys", medium=MediaType.TV))
+        Signals(title="The Boys", medium=MediaType.EPISODIC_SERIES))
     if series and series.external_ids.tvdb:
         print(f"  metadatarr_skyhook     The Boys    → tvdb {series.external_ids.tvdb}")
     else:
