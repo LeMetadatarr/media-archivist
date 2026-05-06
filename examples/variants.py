@@ -10,6 +10,7 @@ from typing import List, Optional
 from mediavocab import MediaType
 from metadatarr.resolve.entities import (
     EntityKind,
+    EntityRole,
     ProviderEntity,
     allocate_entity_id,
 )
@@ -111,12 +112,12 @@ print(f"  discogs_release  : {ext.discogs_release}")
 
 
 # ---------------------------------------------------------------------------
-# 6. ProviderEntity with EntityRole.RELEASE
+# 6. ProviderEntity with EntityRole.OTHER
 # ---------------------------------------------------------------------------
-print("\n=== 6. ProviderEntity with EntityRole.RELEASE ===")
+print("\n=== 6. ProviderEntity with EntityRole.OTHER ===")
 
 release_entity = ProviderEntity(
-    role=EntityRole.RELEASE,
+    role=EntityRole.OTHER,
     name="Blade Runner — The Final Cut (Blu-ray, US)",
     external_ids=ExternalIds(
         musicbrainz_release="a1b2c3d4-0000-0000-0000-000000000000",
@@ -132,43 +133,28 @@ print(f"  name: {release_entity.name}")
 # ---------------------------------------------------------------------------
 print("\n=== 7. allocate_entity_id for a RELEASE entity ===")
 
-# With musicbrainz_release → stable, reproducible
+# For variant entities (role=OTHER), allocate_entity_id falls back to
+# the normalised-name seed since OTHER has no dominant external id.
 entity_id = allocate_entity_id(
-    EntityRole.RELEASE,
+    EntityRole.OTHER,
     name=release_entity.name,
     external_ids=release_entity.external_ids,
 )
-entity_id2 = allocate_entity_id(
-    EntityRole.RELEASE,
-    name="anything else",
+entity_id_same = allocate_entity_id(
+    EntityRole.OTHER,
+    name=release_entity.name,
     external_ids=release_entity.external_ids,
 )
-assert entity_id == entity_id2, "dominant external id must produce stable id"
-print(f"  entity_id (musicbrainz_release, stable): {entity_id}")
+assert entity_id == entity_id_same, "same name+role must produce stable id"
+print(f"  entity_id (name-based, stable):  {entity_id}")
 
-# With only fanedit_id → falls back to fanedit_id as dominant
-ext_fanedit = ExternalIds(fanedit_id=99001)
-entity_id_fe = allocate_entity_id(
-    EntityRole.RELEASE,
-    name="Some Fanedit",
-    external_ids=ext_fanedit,
-)
-entity_id_fe2 = allocate_entity_id(
-    EntityRole.RELEASE,
-    name="ignored",
-    external_ids=ext_fanedit,
-)
-assert entity_id_fe == entity_id_fe2
-print(f"  entity_id (fanedit_id, stable):          {entity_id_fe}")
-
-# Without any dominant id → name-based
-ext_none = ExternalIds(imdb="tt0083658")  # imdb not dominant for RELEASE
+ext_none = ExternalIds(imdb="tt0083658")
 entity_id_name = allocate_entity_id(
-    EntityRole.RELEASE,
+    EntityRole.OTHER,
     name="Blade Runner — The Final Cut (Blu-ray, US)",
     external_ids=ext_none,
 )
-print(f"  entity_id (name-based):                  {entity_id_name}")
+print(f"  entity_id (name-based):          {entity_id_name}")
 
 
 # ---------------------------------------------------------------------------
@@ -198,7 +184,7 @@ class FaneditProvider(MetadataProvider):
             return []
         return [
             ProviderEntity(
-                role=EntityRole.RELEASE,
+                role=EntityRole.OTHER,
                 name=f"Blade Runner: Workprint [Fanedit] (from {external_ids.imdb})",
                 external_ids=ExternalIds(
                     fanedit_id=99001,
@@ -214,7 +200,7 @@ provider = FaneditProvider()
 parent_ext = ExternalIds(imdb="tt0083658")
 variants = provider.list_variants(parent_ext)
 assert len(variants) == 1
-assert variants[0].kind == EntityRole.RELEASE
+assert variants[0].kind == EntityKind.OTHER
 print(f"  variant name     : {variants[0].name}")
 print(f"  fanedit_id       : {variants[0].external_ids.fanedit_id}")
 print(f"  derived_from_imdb: {variants[0].external_ids.derived_from_imdb}")

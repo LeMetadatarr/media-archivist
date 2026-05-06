@@ -36,6 +36,7 @@ class CanonicalRecord(BaseModel):
     members: List[str] = Field(default_factory=list)
     external_ids: ExternalIds = Field(default_factory=ExternalIds)
     relations: Dict[EntityRole, List[str]] = Field(default_factory=dict)  # role → entity_ids
+    variants: List[str] = Field(default_factory=list)  # entity_ids of release-variant entities
     provider_log: List[ProviderHit] = Field(default_factory=list)
     created: str = Field(default_factory=_utcnow)
     last_updated: str = Field(default_factory=_utcnow)

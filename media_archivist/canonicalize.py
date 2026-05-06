@@ -372,12 +372,17 @@ def canonicalize(db_path: str, *,
                     eid = upsert_entity(entities, cand)
                     rec.add_relation(role, eid)
                     attach_work(entities, eid, canonical_id)
+            # Variants emitted directly on the match.
+            for variant in (match.variants or []):
+                eid = upsert_entity(entities, variant)
+                if eid not in rec.variants:
+                    rec.variants.append(eid)
+                attach_work(entities, eid, canonical_id)
 
         # Fan out to variant-aware providers when requested.
         # Check both the raw local signals and the consolidated result (a
         # provider match may have set include_variants=True via merged()).
         if local.include_variants or consolidated.include_variants:
-            from metadatarr.resolve.entities import EntityRole as _EK
             variant_eligible = _providers_for(chosen, local.medium, local.content_genres)
             n_workers = min(len(variant_eligible), max_workers)
             with ThreadPoolExecutor(max_workers=n_workers) as pool:
@@ -387,10 +392,9 @@ def canonicalize(db_path: str, *,
                 }
                 for vfut in as_completed(vfuts):
                     for variant in vfut.result():
-                        if variant.role != _EK.RELEASE:
-                            variant = variant.model_copy(update={"role": _EK.RELEASE})
                         eid = upsert_entity(entities, variant)
-                        rec.add_relation(_EK.RELEASE, eid)
+                        if eid not in rec.variants:
+                            rec.variants.append(eid)
                         attach_work(entities, eid, canonical_id)
 
         rec.touch()

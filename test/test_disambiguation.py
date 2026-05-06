@@ -254,8 +254,8 @@ def test_canonicalize_runs_providers_concurrently(tmp_path, stub_registered):
 
 
 def test_canonicalize_fans_out_list_variants(tmp_path, stub_registered):
-    """When signals.include_variants=True, list_variants() results become RELEASE entities."""
-    from media_archivist.canonicalize import load_entities
+    """When signals.include_variants=True, list_variants() results become variant entities."""
+    from media_archivist.canonicalize import load_entities, load_canonical
 
     class _VariantProvider(_StubProvider):
         name = "variant_stub"
@@ -263,7 +263,7 @@ def test_canonicalize_fans_out_list_variants(tmp_path, stub_registered):
         def list_variants(self, external_ids, signals=None):
             return [
                 ProviderEntity(
-                    role=EntityRole.RELEASE,
+                    role=EntityRole.OTHER,
                     name="Director's Cut",
                     external_ids=ExternalIds(fanedit_id=42),
                 )
@@ -286,8 +286,14 @@ def test_canonicalize_fans_out_list_variants(tmp_path, stub_registered):
     canonicalize(str(db_path), providers=["variant_stub"])
 
     entities = load_entities(str(db_path))
-    roles = {e.role for e in entities.entities.values()}
-    assert EntityRole.RELEASE in roles, "RELEASE entity should have been upserted"
+    canonical = load_canonical(str(db_path))
+    # The variant entity should have been upserted and recorded as a
+    # variant on the canonical record.
+    fanedit_entities = [e for e in entities.entities.values()
+                        if e.external_ids.fanedit_id == 42]
+    assert len(fanedit_entities) == 1, "variant entity should have been upserted"
+    rec = next(iter(canonical.records.values()))
+    assert fanedit_entities[0].id in rec.variants
 
 
 def test_id_stability_across_reruns(tmp_path, stub_registered):
