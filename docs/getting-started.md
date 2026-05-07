@@ -298,3 +298,11 @@ Now that you have a working database:
    ```
 
 For full CLI reference, see [CLI Architecture](cli.md).
+
+6. **Run as a service (homelab):** Start the HTTP API with one command and
+   connect Jellyfin, Kodi, or any M3U/RSS client:
+   ```bash
+   docker compose -f deploy/docker-compose.yml up -d
+   ```
+   See [Running as a service](deploy.md) for details on the full HTTP surface,
+   `/strm`, `/m3u`, and `/feed.rss` endpoints.
