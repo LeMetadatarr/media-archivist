@@ -78,7 +78,7 @@ class DatasetCard(BaseModel):
             "---",
             f"name: {self.name}",
             f"license: {self.license}",
-            f"language:",
+            "language:",
         ]
         for lang in self.languages:
             front.append(f"  - {lang}")

@@ -20,7 +20,6 @@ from typing import Dict, Iterable, List, Optional, Sequence
 
 from media_archivist.index import Index
 from media_archivist.models.canonical import MediaEntry
-from media_archivist.models.raw import Source
 
 DEFAULT_DURATION_TOLERANCE_S = 2.0
 DEFAULT_PREFERENCE: Sequence[str] = (

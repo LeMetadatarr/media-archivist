@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from enum import Enum
-from typing import Iterable, List, Sequence, Set, Tuple
+from typing import Sequence, Set, Tuple
 
 from media_archivist.enrich.content_type import classify_youtube_row
 from media_archivist.enrich.lyrics import fetch_bandcamp_lyrics

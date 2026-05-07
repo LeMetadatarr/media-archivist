@@ -24,7 +24,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Optional
 
 from media_archivist.index import Index
 from media_archivist.models.canonical import MediaEntry

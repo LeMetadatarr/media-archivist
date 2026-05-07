@@ -11,7 +11,7 @@ import logging
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from typing import Dict, Iterable, List, Optional, Set
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import urlparse
 
 import requests
 from tutubo.channel import Channel

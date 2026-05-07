@@ -5,7 +5,7 @@ import json
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 from media_archivist.storage import EnvelopeJsonStorage
 

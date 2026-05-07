@@ -8,7 +8,7 @@ optional fields) so callers don't have to spell out every key.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Annotated, Any, List, Literal, Optional, Union
+from typing import Annotated, List, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 

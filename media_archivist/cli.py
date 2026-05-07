@@ -65,7 +65,7 @@ def _validated_args(model_cls, args, **overrides):
         return _cli_args.from_namespace(model_cls, args, **overrides)
     except ValidationError as e:
         msg = "; ".join(err.get("msg", "invalid") for err in e.errors())
-        raise SystemExit(f"error: {msg}")
+        raise SystemExit(f"error: {msg}") from None
 
 
 def _make_archivist(args, *, db_override: Optional[str] = None,
@@ -144,7 +144,7 @@ def _resolve_view(args, *, defaults_grep: bool = True):
             limit=getattr(args, "limit", 0) or 0,
         ))
     except WhereError as e:
-        raise SystemExit(f"error: --where: {e}")
+        raise SystemExit(f"error: --where: {e}") from None
 
 
 def cmd_urls(args) -> int:

@@ -84,7 +84,7 @@ def register_routes(app, *, db_path: str) -> None:
                 has_stream=has_stream, explicit=explicit, limit=limit,
             )
         except WhereError as e:
-            raise HTTPException(status_code=400, detail=f"--where: {e}")
+            raise HTTPException(status_code=400, detail=f"--where: {e}") from None
         return EntryListResponse(total=len(entries), entries=entries)
 
     @app.get("/entries/{entry_id}", response_model=MediaEntry)
@@ -159,7 +159,7 @@ def register_routes(app, *, db_path: str) -> None:
             entries = idx.to_list(source=source, where=where,
                                   has_stream=has_stream, limit=limit)
         except WhereError as e:
-            raise HTTPException(status_code=400, detail=f"--where: {e}")
+            raise HTTPException(status_code=400, detail=f"--where: {e}") from None
         lines = ["#EXTM3U"]
         for e in entries:
             secs = int(e.duration) if e.duration else -1
