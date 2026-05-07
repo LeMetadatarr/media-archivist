@@ -278,6 +278,12 @@ metadatarr and self-register on import. See
 All resolver providers — including `metal_archives` — live in metadatarr.
 There are no media-archivist-specific resolver providers.
 
+The resolver gates providers on three independent axes: `media` (MediaType),
+`modality` (PlaybackModality — AUDIO / VIDEO / TEXT / INTERACTIVE / UNKNOWN),
+and `genre_filter` (genre tag set). Callers constructing `Signals` directly can
+pass `modality=PlaybackModality.AUDIO` to restrict resolution to audio-only
+providers. See [`docs/metadatarr.md`](docs/metadatarr.md#routing) for details.
+
 ## License
 
 Apache-2.0

@@ -31,9 +31,6 @@ apt-get install jq  # or: brew install jq
 Set environment variables for the providers you want to use:
 
 ```bash
-# TMDB (free API key from https://www.themoviedb.org/settings/api)
-export MEDIA_ARCHIVIST_TMDB_KEY="YOUR_TMDB_API_KEY"
-
 # Radarr (movies)
 export MEDIA_ARCHIVIST_RADARR_URL="http://localhost:7878"
 export MEDIA_ARCHIVIST_RADARR_KEY="YOUR_RADARR_API_KEY"
@@ -59,15 +56,10 @@ Find your Arr API keys:
 - **Readarr:** Settings → General → API Key.
 - **Lidarr:** Settings → General → API Key.
 
-Get your TMDB key:
-1. Sign up at https://www.themoviedb.org/settings/api.
-2. Copy your "API Read Access Token (v4 auth)."
-
 Make these persistent (e.g., in `~/.bashrc` or a `.env` file):
 
 ```bash
 # ~/.bashrc or ~/.zshrc
-export MEDIA_ARCHIVIST_TMDB_KEY="..."
 export MEDIA_ARCHIVIST_RADARR_URL="http://localhost:7878"
 export MEDIA_ARCHIVIST_RADARR_KEY="..."
 # ... etc

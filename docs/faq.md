@@ -399,9 +399,6 @@ All `prune` operations are **in-place** (modify the source JSON). Always back up
 **A:** Register a provider by setting environment variables:
 
 ```bash
-# TMDB (The Movie Database) — free API key from https://www.themoviedb.org/settings/api
-export MEDIA_ARCHIVIST_TMDB_KEY="your_tmdb_key_here"
-
 # Sonarr (TV series)
 export MEDIA_ARCHIVIST_SONARR_URL="http://localhost:8989"
 export MEDIA_ARCHIVIST_SONARR_KEY="your_sonarr_api_key"

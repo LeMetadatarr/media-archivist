@@ -27,7 +27,6 @@ or the Arr stack adapters, pass the corresponding env vars:
 docker run -d --name media-archivist \
     -p 8000:8000 \
     -v "$HOME/media-archivist-data:/data" \
-    -e MEDIA_ARCHIVIST_TMDB_KEY=... \
     -e MEDIA_ARCHIVIST_RADARR_URL=http://radarr.local:7878 \
     -e MEDIA_ARCHIVIST_RADARR_KEY=... \
     media-archivist
@@ -51,7 +50,6 @@ cat > ~/.config/systemd/user/media-archivist@.service.d/override.conf <<EOF
 [Service]
 Environment=MEDIA_ARCHIVIST_DB_FILE=/srv/media-archivist/index.json
 Environment=MEDIA_ARCHIVIST_PORT=18000
-Environment=MEDIA_ARCHIVIST_TMDB_KEY=…
 EOF
 systemctl --user daemon-reload
 systemctl --user restart media-archivist@$USER.service

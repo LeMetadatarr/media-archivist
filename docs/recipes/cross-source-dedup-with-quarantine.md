@@ -17,9 +17,7 @@ Merge multiple cross-source indexes while maintaining data integrity by:
 # Install with all backends
 pip install media_archivist[all]
 
-# Configure a provider (or multiple)
-export MEDIA_ARCHIVIST_TMDB_KEY="YOUR_TMDB_KEY"
-# OR wikidata/musicbrainz (free, no config)
+# wikidata / musicbrainz / skyhook are free — no config needed
 ```
 
 ## Step 1: Build a multi-source index

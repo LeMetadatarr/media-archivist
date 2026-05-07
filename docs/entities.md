@@ -33,13 +33,13 @@ Since 0.2, two separate enums serve different purposes.
 | `OTHER`        | Anything structurally unclassifiable.                |
 
 `metadatarr.resolve.entities.EntityRole` — **relational**: what role the
-entity plays in a specific work.
+entity plays in a specific work. Carries only contribution roles; release
+variants live on `ProviderMatch.variants`, not as a relation role.
+— `metadatarr/resolve/entities.py:39`
 
 | Role          | Typical use                                          |
 | ------------- | ---------------------------------------------------- |
 | `artist`      | Music performer or recording project.                |
-| `album`       | A release-group of tracks (abstract work level).     |
-| `release`     | A specific pressing / variant (MusicBrainz release, fanedit, Discogs pressing). |
 | `label`       | Record label or publishing imprint.                  |
 | `channel`     | A YouTube / Bandcamp / SoundCloud profile.           |
 | `studio`      | Production studio (film, anime).                     |
@@ -52,7 +52,6 @@ entity plays in a specific work.
 | `narrator`    | Audiobook / documentary narrator.                    |
 | `host`        | Podcast / interview host.                            |
 | `author`      | Book author.                                         |
-| `character`   | Fictional character (anime, film).                   |
 | `other`       | Anything else.                                       |
 
 `ProviderEntity.role` (required) drives which `EntityRole` bucket the entity

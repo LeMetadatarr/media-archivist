@@ -14,12 +14,11 @@ All providers are opt-in and disabled if their configuration is missing.
 
 ## Built-In Providers
 
-All ~24 built-in providers live in `metadatarr` and self-register on import.
-For the full table — including AniList, Jikan, Google Books, LibriVox, Apple
-Podcasts, Discogs, Blu-ray.com, DVDCompare, OpenLibrary, Anna's Archive,
-Bandcamp, SoundCloud, YouTube/YT Music, Metal Archives, AudioDB, TVMaze, and
-the *arr family — see
-[metadatarr resolver integration](../metadatarr.md).
+All ~22 built-in providers live in `metadatarr` and self-register on import.
+For the full table — including AniList, Jikan, LibriVox, Apple Podcasts,
+Discogs, Blu-ray.com, DVDCompare, OpenLibrary, Anna's Archive, Bandcamp,
+SoundCloud, YouTube/YT Music, Metal Archives, AudioDB, TVMaze, and the *arr
+family — see [metadatarr resolver integration](../metadatarr.md).
 
 The sections below document the most commonly used providers in detail.
 
@@ -27,14 +26,13 @@ The sections below document the most commonly used providers in detail.
 |----------|-------------|--------|-----------|--------------|
 | MusicBrainz (`musicbrainz`) | Music | None (free) | 1 req/s | Always |
 | Wikidata (`wikidata`) | All | None (free) | ~1000 req/hour | Always |
-| TMDB (`tmdb`) | Movie, TV | `TMDB_API_KEY` | 40 req/10s | If key set |
-| Sonarr (`arr_sonarr`) | EPISODIC_SERIES | `SONARR_URL` + `SONARR_API_KEY` | Sonarr instance | If both set |
-| Radarr (`arr_radarr`) | Movie | `RADARR_URL` + `RADARR_API_KEY` | Radarr instance | If both set |
-| Readarr (`arr_readarr`) | Book | `READARR_URL` + `READARR_API_KEY` | Readarr instance | If both set |
-| Lidarr (`arr_lidarr`) | Music | `LIDARR_URL` + `LIDARR_API_KEY` | Lidarr instance | If both set |
+| Skyhook (`skyhook`) | Movie, TV, Music, Book | None (free Servarr proxies) | moderate | Always |
+| Sonarr (`arr_sonarr`) | EPISODIC_SERIES | `MEDIA_ARCHIVIST_SONARR_URL` + `MEDIA_ARCHIVIST_SONARR_KEY` | Sonarr instance | If both set |
+| Radarr (`arr_radarr`) | Movie | `MEDIA_ARCHIVIST_RADARR_URL` + `MEDIA_ARCHIVIST_RADARR_KEY` | Radarr instance | If both set |
+| Readarr (`arr_readarr`) | Book | `MEDIA_ARCHIVIST_READARR_URL` + `MEDIA_ARCHIVIST_READARR_KEY` | Readarr instance | If both set |
+| Lidarr (`arr_lidarr`) | Music | `MEDIA_ARCHIVIST_LIDARR_URL` + `MEDIA_ARCHIVIST_LIDARR_KEY` | Lidarr instance | If both set |
 
-Env-var names for the *arr providers follow the pattern defined in
-`metadatarr/resolve/providers/arr.py`.
+Env-var names for the *arr providers: `metadatarr/resolve/providers/arr.py:75`.
 
 ---
 
@@ -179,112 +177,44 @@ Network errors are logged and return `None`. The provider is always available.
 
 ---
 
-## TMDB
+## Skyhook (Servarr proxy)
 
-**Name:** `tmdb`
+**Name:** `skyhook`
 
-**Media Types:** Movie, TV
+**Media Types:** Movie, TV, Music, Book
 
-**Configuration:** `MEDIA_ARCHIVIST_TMDB_KEY` (required)
+**Configuration:** None required. Uses the same public Servarr metadata proxies
+that Sonarr / Radarr / Lidarr use internally — no API key needed.
+— `metadatarr/resolve/providers/servarr_proxy.py:30`
 
-**Rate Limit:** Depends on API plan (40 req/10s is typical)
+**Backends dispatched internally by medium:**
 
-**Endpoints:**
-- `https://api.themoviedb.org/3/search/movie`
-- `https://api.themoviedb.org/3/search/tv`
-- `https://api.themoviedb.org/3/movie/{id}`
-- `https://api.themoviedb.org/3/tv/{id}`
-
-### Configuration
-
-Set the API key via environment variable:
-
-```bash
-export MEDIA_ARCHIVIST_TMDB_KEY=your_api_key_here
-```
-
-Provider becomes available once key is set.
-
-### Signals Accepted
-
-- `title` (required)
-- `medium` (optional; can auto-detect between movie/tv)
-- `year` (optional; improves search precision)
-- `language` (optional; TMDB language code)
+| Medium | Proxy |
+|---|---|
+| MOVIE | `radarrapi.servarr.com/v1` (TMDB-shaped) |
+| EPISODIC_SERIES | `skyhook.sonarr.tv/v1` (TVDB-shaped) |
+| MUSIC | `api.lidarr.audio/v0.4` (MusicBrainz-shaped) |
+| BOOK | `openlibrary.org` |
 
 ### External IDs Returned
 
-- `tmdb_movie` — TMDB movie ID
-- `tmdb_tv` — TMDB TV series ID
-- `imdb` — IMDb ID (when available)
-- `tvdb` — TVDB series ID (for TV only, when available)
-
-### Confidence Scoring
-
-Popularity-based (from TMDB):
-
-```
-confidence = min(1.0, popularity / 100.0)
-```
-
-Capped at 1.0.
-
-### Lookup Logic (Movie)
-
-1. Search `/search/movie` with title (+ optional year)
-2. Takes the first result
-3. Fetches full movie details with external IDs
-4. Extracts runtime (in minutes, converted to seconds), year, country, language
-
-### Lookup Logic (TV)
-
-1. Search `/search/tv` with title (+ optional year)
-2. Takes the first result
-3. Fetches full series details with external IDs
-4. Extracts episode runtime (if available), year, countries, language
-
-### Auto-Detection (No Medium)
-
-If `medium` is not specified:
-
-1. Query both `/search/movie` and `/search/tv`
-2. Pick the higher-popularity result
-3. Proceed with the matched medium
+- `tvdb` — TVDB series ID (TV)
+- `tmdb_movie` / `tmdb_tv` — TMDB IDs (Movie / TV)
+- `musicbrainz_artist` — MusicBrainz artist ID (Music)
+- `olid` — OpenLibrary work ID (Book)
 
 ### Example
 
 ```python
 from media_archivist.providers import all_providers
+from mediavocab import MediaType
+from mediavocab.models.signals import Signals
 
-tmdb = all_providers()["tmdb"]
-if tmdb.is_available():
-    match = tmdb.lookup(Signals(
-        title="The Matrix",
-        year=1999,
-        medium=MediaType.MOVIE,
-        language="en"
-    ))
-    # Returns: ProviderMatch(
-    #   provider="tmdb",
-    #   confidence=0.8,
-    #   signals=Signals(
-    #       title="The Matrix",
-    #       year=1999,
-    #       runtime=8100.0,  # 135 minutes * 60
-    #       country="US",
-    #       language="en",
-    #       medium=MediaType.MOVIE
-    #   ),
-    #   external_ids=ExternalIds(
-    #       tmdb_movie=603,
-    #       imdb="tt0133093"
-    #   )
-    # )
+skyhook = all_providers()["skyhook"]
+match = skyhook.lookup(Signals(title="The Matrix", year=1999, medium=MediaType.MOVIE))
 ```
 
-### Error Handling
-
-Network errors are logged and return `None`. The provider is disabled if the API key is missing.
+Network errors are logged and return `None`. `is_available()` always returns `True`.
 
 ---
 
@@ -689,9 +619,8 @@ Check `media-archivist providers | jq` output. If `"active": false`, verify conf
 # MusicBrainz (always available)
 media-archivist providers | jq '.[] | select(.name=="musicbrainz")'
 
-# TMDB (needs key)
-echo $MEDIA_ARCHIVIST_TMDB_KEY
-# If empty, set it
+# skyhook (always available — no key needed)
+media-archivist providers | jq '.[] | select(.name=="skyhook")'
 
 # Sonarr (needs URL and key)
 echo $MEDIA_ARCHIVIST_SONARR_URL

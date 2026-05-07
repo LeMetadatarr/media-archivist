@@ -109,6 +109,34 @@ Blu-ray.com, DVDCompare, OpenLibrary, Anna's Archive, Bandcamp, SoundCloud,
 YouTube/YT Music, Metal Archives, AudioDB, TVMaze, …) and their env-var
 configuration keys, see [metadatarr resolver integration](./metadatarr.md).
 
+### Modality routing
+
+Providers declare `modality: ClassVar[Set[PlaybackModality]]` alongside
+`media` and `genre_filter` (mediavocab spec §5.10). All three axes are
+evaluated independently; a provider is skipped if any declared axis does
+not match the request.
+
+`PlaybackModality` (from `mediavocab`) carries: `AUDIO`, `VIDEO`,
+`INTERACTIVE`, `TEXT`, `UNKNOWN`. Examples: `discogs` declares
+`{AUDIO, VIDEO}`; `dvdcompare` and `arr_radarr` declare `{VIDEO}`;
+`librivox`, `audiodb`, and `arr_lidarr` declare `{AUDIO}`;
+`annas_archive` and `arr_readarr` declare `{TEXT}`; `wikidata` and
+`youtube` are universal (empty set).
+
+To restrict a resolve call to audio-only providers:
+
+```python
+from mediavocab import PlaybackModality
+from mediavocab.models.signals import Signals
+
+signals = Signals(title="Kind of Blue", modality=PlaybackModality.AUDIO)
+```
+
+`media_archivist.canonicalize.signals_from_entry()` does not currently
+populate `modality` — the field is `None` on auto-generated signals and
+therefore does not gate any provider. Callers that construct `Signals`
+directly can set it. — `metadatarr/resolve/base.py:118`
+
 ### Provider contract
 
 ```python
