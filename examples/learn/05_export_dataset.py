@@ -33,13 +33,14 @@ def main() -> None:
 
         # Export — every record becomes one row of typed JSON.
         records = []
-        for url, rec in canonical.records.items():
+        for canonical_id, rec in canonical.records.items():
             ids = rec.external_ids.model_dump(exclude_none=True, exclude_defaults=True)
             ids.pop("extra", None)
             records.append({
-                "canonical_id": rec.canonical_id,
-                "url":          url,
+                "canonical_id": canonical_id,
                 "title":        rec.signals.title,
+                "artist":       rec.signals.artist,
+                "medium":       rec.signals.medium.value if rec.signals.medium else None,
                 "external_ids": ids,
             })
 
