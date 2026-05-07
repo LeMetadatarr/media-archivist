@@ -12,7 +12,6 @@ Each recipe is a self-contained tutorial using real `media-archivist` subcommand
 
 4. **[dataset-for-ml.md](./dataset-for-ml.md)** — Produce a HuggingFace `datasets`-loadable JSONL with deterministic train/val/test splits via fingerprint-stable hashing.
 
-5. **[integrate-with-arr-stack.md](./integrate-with-arr-stack.md)** — Point Sonarr/Radarr/Readarr/Lidarr at media_archivist as a metadata enhancer; show env-var setup and canonicalization workflow.
 
 6. **[cross-source-dedup-with-quarantine.md](./cross-source-dedup-with-quarantine.md)** — Full walk through the quarantine workflow: run canonicalize, inspect quarantine-list, resolve and reject rows, re-run canonicalize.
 

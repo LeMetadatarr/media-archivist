@@ -340,6 +340,5 @@ Then repeat the link and dedupe steps. The sidecar files (`.links.json`) are aut
 
 ## See also
 
-- [Integrate with Arr stack](./integrate-with-arr-stack.md) — for video/show/book equivalents with TMDB/TVDB/IMDb.
 - [Canonical view & dedupe](../canonical.md) — deeper dive into fingerprinting and duration tolerance.
 - [`examples/cross_source_dataset.py`](../examples/cross_source_dataset.py) — programmatic equivalent.

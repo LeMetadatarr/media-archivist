@@ -1,17 +1,11 @@
-"""Canonicalize a movie index against the Arr stack + TMDB.
+"""Canonicalize a movie index against keyless movie providers.
 
-Builds a Radarr/TMDB-aware movie dataset:
+Builds a Skyhook/Wikidata-anchored movie dataset:
 
 1. Indexes a YouTube channel of trailers/clips.
-2. Runs `media-archivist canonicalize` against
-   :class:`RadarrProvider` and :class:`TmdbProvider`.
+2. Runs `media-archivist canonicalize` against the Servarr Skyhook
+   proxy plus Wikidata. Both are keyless — no setup, no API tokens.
 3. Lists any quarantined rows for review.
-
-Configuration (any subset works — missing config disables the provider)::
-
-    export MEDIA_ARCHIVIST_TMDB_KEY=...
-    export MEDIA_ARCHIVIST_RADARR_URL=http://localhost:7878
-    export MEDIA_ARCHIVIST_RADARR_KEY=...
 
 Run::
 
@@ -48,7 +42,7 @@ def main() -> int:
     print("==> canonicalizing")
     canonical, quarantine, entities = canonicalize(
         str(DB),
-        providers=["arr_radarr", "tmdb", "wikidata"],
+        providers=["skyhook", "wikidata"],
     )
     print(f"   {len(canonical.records)} canonical records, "
           f"{len(quarantine.entries)} quarantined, "

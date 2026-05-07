@@ -1,9 +1,8 @@
 """Live check: metadatarr-backed providers.
 
-Looks up arr_radarr (movies), arr_sonarr / metadatarr (TV), arr_lidarr
-(music), openlibrary (books), and annas_archive (books) via the provider
-registry. Skips any provider that is not available (missing API key / URL).
-Skips entirely when ``metadatarr`` is not installed.
+Looks up skyhook (movies, TV, music, books), openlibrary (books) and
+annas_archive (books) via the provider registry. All keyless. Skips
+entirely when ``metadatarr`` is not installed.
 """
 from __future__ import annotations
 
@@ -45,16 +44,16 @@ def _check(name: str, signals: Signals, id_field: str,
 def main() -> int:
     failures: list[str] = []
 
-    _check("arr_radarr",   Signals(title="Inception",  medium=MediaType.MOVIE),
-           "tmdb_movie",   failures)
-    _check("skyhook",   Signals(title="The Boys",   medium=MediaType.EPISODIC_SERIES),
-           "tvdb",         failures)
-    _check("arr_lidarr",   Signals(title="Random Access Memories", artist="Daft Punk",
-                                   medium=MediaType.MUSIC),
+    _check("skyhook", Signals(title="Inception", medium=MediaType.MOVIE),
+           "tmdb_movie", failures)
+    _check("skyhook", Signals(title="The Boys", medium=MediaType.EPISODIC_SERIES),
+           "tvdb", failures)
+    _check("skyhook", Signals(title="Random Access Memories", artist="Daft Punk",
+                              medium=MediaType.MUSIC),
            "musicbrainz_artist", failures)
-    _check("openlibrary",  Signals(title="The Hobbit", artist="Tolkien",
-                                   medium=MediaType.BOOK),
-           "olid",         failures)
+    _check("openlibrary", Signals(title="The Hobbit", artist="Tolkien",
+                                  medium=MediaType.BOOK),
+           "olid", failures)
     # annas_archive populates extra["annas_archive_md5"] not a typed isbn field
     _check("annas_archive", Signals(title="The Hobbit", artist="Tolkien",
                                     medium=MediaType.BOOK),

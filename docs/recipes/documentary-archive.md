@@ -297,5 +297,4 @@ ls ~/Videos/documentaries/*.mp4 | sed 's|/home/user|..|' > documentaries.m3u
 ## See also
 
 - [Podcast mirror](./podcast-mirror.md) — for audio-focused collections.
-- [Integrate with Arr stack](./integrate-with-arr-stack.md) — how to use Radarr for more sophisticated movie/doc management.
 - [Storage format](../storage.md) — details on the JSON structure if you want to edit entries manually.

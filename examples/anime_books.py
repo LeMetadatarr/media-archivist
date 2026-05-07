@@ -209,48 +209,26 @@ print(f"  author (flipped) : {author.name}")   # "Kentarou Miura", not "Miura, K
 print(f"  mal_person_id    : {author.external_ids.mal_person_id}")
 
 # ===========================================================================
-# 5. Google Books — book lookup with ISBN + author
+# 5. OpenLibrary — book lookup with OLID + author
 # ===========================================================================
 
 print()
 print("=" * 60)
-print("5. GoogleBooksProvider — book (The Hobbit)")
+print("5. OpenLibraryProvider — book (The Hobbit)")
 print("=" * 60)
 
-import metadatarr.resolve.providers.google_books as _gb_mod
+from metadatarr.resolve.providers.openlibrary import OpenLibraryProvider
 
-_gb_mod.httpx = _make_json_transport({
-    "totalItems": 842,
-    "items": [
-        {
-            "id": "UGmrEAAAQBAJ",
-            "volumeInfo": {
-                "title": "The Hobbit",
-                "authors": ["J.R.R. Tolkien"],
-                "publishedDate": "1937-09-21",
-                "industryIdentifiers": [
-                    {"type": "ISBN_13", "identifier": "9780261102217"},
-                    {"type": "ISBN_10", "identifier": "0261102214"},
-                ],
-                "language": "en",
-            }
-        }
-    ]
-})
-
-from metadatarr.resolve.providers.google_books import GoogleBooksProvider
-
-m5 = GoogleBooksProvider().lookup(Signals(title="The Hobbit", artist="Tolkien",
+m5 = OpenLibraryProvider().lookup(Signals(title="The Hobbit", artist="Tolkien",
                                           medium=MediaType.BOOK))
-assert m5 is not None
+assert m5 is not None, "OpenLibrary returned no match — upstream may be down"
 print(f"  title             : {m5.signals.title}")
-print(f"  google_books_id   : {m5.external_ids.google_books_id}")
+print(f"  olid              : {m5.external_ids.olid}")
 print(f"  isbn_13           : {m5.external_ids.isbn_13}")
 print(f"  isbn_10           : {m5.external_ids.isbn_10}")
 print(f"  language          : {m5.signals.language}")
 print(f"  year              : {m5.signals.year}")
-print(f"  author            : {m5.relations[EntityRole.AUTHOR][0].name}")
-print(f"  confidence        : {m5.confidence}")
+print(f"  confidence        : {m5.confidence:.2f}")
 
 # ===========================================================================
 # 6. MediaType-guard examples
@@ -262,12 +240,11 @@ print("6. MediaType guards — wrong medium returns None")
 print("=" * 60)
 
 from metadatarr.resolve.providers.anilist import AniListProvider
-from metadatarr.resolve.providers.google_books import GoogleBooksProvider
 
 assert AniListProvider().lookup(Signals(title="X", medium=MediaType.MOVIE)) is None
 assert JikanAnimeProvider().lookup(Signals(title="X", medium=MediaType.COMIC, content_genres=["manga"])) is None
 assert JikanMangaProvider().lookup(Signals(title="X", medium=MediaType.EPISODIC_SERIES, content_genres=["anime"])) is None
-assert GoogleBooksProvider().lookup(Signals(title="X", medium=MediaType.EPISODIC_SERIES, content_genres=["anime"])) is None
+assert OpenLibraryProvider().lookup(Signals(title="X", medium=MediaType.EPISODIC_SERIES, content_genres=["anime"])) is None
 print("  All None as expected ✓")
 
 print()
