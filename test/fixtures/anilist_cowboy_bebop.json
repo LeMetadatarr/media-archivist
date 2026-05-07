@@ -1,0 +1,131 @@
+{
+  "data": {
+    "Media": {
+      "id": 1,
+      "title": {
+        "romaji": "Cowboy Bebop",
+        "english": "Cowboy Bebop",
+        "native": "\u30ab\u30a6\u30dc\u30fc\u30a4\u30d3\u30d0\u30c3\u30d7"
+      },
+      "startDate": {
+        "year": 1998
+      },
+      "endDate": {
+        "year": 1999
+      },
+      "episodes": 26,
+      "chapters": null,
+      "volumes": null,
+      "status": "FINISHED",
+      "format": "TV",
+      "genres": [
+        "Action",
+        "Adventure",
+        "Drama",
+        "Sci-Fi"
+      ],
+      "staff": {
+        "edges": [
+          {
+            "role": "Original Creator",
+            "node": {
+              "id": 97197,
+              "name": {
+                "full": "Hajime Yatate"
+              }
+            }
+          },
+          {
+            "role": "Director",
+            "node": {
+              "id": 97009,
+              "name": {
+                "full": "Shinichirou Watanabe"
+              }
+            }
+          },
+          {
+            "role": "Series Composition",
+            "node": {
+              "id": 97334,
+              "name": {
+                "full": "Keiko Nobumoto"
+              }
+            }
+          },
+          {
+            "role": "Literary Arts",
+            "node": {
+              "id": 143033,
+              "name": {
+                "full": "Akira Toba"
+              }
+            }
+          },
+          {
+            "role": "Character Design",
+            "node": {
+              "id": 103531,
+              "name": {
+                "full": "Toshihiro Kawamoto"
+              }
+            }
+          },
+          {
+            "role": "Mechanical Design",
+            "node": {
+              "id": 106476,
+              "name": {
+                "full": "Kimitoshi Yamane"
+              }
+            }
+          },
+          {
+            "role": "Set Design",
+            "node": {
+              "id": 140797,
+              "name": {
+                "full": "Isamu Imakake"
+              }
+            }
+          },
+          {
+            "role": "Setting Design Assistance",
+            "node": {
+              "id": 97501,
+              "name": {
+                "full": "Shouji Kawamori"
+              }
+            }
+          },
+          {
+            "role": "Setting Design Assistance",
+            "node": {
+              "id": 100245,
+              "name": {
+                "full": "Dai Satou"
+              }
+            }
+          },
+          {
+            "role": "Art Director",
+            "node": {
+              "id": 119687,
+              "name": {
+                "full": "Junichi Higashi"
+              }
+            }
+          }
+        ]
+      },
+      "studios": {
+        "nodes": [
+          {
+            "id": 14,
+            "name": "Sunrise"
+          }
+        ]
+      }
+    }
+  }
+}

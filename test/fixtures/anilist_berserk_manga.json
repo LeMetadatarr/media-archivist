@@ -1,0 +1,128 @@
+{
+  "data": {
+    "Media": {
+      "id": 30002,
+      "title": {
+        "romaji": "Berserk",
+        "english": "Berserk",
+        "native": "\u30d9\u30eb\u30bb\u30eb\u30af"
+      },
+      "startDate": {
+        "year": 1989
+      },
+      "endDate": {
+        "year": null
+      },
+      "episodes": null,
+      "chapters": null,
+      "volumes": null,
+      "status": "RELEASING",
+      "format": "MANGA",
+      "genres": [
+        "Action",
+        "Adventure",
+        "Drama",
+        "Fantasy",
+        "Horror",
+        "Psychological"
+      ],
+      "staff": {
+        "edges": [
+          {
+            "role": "Story & Art (vols 1-41)",
+            "node": {
+              "id": 96868,
+              "name": {
+                "full": "Kentarou Miura"
+              }
+            }
+          },
+          {
+            "role": "Story & Art (vols 41- )",
+            "node": {
+              "id": 143994,
+              "name": {
+                "full": "Studio Gaga"
+              }
+            }
+          },
+          {
+            "role": "Supervisor (vols 41- )",
+            "node": {
+              "id": 101748,
+              "name": {
+                "full": "Kouji Mori"
+              }
+            }
+          },
+          {
+            "role": "Translator (Portuguese)",
+            "node": {
+              "id": 220675,
+              "name": {
+                "full": "Drik Sada"
+              }
+            }
+          },
+          {
+            "role": "Translator (English: vols 1-4, 9)",
+            "node": {
+              "id": 221979,
+              "name": {
+                "full": "Jason DeAngelis"
+              }
+            }
+          },
+          {
+            "role": "Translator (English: vols 5-8, 10-)",
+            "node": {
+              "id": 221089,
+              "name": {
+                "full": "Duane Johnson"
+              }
+            }
+          },
+          {
+            "role": "Translator (French)",
+            "node": {
+              "id": 221980,
+              "name": {
+                "full": "David Deleule"
+              }
+            }
+          },
+          {
+            "role": "Translator (French)",
+            "node": {
+              "id": 221981,
+              "name": {
+                "full": "Ren\u00e9-Gilles Deberdt"
+              }
+            }
+          },
+          {
+            "role": "Translator (German: vols 4-)",
+            "node": {
+              "id": 221986,
+              "name": {
+                "full": "John Schmitt-Weigand"
+              }
+            }
+          },
+          {
+            "role": "Translator (Turkish: vols 3-4)",
+            "node": {
+              "id": 275224,
+              "name": {
+                "full": "Alp \u0130lkkur\u015fun"
+              }
+            }
+          }
+        ]
+      },
+      "studios": {
+        "nodes": []
+      }
+    }
+  }
+}

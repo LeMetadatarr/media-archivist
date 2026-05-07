@@ -1,0 +1,15 @@
+name: Build & Test
+on:
+  push:
+    branches: [master, dev]
+  pull_request:
+    branches: [master, dev]
+  workflow_dispatch:
+
+jobs:
+  build_tests:
+    uses: OpenVoiceOS/gh-automations/.github/workflows/build-tests.yml@dev
+    with:
+      python_versions: '["3.10", "3.11", "3.12"]'
+      install_extras: "bandcamp,soundcloud"
+      test_path: "test/"

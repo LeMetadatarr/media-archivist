@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "media_archivist"
+dynamic = ["version"]
+description = "Media indexer for YouTube, YouTube Music, Internet Archive, Bandcamp and SoundCloud — index streams, download on demand"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [{ name = "JarbasAi", email = "jarbasai@mailfence.com" }]
+requires-python = ">=3.9"
+dependencies = [
+    "json_database>=0.3.0",
+    "mediavocab>=0.1.0",
+    "metadatarr>=0.1.0",
+    "internetarchive",
+    "requests",
+    "pydantic>=2",
+    "tqdm",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+hub = ["huggingface_hub"]
+server = ["fastapi", "uvicorn[standard]"]
+all = ["huggingface_hub", "fastapi", "uvicorn[standard]"]
+
+[project.scripts]
+media-archivist = "media_archivist.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/JarbasAl/media_archivist"
+
+[tool.setuptools.dynamic]
+version = { attr = "media_archivist.version.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["media_archivist*"]

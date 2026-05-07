@@ -1,0 +1,54 @@
+{
+  "books": [
+    {
+      "id": "271",
+      "title": "Dracula",
+      "description": "The classic vampire story by Bram Stoker revolves around a struggle between good and evil, tradition and modernity, and lust versus chastity. The author didn\u2019t invent vampires, but his novel has so captured the public\u2019s imagination that he is rightly considered their popularizer. Listen and you will meet not only the Count himself, but heroes Jonathan Harker and Abraham Van Helsing, plus an array of madmen, psychiatrists, and fair maidens who cross paths with the fanged menace. (Summary by Paula)",
+      "url_text_source": "https://www.gutenberg.org/etext/345",
+      "language": "English",
+      "copyright_year": "1897",
+      "num_sections": "27",
+      "url_rss": "https://librivox.org/rss/271",
+      "url_zip_file": "https://archive.org/compress/dracula_librivox/formats=64KBPS MP3&file=/dracula_librivox.zip",
+      "url_project": "https://en.wikipedia.org/wiki/Dracula",
+      "url_librivox": "https://librivox.org/dracula-by-bram-stoker/",
+      "url_other": "",
+      "totaltime": "16:31:09",
+      "totaltimesecs": 59469,
+      "authors": [
+        {
+          "id": "138",
+          "first_name": "Bram",
+          "last_name": "Stoker",
+          "dob": "1847",
+          "dod": "1912"
+        }
+      ]
+    },
+    {
+      "id": "3669",
+      "title": "Dracula's Guest & Other Weird Tales",
+      "description": "Nine Gothic Horror Tales by the author of Dracula.",
+      "url_text_source": "https://www.gutenberg.org/etext/10150",
+      "language": "English",
+      "copyright_year": "1914",
+      "num_sections": "10",
+      "url_rss": "https://librivox.org/rss/3669",
+      "url_zip_file": "https://archive.org/compress/draculas_guest_1003_librivox/formats=64KBPS MP3&file=/draculas_guest_1003_librivox.zip",
+      "url_project": "https://en.wikipedia.org/wiki/Dracula's_Guest_and_Other_Weird_Stories",
+      "url_librivox": "https://librivox.org/draculas-guest-and-other-weird-tales-by-bram-stoker/",
+      "url_other": "",
+      "totaltime": "5:12:18",
+      "totaltimesecs": 18738,
+      "authors": [
+        {
+          "id": "138",
+          "first_name": "Bram",
+          "last_name": "Stoker",
+          "dob": "1847",
+          "dod": "1912"
+        }
+      ]
+    }
+  ]
+}
