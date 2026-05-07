@@ -119,6 +119,51 @@ def test_strm_404_for_unknown_id(client):
     assert r.status_code == 404
 
 
+def test_healthz(client):
+    r = client.get("/healthz")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "ok"
+    assert "version" in body and "db_path" in body
+
+
+def test_providers_lists_registry(client):
+    r = client.get("/providers")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["total"] >= 1
+    names = {p["name"] for p in body["providers"]}
+    assert "musicbrainz" in names or "wikidata" in names
+    for p in body["providers"]:
+        assert isinstance(p["available"], bool)
+        assert isinstance(p["media"], list)
+        assert isinstance(p["modality"], list)
+
+
+def test_canonicalize_unknown_provider_400(client):
+    r = client.post("/canonicalize", json={"providers": ["does_not_exist"]})
+    assert r.status_code == 400
+    assert "unknown provider" in r.json()["detail"]
+
+
+def test_quarantine_list_empty(client):
+    r = client.get("/quarantine")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["total"] == 0
+    assert body["entries"] == []
+
+
+def test_quarantine_accept_unknown_404(client):
+    r = client.post("/quarantine/notarealrow/accept")
+    assert r.status_code == 404
+
+
+def test_quarantine_reject_unknown_404(client):
+    r = client.post("/quarantine/notarealrow/reject")
+    assert r.status_code == 404
+
+
 def test_post_archive_returns_task(client, monkeypatch):
     """POST /archive returns a queued task; we don't wait for it."""
     r = client.post("/archive", json={"url": "https://www.youtube.com/@x"})
