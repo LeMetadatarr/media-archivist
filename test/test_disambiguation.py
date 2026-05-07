@@ -415,6 +415,50 @@ def test_signals_from_entry_keeps_other_for_plain_youtube():
     assert s.medium == MediaType.GENERIC
 
 
+def test_signals_from_entry_derives_modality_from_medium():
+    """Modality is the third routing axis — derived from medium so the
+    resolver gate can filter video-only providers out of audio queries."""
+    from media_archivist.canonicalize import signals_from_entry
+    from media_archivist.models.canonical import MediaEntry
+    from media_archivist.models.raw import Source
+    from mediavocab import PlaybackModality
+
+    # Bandcamp ⇒ MUSIC ⇒ AUDIO
+    s = signals_from_entry(MediaEntry.build(
+        source=Source.BANDCAMP, url="https://x.bandcamp.com/album/y",
+        title="Album", raw={}))
+    assert s.medium == MediaType.MUSIC
+    assert s.modality is PlaybackModality.AUDIO
+
+    # SoundCloud ⇒ MUSIC ⇒ AUDIO
+    s = signals_from_entry(MediaEntry.build(
+        source=Source.SOUNDCLOUD, url="https://soundcloud.com/x/y",
+        title="Track", raw={}))
+    assert s.modality is PlaybackModality.AUDIO
+
+    # YouTube with album metadata ⇒ MUSIC ⇒ AUDIO
+    s = signals_from_entry(MediaEntry.build(
+        source=Source.YOUTUBE, url="https://youtube.com/watch?v=abc",
+        title="Track", album="Album", artist="Artist", duration=240.0,
+        raw={}))
+    assert s.medium == MediaType.MUSIC
+    assert s.modality is PlaybackModality.AUDIO
+
+
+def test_signals_from_entry_leaves_generic_modality_unset():
+    """GENERIC ⇒ modality=None (gating on UNKNOWN would exclude every
+    provider; None means 'no preference' to the gate)."""
+    from media_archivist.canonicalize import signals_from_entry
+    from media_archivist.models.canonical import MediaEntry
+    from media_archivist.models.raw import Source
+
+    s = signals_from_entry(MediaEntry.build(
+        source=Source.YOUTUBE, url="https://youtube.com/watch?v=abc",
+        title="Random Vlog", raw={}))
+    assert s.medium == MediaType.GENERIC
+    assert s.modality is None
+
+
 # ---------------------------------------------------------------------------
 # Improvement #5 — _build_row_id_index is O(1) lookup after single scan
 # ---------------------------------------------------------------------------

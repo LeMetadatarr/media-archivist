@@ -132,10 +132,14 @@ from mediavocab.models.signals import Signals
 signals = Signals(title="Kind of Blue", modality=PlaybackModality.AUDIO)
 ```
 
-`media_archivist.canonicalize.signals_from_entry()` does not currently
-populate `modality` — the field is `None` on auto-generated signals and
-therefore does not gate any provider. Callers that construct `Signals`
-directly can set it. — `metadatarr/resolve/base.py:118`
+`media_archivist.canonicalize.signals_from_entry()` derives `modality`
+from the resolved `medium` via `mediavocab.infer_modality()`:
+`MediaType.MUSIC` → `AUDIO`, `MediaType.MOVIE` → `VIDEO`, etc. Rows whose
+medium is `GENERIC` / `PLAYLIST` / `NOT_MEDIA` leave `modality=None`
+(unspecified) — the gate treats `None` as "no preference," so plain
+YouTube / Internet-Archive rows still fan out to every applicable
+provider until a content-type enrichment pass narrows them.
+— `media_archivist/canonicalize.py:122`, `metadatarr/resolve/base.py:118`
 
 ### Provider contract
 

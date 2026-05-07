@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
-from mediavocab import MediaType
+from mediavocab import MediaType, PlaybackModality, infer_modality
 from media_archivist.entities import (
     attach_work,
     load_entities,
@@ -34,7 +34,6 @@ from media_archivist.models.canonical_record import (
 )
 from metadatarr.resolve.entities import EntitySidecar
 from mediavocab.models import ExternalIds
-from mediavocab import MediaType
 from mediavocab.models.signals import Signals, compare_signals as compare, merge_signals as merged, signal_hash
 from media_archivist.providers import active_providers, all_providers
 from metadatarr.resolve.base import MetadataProvider, ProviderMatch
@@ -120,7 +119,17 @@ _CONTENT_TYPE_TO_MEDIUM: Dict[str, Tuple[MediaType, List[str]]] = {
 
 
 def signals_from_entry(entry: MediaEntry) -> Signals:
-    """Extract a Signals bag from a canonical row."""
+    """Extract a Signals bag from a canonical row.
+
+    The result is a *query* Signals (spec §5.10 role 1): used to gate
+    provider dispatch and seed cross-source consolidation. Modality is
+    derived from the resolved medium via
+    :func:`mediavocab.infer_modality` so the resolver's three-axis gate
+    can route by `(media, modality, content_genres)`. Rows whose medium
+    is GENERIC / PLAYLIST / NOT_MEDIA leave modality unset — they are
+    intentionally underspecified and the consumer's verb (or a later
+    enrichment pass) is expected to fill it in.
+    """
     medium = _SOURCE_TO_MEDIUM.get(entry.source.value, MediaType.GENERIC)
     content_genres: List[str] = []
 
@@ -144,6 +153,16 @@ def signals_from_entry(entry: MediaEntry) -> Signals:
     if medium == MediaType.GENERIC and (entry.album or (entry.artist and entry.duration)):
         medium = MediaType.MUSIC
 
+    # Derive a modality routing hint from the resolved medium. UNKNOWN
+    # (GENERIC / PLAYLIST / NOT_MEDIA) stays None — gating on it would
+    # exclude every provider, and the mediavocab gate treats None as
+    # "no preference."
+    modality = None
+    if medium is not None:
+        inferred = infer_modality(medium)
+        if inferred is not PlaybackModality.UNKNOWN:
+            modality = inferred
+
     raw_year = None
     if entry.published:
         try:
@@ -156,6 +175,7 @@ def signals_from_entry(entry: MediaEntry) -> Signals:
         runtime=entry.duration,
         year=raw_year,
         medium=medium,
+        modality=modality,
         content_genres=content_genres,
     )
 
