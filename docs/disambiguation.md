@@ -118,10 +118,9 @@ not match the request.
 
 `PlaybackModality` (from `mediavocab`) carries: `AUDIO`, `VIDEO`,
 `INTERACTIVE`, `TEXT`, `UNKNOWN`. Examples: `discogs` declares
-`{AUDIO, VIDEO}`; `dvdcompare` and `arr_radarr` declare `{VIDEO}`;
-`librivox`, `audiodb`, and `arr_lidarr` declare `{AUDIO}`;
-`annas_archive` and `arr_readarr` declare `{TEXT}`; `wikidata` and
-`youtube` are universal (empty set).
+`{AUDIO, VIDEO}`; `dvdcompare` declares `{VIDEO}`; `librivox` and
+`audiodb` declare `{AUDIO}`; `annas_archive` declares `{TEXT}`;
+`wikidata` and `youtube` are universal (empty set).
 
 To restrict a resolve call to audio-only providers:
 

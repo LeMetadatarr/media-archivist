@@ -155,12 +155,11 @@ For a book-heavy database, stack all book providers:
 ```bash
 media-archivist canonicalize --db-file books.json \
     --providers openlibrary --providers google_books \
-    --providers annas_archive --providers arr_readarr
+    --providers annas_archive
 ```
 
 Google Books fills ISBN gaps that OpenLibrary misses; Anna's Archive adds
-`libgen_md5` and additional ISBN-13 coverage; Readarr (if self-hosted) adds
-Goodreads IDs.
+`libgen_md5` and additional ISBN-13 coverage.
 
 ---
 

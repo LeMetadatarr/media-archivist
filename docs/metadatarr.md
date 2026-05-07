@@ -33,7 +33,6 @@ media-archivist-specific providers.
 | `jikan_anime` / `jikan_manga` | MyAnimeList Jikan REST | same as AniList | VIDEO / TEXT | `mal_id` |
 | `librivox` | librivox.org/api | AUDIOBOOK | AUDIO | `librivox_id` |
 | `apple_podcasts` | Apple Podcasts iTunes Search | PODCAST / AUDIO_DRAMA | AUDIO | `apple_podcast_id` |
-| `arr_sonarr` / `arr_radarr` / `arr_lidarr` / `arr_readarr` | self-hosted *arr instances (URL + API key required) | EPISODIC_SERIES / MOVIE / MUSIC / BOOK | VIDEO / VIDEO / AUDIO / TEXT | `tvdb`, `tmdb_movie`, `musicbrainz_artist`, `goodreads` |
 | `discogs` | Discogs public API (optional `DISCOGS_TOKEN`) | MOVIE / MUSIC | AUDIO, VIDEO | `discogs_release`, `source_format`, `country` |
 | `bluray_com` | blu-ray.com HTML scraper | MOVIE / EPISODIC_SERIES | * | `bluray_com_id`, `source_format="Blu-ray"` |
 | `dvdcompare` | dvdcompare.net HTML scraper | MOVIE / EPISODIC_SERIES | VIDEO | `dvdcompare_id`, `imdb`, `edition`, `region` |
@@ -46,7 +45,7 @@ media-archivist-specific providers.
 
 `*` in Modality means the provider's `modality` set is empty — it accepts requests with any or no modality declared.
 
-Provider source: `metadatarr/resolve/providers/` — `servarr_proxy.py`, `arr.py`, etc.
+Provider source: `metadatarr/resolve/providers/` — `servarr_proxy.py`, etc.
 There is no standalone `tmdb` provider; TMDB-shaped data for movies / series comes
 through `skyhook` (`ServarrProxyProvider`) — `metadatarr/resolve/providers/servarr_proxy.py:30`.
 

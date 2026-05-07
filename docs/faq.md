@@ -396,25 +396,9 @@ All `prune` operations are **in-place** (modify the source JSON). Always back up
 
 ### Q: How do I set up TMDB / TVDB / IMDb lookups?
 
-**A:** Register a provider by setting environment variables:
-
-```bash
-# Sonarr (TV series)
-export MEDIA_ARCHIVIST_SONARR_URL="http://localhost:8989"
-export MEDIA_ARCHIVIST_SONARR_KEY="your_sonarr_api_key"
-
-# Radarr (movies)
-export MEDIA_ARCHIVIST_RADARR_URL="http://localhost:7878"
-export MEDIA_ARCHIVIST_RADARR_KEY="your_radarr_api_key"
-
-# Readarr (books)
-export MEDIA_ARCHIVIST_READARR_URL="http://localhost:8787"
-export MEDIA_ARCHIVIST_READARR_KEY="your_readarr_api_key"
-
-# Lidarr (music)
-export MEDIA_ARCHIVIST_LIDARR_URL="http://localhost:8686"
-export MEDIA_ARCHIVIST_LIDARR_KEY="your_lidarr_api_key"
-```
+**A:** The keyless `skyhook` provider (Servarr's public proxy) covers
+TMDB / TVDB / IMDb / MusicBrainz / OpenLibrary cross-references for
+movies, TV, music, and books out of the box — no env vars required.
 
 Then run `canonicalize`:
 

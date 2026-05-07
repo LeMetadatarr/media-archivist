@@ -20,15 +20,12 @@ DB plus all sidecars (`<db>.canonical.json`, `<db>.quarantine.json`,
 `<db>.tasks.json`, `<db>.links.json`).
 
 `yt-dlp` is preinstalled so transcript enrichment works out of the
-box. To enable Hugging Face publishing, MusicBrainz / TMDB lookups,
-or the Arr stack adapters, pass the corresponding env vars:
+box.
 
 ```bash
 docker run -d --name media-archivist \
     -p 8000:8000 \
     -v "$HOME/media-archivist-data:/data" \
-    -e MEDIA_ARCHIVIST_RADARR_URL=http://radarr.local:7878 \
-    -e MEDIA_ARCHIVIST_RADARR_KEY=... \
     media-archivist
 ```
 

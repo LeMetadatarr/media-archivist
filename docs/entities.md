@@ -161,10 +161,6 @@ Providers populate roles they actually return:
 | `musicbrainz`    | `artist`, `album`                                |
 | `tmdb` (movie)   | `actor` (top 20), `director`, `producer`, `writer`, `composer` |
 | `tmdb` (tv)      | `actor` (top 20), `director` (creators), `producer`, `writer`, `composer` |
-| `arr_radarr`     | (delegates to tmdb)                              |
-| `arr_sonarr`     | (delegates to tmdb)                              |
-| `arr_lidarr`     | `artist`, `album`                                |
-| `arr_readarr`    | `author`                                         |
 | `wikidata`       | (currently work-level only; cross-refs go into `external_ids`) |
 
 Third-party providers extend the same shape — see
