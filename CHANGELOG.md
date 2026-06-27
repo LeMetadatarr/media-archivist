@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.1a2](https://github.com/TigreGotico/media-archivist/tree/0.1.1a2) (2026-06-27)
+
+[Full Changelog](https://github.com/TigreGotico/media-archivist/compare/0.1.1a1...0.1.1a2)
+
+**Merged pull requests:**
+
+- chore: migrate to mediavocab 1.0 [\#10](https://github.com/TigreGotico/media-archivist/pull/10) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.1.1a1](https://github.com/TigreGotico/media-archivist/tree/0.1.1a1) (2026-05-07)
 
 [Full Changelog](https://github.com/TigreGotico/media-archivist/compare/0.1.0...0.1.1a1)
