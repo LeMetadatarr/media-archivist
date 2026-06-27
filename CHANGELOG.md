@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.1a3](https://github.com/TigreGotico/media-archivist/tree/0.1.1a3) (2026-06-27)
+
+[Full Changelog](https://github.com/TigreGotico/media-archivist/compare/0.1.1a2...0.1.1a3)
+
+**Merged pull requests:**
+
+- chore: add LICENSE, fix repo URLs, drop duplicate license workflow [\#13](https://github.com/TigreGotico/media-archivist/pull/13) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.1.1a2](https://github.com/TigreGotico/media-archivist/tree/0.1.1a2) (2026-06-27)
 
 [Full Changelog](https://github.com/TigreGotico/media-archivist/compare/0.1.1a1...0.1.1a2)
