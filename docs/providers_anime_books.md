@@ -12,7 +12,7 @@ key, no environment variables, and no self-hosted services.
 
 **Source**: [anilist.co](https://anilist.co) — GraphQL API, 90 req/min, no key.
 
-**Media**: `MediaType.EPISODIC_SERIES (with content_genres=["anime"])`, `MediaType.COMIC + content_genres=["manga"]`
+**Media**: `MediaType.EPISODIC_SERIES + content_genres=["anime"]`, `MediaType.COMIC + content_genres=["manga"]`
 
 ### What it returns
 
@@ -39,7 +39,7 @@ from metadatarr.resolve.providers.anilist import AniListProvider
 from mediavocab import Signals
 
 p = AniListProvider()
-m = p.lookup(Signals(title="Cowboy Bebop", medium=MediaType.EPISODIC_SERIES (with content_genres=["anime"])))
+m = p.lookup(Signals(title="Cowboy Bebop", medium=MediaType.EPISODIC_SERIES, content_genres=["anime"]))
 print(m.external_ids.anilist_id)          # 1
 print(m.signals.year)                     # 1998
 print(m.relations["director"][0].name)    # Shinichirou Watanabe
@@ -53,7 +53,7 @@ print(m.relations["studio"][0].name)      # Sunrise
 **Source**: [api.jikan.moe](https://docs.api.jikan.moe/) — unofficial MAL REST
 proxy, 3 req/s / 60 req/min, no key.
 
-**Media**: `jikan_anime` → `MediaType.EPISODIC_SERIES (with content_genres=["anime"])`; `jikan_manga` → `MediaType.COMIC + content_genres=["manga"]`
+**Media**: `jikan_anime` → `MediaType.EPISODIC_SERIES + content_genres=["anime"]`; `jikan_manga` → `MediaType.COMIC + content_genres=["manga"]`
 
 Jikan mirrors MyAnimeList data, the largest community anime/manga database.
 Use it alongside AniList: both providers run concurrently and the canonicalizer
@@ -82,7 +82,7 @@ from metadatarr.resolve.providers.jikan import JikanAnimeProvider, JikanMangaPro
 from mediavocab import Signals
 
 anime = JikanAnimeProvider()
-m = anime.lookup(Signals(title="Cowboy Bebop", medium=MediaType.EPISODIC_SERIES (with content_genres=["anime"])))
+m = anime.lookup(Signals(title="Cowboy Bebop", medium=MediaType.EPISODIC_SERIES, content_genres=["anime"]))
 print(m.external_ids.mal_id)              # 1
 print(m.external_ids.extra["title_japanese"])  # カウボーイビバップ
 
@@ -163,11 +163,14 @@ Google Books fills ISBN gaps that OpenLibrary misses; Anna's Archive adds
 
 ---
 
-## Not yet implemented (see README roadmap)
+## Sources without a built-in provider
 
-| Provider | Blocker |
+These catalogues fall outside the zero-setup, keyless model and have no
+built-in provider; the table records why:
+
+| Source | Reason |
 |---|---|
-| OpenCritic (`game`) | RapidAPI key required — originally assumed keyless |
+| OpenCritic (`game`) | RapidAPI key required |
 | RAWG (`game`) | Free key required |
 | Audnexus (`audiobook`) | Lookup-only (ASIN), no search endpoint |
 | Trakt (`movie`, `tv`) | API key required for all endpoints |

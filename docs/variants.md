@@ -43,7 +43,7 @@ Values are grouped by the medium they typically apply to:
 | `remastered`| Remastered audio or video; same content, new transfer. |
 | `other`     | Any variant not covered above.                         |
 
-## New `Signals` fields
+## `Signals` fields
 
 `mediavocab.Signals`
 
@@ -86,7 +86,7 @@ The dominant external id for `RELEASE` is resolved in
 1. `musicbrainz_release` (MusicBrainz release MBID)
 2. `fanedit_id` (IFDB WordPress post ID) — used when no MB release exists
 
-## New `ExternalIds` fields
+## `ExternalIds` fields
 
 `mediavocab.ExternalIds`
 
