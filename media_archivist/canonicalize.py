@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
-from mediavocab import MediaType, PlaybackModality, infer_modality
+from mediavocab import MediaType, PlaybackType, infer_playback_type
 from media_archivist.entities import (
     attach_work,
     load_entities,
@@ -124,9 +124,9 @@ def signals_from_entry(entry: MediaEntry) -> Signals:
     The result is a *query* Signals (spec §5.10 role 1): used to gate
     provider dispatch and seed cross-source consolidation. Modality is
     derived from the resolved medium via
-    :func:`mediavocab.infer_modality` so the resolver's three-axis gate
-    can route by `(media, modality, content_genres)`. Rows whose medium
-    is GENERIC / PLAYLIST / NOT_MEDIA leave modality unset — they are
+    :func:`mediavocab.infer_playback_type` so the resolver's routing gate
+    can route by `(media, playback_type, content_genres)`. Rows whose medium
+    is GENERIC / PLAYLIST / NOT_MEDIA leave playback_type unset — they are
     intentionally underspecified and the consumer's verb (or a later
     enrichment pass) is expected to fill it in.
     """
@@ -153,15 +153,15 @@ def signals_from_entry(entry: MediaEntry) -> Signals:
     if medium == MediaType.GENERIC and (entry.album or (entry.artist and entry.duration)):
         medium = MediaType.MUSIC
 
-    # Derive a modality routing hint from the resolved medium. UNKNOWN
+    # Derive a playback_type routing hint from the resolved medium. UNKNOWN
     # (GENERIC / PLAYLIST / NOT_MEDIA) stays None — gating on it would
     # exclude every provider, and the mediavocab gate treats None as
     # "no preference."
-    modality = None
+    playback_type = None
     if medium is not None:
-        inferred = infer_modality(medium)
-        if inferred is not PlaybackModality.UNKNOWN:
-            modality = inferred
+        inferred = infer_playback_type(medium)
+        if inferred is not PlaybackType.UNKNOWN:
+            playback_type = inferred
 
     raw_year = None
     if entry.published:
@@ -175,7 +175,7 @@ def signals_from_entry(entry: MediaEntry) -> Signals:
         runtime=entry.duration,
         year=raw_year,
         medium=medium,
-        modality=modality,
+        playback_type=playback_type,
         content_genres=content_genres,
     )
 
