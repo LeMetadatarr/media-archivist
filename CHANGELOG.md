@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.1a4](https://github.com/TigreGotico/media-archivist/tree/0.1.1a4) (2026-06-27)
+
+[Full Changelog](https://github.com/TigreGotico/media-archivist/compare/0.1.1a3...0.1.1a4)
+
+**Merged pull requests:**
+
+- docs: timeless documentation cleanup [\#15](https://github.com/TigreGotico/media-archivist/pull/15) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.1.1a3](https://github.com/TigreGotico/media-archivist/tree/0.1.1a3) (2026-06-27)
 
 [Full Changelog](https://github.com/TigreGotico/media-archivist/compare/0.1.1a2...0.1.1a3)
