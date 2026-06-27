@@ -46,6 +46,71 @@ class EntryListResponse(BaseModel):
     entries: List[MediaEntry]
 
 
+class HealthResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["ok"] = "ok"
+    version: str
+    db_path: str
+
+
+class ProviderInfo(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    available: bool
+    media: List[str] = Field(default_factory=list)
+    modality: List[str] = Field(default_factory=list)
+    genre_filter: List[str] = Field(default_factory=list)
+
+
+class ProvidersResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    total: int
+    active: int
+    providers: List[ProviderInfo]
+
+
+class CanonicalizeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    providers: Optional[List[str]] = None
+    stamp_rows: bool = True
+    max_workers: int = 8
+
+
+class CanonicalizeResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    canonical_records: int
+    quarantined: int
+    entities: int
+
+
+class QuarantineConflict(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    row_id: str
+    candidate_canonical_id: Optional[str] = None
+    conflicts: List[str] = Field(default_factory=list)
+
+
+class QuarantineListResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    total: int
+    entries: List[QuarantineConflict]
+
+
+class QuarantineDecisionResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    row_id: str
+    decision: Literal["accept", "reject"]
+    ok: bool
+
+
 class StatsResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
