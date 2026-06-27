@@ -421,20 +421,20 @@ def test_signals_from_entry_derives_modality_from_medium():
     from media_archivist.canonicalize import signals_from_entry
     from media_archivist.models.canonical import MediaEntry
     from media_archivist.models.raw import Source
-    from mediavocab import PlaybackModality
+    from mediavocab import PlaybackType
 
     # Bandcamp ⇒ MUSIC ⇒ AUDIO
     s = signals_from_entry(MediaEntry.build(
         source=Source.BANDCAMP, url="https://x.bandcamp.com/album/y",
         title="Album", raw={}))
     assert s.medium == MediaType.MUSIC
-    assert s.modality is PlaybackModality.AUDIO
+    assert s.playback_type is PlaybackType.AUDIO
 
     # SoundCloud ⇒ MUSIC ⇒ AUDIO
     s = signals_from_entry(MediaEntry.build(
         source=Source.SOUNDCLOUD, url="https://soundcloud.com/x/y",
         title="Track", raw={}))
-    assert s.modality is PlaybackModality.AUDIO
+    assert s.playback_type is PlaybackType.AUDIO
 
     # YouTube with album metadata ⇒ MUSIC ⇒ AUDIO
     s = signals_from_entry(MediaEntry.build(
@@ -442,7 +442,7 @@ def test_signals_from_entry_derives_modality_from_medium():
         title="Track", album="Album", artist="Artist", duration=240.0,
         raw={}))
     assert s.medium == MediaType.MUSIC
-    assert s.modality is PlaybackModality.AUDIO
+    assert s.playback_type is PlaybackType.AUDIO
 
 
 def test_signals_from_entry_leaves_generic_modality_unset():
@@ -456,7 +456,7 @@ def test_signals_from_entry_leaves_generic_modality_unset():
         source=Source.YOUTUBE, url="https://youtube.com/watch?v=abc",
         title="Random Vlog", raw={}))
     assert s.medium == MediaType.GENERIC
-    assert s.modality is None
+    assert s.playback_type is None
 
 
 # ---------------------------------------------------------------------------

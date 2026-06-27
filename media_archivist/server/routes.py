@@ -9,14 +9,29 @@ from __future__ import annotations
 import asyncio
 from typing import List, Optional
 
-from media_archivist.canonicalize import load_canonical, load_quarantine
+from media_archivist.canonicalize import (
+    canonicalize as run_canonicalize,
+    load_canonical,
+    load_quarantine,
+    quarantine_reject,
+    quarantine_resolve,
+)
 from media_archivist.index import Index, WhereError
 from media_archivist.models.api import (
     ArchiveRequest,
+    CanonicalizeRequest,
+    CanonicalizeResponse,
     EntryListResponse,
+    HealthResponse,
+    ProviderInfo,
+    ProvidersResponse,
+    QuarantineConflict,
+    QuarantineDecisionResponse,
+    QuarantineListResponse,
     StatsResponse,
     Task,
 )
+from media_archivist.providers import all_providers
 from media_archivist.models.canonical import MediaEntry
 from media_archivist.server.scheduler import Scheduler
 from media_archivist.version import __version__
@@ -168,6 +183,78 @@ def register_routes(app, *, db_path: str) -> None:
             lines.append(f"#EXTINF:{secs},{artist} - {title}".rstrip(" -"))
             lines.append(e.stream or e.url)
         return PlainTextResponse("\n".join(lines), media_type="audio/x-mpegurl")
+
+    @app.get("/healthz", response_model=HealthResponse)
+    def healthz() -> HealthResponse:
+        return HealthResponse(version=__version__, db_path=db_path)
+
+    @app.get("/providers", response_model=ProvidersResponse)
+    def providers() -> ProvidersResponse:
+        registry = all_providers()
+        infos: List[ProviderInfo] = []
+        for name, p in sorted(registry.items()):
+            try:
+                avail = bool(p.is_available())
+            except Exception:
+                avail = False
+            infos.append(ProviderInfo(
+                name=name,
+                available=avail,
+                media=sorted(getattr(m, "value", str(m)) for m in (p.media or set())),
+                modality=sorted(getattr(m, "value", str(m)) for m in (getattr(p, "modality", set()) or set())),
+                genre_filter=sorted(p.genre_filter or set()),
+            ))
+        return ProvidersResponse(
+            total=len(infos),
+            active=sum(1 for i in infos if i.available),
+            providers=infos,
+        )
+
+    @app.post("/canonicalize", response_model=CanonicalizeResponse)
+    async def canonicalize_endpoint(request: CanonicalizeRequest) -> CanonicalizeResponse:
+        try:
+            canonical, quarantine, entities = await asyncio.to_thread(
+                run_canonicalize,
+                db_path,
+                providers=request.providers,
+                stamp_rows=request.stamp_rows,
+                max_workers=request.max_workers,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from None
+        return CanonicalizeResponse(
+            canonical_records=len(canonical.records),
+            quarantined=len(quarantine.entries),
+            entities=len(entities.entities),
+        )
+
+    @app.get("/quarantine", response_model=QuarantineListResponse)
+    def quarantine_list() -> QuarantineListResponse:
+        sidecar = load_quarantine(db_path)
+        entries = [
+            QuarantineConflict(
+                row_id=qe.row_id,
+                candidate_canonical_id=qe.candidate_canonical_id,
+                conflicts=list(qe.conflicts or []),
+            )
+            for qe in sidecar.entries.values()
+        ]
+        return QuarantineListResponse(total=len(entries), entries=entries)
+
+    @app.post("/quarantine/{row_id}/accept", response_model=QuarantineDecisionResponse)
+    def quarantine_accept(row_id: str,
+                          canonical_id: Optional[str] = None) -> QuarantineDecisionResponse:
+        ok = quarantine_resolve(db_path, row_id, canonical_id=canonical_id)
+        if not ok:
+            raise HTTPException(status_code=404, detail="row not in quarantine")
+        return QuarantineDecisionResponse(row_id=row_id, decision="accept", ok=True)
+
+    @app.post("/quarantine/{row_id}/reject", response_model=QuarantineDecisionResponse)
+    def quarantine_reject_route(row_id: str) -> QuarantineDecisionResponse:
+        ok = quarantine_reject(db_path, row_id)
+        if not ok:
+            raise HTTPException(status_code=404, detail="row not in quarantine")
+        return QuarantineDecisionResponse(row_id=row_id, decision="reject", ok=True)
 
     @app.get("/stats", response_model=StatsResponse)
     def stats() -> StatsResponse:

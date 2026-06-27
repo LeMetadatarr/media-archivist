@@ -1,0 +1,23 @@
+services:
+  media-archivist:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: media-archivist:latest
+    container_name: media-archivist
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - media-archivist-data:/data
+    environment:
+      MEDIA_ARCHIVIST_DB_FILE: /data/index.json
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  media-archivist-data:

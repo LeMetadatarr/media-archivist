@@ -86,6 +86,40 @@ DBs are plain JSON — edit, back up, version-control, share. With `--db NAME` t
 file is managed under XDG via
 [`json_database`](https://github.com/OpenJarbas/json_database).
 
+## Homelab / HTTP service
+
+`media-archivist serve` exposes a FastAPI HTTP API on port 8000. The Docker
+image includes `yt-dlp` and stores everything under `/data`.
+
+```bash
+# One command brings up the service with a persistent named volume,
+# automatic restart-on-reboot, and a /healthz healthcheck.
+docker compose -f deploy/docker-compose.yml up -d
+```
+
+The service is **single-tenant, no authentication**. It is designed to run
+on your LAN or behind your existing reverse proxy (Caddy, Traefik, nginx).
+Do not expose port 8000 directly to the internet.
+
+### Integration endpoints
+
+| Endpoint | Purpose |
+| -------- | ------- |
+| `GET /strm/{id}` | Returns playable URL as `text/plain` — drop into `.strm` files for Jellyfin / Kodi. |
+| `GET /m3u` | M3U playlist of stream URLs. Accepts `source`, `where`, `has_stream`, `limit`. |
+| `GET /feed.rss` | RSS feed for podcast clients or Freshrss. Accepts `limit`. |
+| `GET /healthz` | Liveness check for Uptime Kuma, Docker, k8s. Returns `{status, version, db_path}`. |
+| `GET /providers` | Inspect which metadatarr providers are active (`available`, `media`, `modality`, `genre_filter`). |
+| `POST /canonicalize` | Run the resolver against the DB. Body: `{providers?, stamp_rows?, max_workers?}`. |
+| `GET /quarantine` | List entries the resolver could not confidently match. |
+| `POST /quarantine/{id}/accept` | Accept a quarantined row (optional `?canonical_id=` to link). |
+| `POST /quarantine/{id}/reject` | Reject and force a fresh canonical_id. |
+| `GET /docs` | Auto-generated OpenAPI / Swagger UI. |
+
+See [`docs/deploy.md`](docs/deploy.md) for the full route table, Systemd
+unit, and reverse-proxy tips. For Jellyfin `.strm` export see
+[`docs/jellyfin.md`](docs/jellyfin.md).
+
 ## Building datasets
 
 `media_archivist` is metadata-only: it indexes streams; downloads happen on
