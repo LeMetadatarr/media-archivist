@@ -309,9 +309,6 @@ SoundCloud, YouTube / YouTube Music, Metal Archives, …) all live in
 metadatarr and self-register on import. See
 [`docs/metadatarr.md`](docs/metadatarr.md) for the full table.
 
-All resolver providers — including `metal_archives` — live in metadatarr.
-There are no media-archivist-specific resolver providers.
-
 The resolver gates providers on three independent axes: `media` (MediaType),
 `modality` (PlaybackModality — AUDIO / VIDEO / TEXT / INTERACTIVE / UNKNOWN),
 and `genre_filter` (genre tag set). Callers constructing `Signals` directly can

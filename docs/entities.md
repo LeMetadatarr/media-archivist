@@ -19,7 +19,7 @@ not the works it appears in have been canonicalized yet.
 
 ## Two enums: EntityKind and EntityRole
 
-Since 0.2, two separate enums serve different purposes.
+Two separate enums serve different purposes.
 
 `mediavocab.EntityKind` — **structural**: what shape the entity record is.
 
@@ -99,7 +99,7 @@ Each `CanonicalRecord.relations` is a `dict[role, list[entity_id]]`.
 <db>.json                 raw rows
 <db>.canonical.json       work records (gain `relations`)
 <db>.quarantine.json      pending review
-<db>.entities.json        entities (NEW)
+<db>.entities.json        entities
 <db>.links.json           fingerprint clusters
 <db>.tasks.json           server scheduler state
 ```

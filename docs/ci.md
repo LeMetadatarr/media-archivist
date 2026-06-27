@@ -2,7 +2,7 @@
 
 The repository delegates to the
 [`OpenVoiceOS/gh-automations`](https://github.com/OpenVoiceOS/gh-automations)
-reusable workflows (pinned to `@dev`) so we don't carry per-repo CI logic.
+reusable workflows (pinned to `@dev`) rather than per-repo CI logic.
 
 | Workflow | File | Triggered by | Purpose |
 | --- | --- | --- | --- |

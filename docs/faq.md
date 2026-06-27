@@ -359,11 +359,9 @@ media-archivist import --db-file my.json yt-dlp-export.jsonl
 
 However, the schema differs from `media_archivist`'s raw models, so some fields may be lost. For best results, use `media-archivist add` directly.
 
-### Q: How do I migrate from an old database format?
+### Q: I have a flat JSON mapping — can media_archivist read it?
 
-**A:** There is no "old" format — `media_archivist` is pre-1.0, so there are no legacy databases in the wild yet.
-
-However, if you have a flat JSON mapping (`{url: {title, ...}, ...}`) from an earlier version, `media_archivist` loads it transparently and rewrites it as the envelope format on the next `store()`:
+**A:** Yes. A flat JSON mapping (`{url: {title, ...}, ...}`) loads transparently and is rewritten as the envelope format on the next `store()`:
 
 ```python
 from media_archivist.storage import EnvelopeJsonStorage
@@ -508,7 +506,7 @@ Include:
 
 ### Q: Where's the development roadmap?
 
-**A:** See [Roadmap](roadmap.md). The project is pre-1.0; v0.3.5 (canonicalization & external IDs) is in progress.
+**A:** See [Roadmap](roadmap.md) for planned features.
 
 ### Q: Can I use this library in my project?
 
