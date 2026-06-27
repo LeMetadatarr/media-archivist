@@ -12,7 +12,7 @@ authors = [{ name = "JarbasAi", email = "jarbasai@mailfence.com" }]
 requires-python = ">=3.9"
 dependencies = [
     "json_database>=0.3.0",
-    "mediavocab>=0.1.0",
+    "mediavocab>=1.0.0",
     "metadatarr>=0.1.0",
     "internetarchive",
     "requests",
@@ -30,7 +30,8 @@ all = ["huggingface_hub", "fastapi", "uvicorn[standard]"]
 media-archivist = "media_archivist.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/JarbasAl/media_archivist"
+Homepage = "https://github.com/TigreGotico/media-archivist"
+Repository = "https://github.com/TigreGotico/media-archivist"
 
 [tool.setuptools.dynamic]
 version = { attr = "media_archivist.version.__version__" }

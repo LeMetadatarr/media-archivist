@@ -59,8 +59,7 @@ media_archivist/
   pointing at the server's `/strm/<id>` endpoint.
 - [CLI architecture](./cli.md) — subcommand reference, validation rules.
 - [CI / release automation](./ci.md) — workflows and branching model.
-- [Roadmap](./roadmap.md) — phased plan to v1.0 (mirrors
-  `~/.claude/plans/plan-a-full-roadmap-gleaming-ripple.md`).
+- [Roadmap](./roadmap.md) — planned features not yet shipped.
 - **[Reference Documentation](./reference/index.md)** — exhaustive technical reference: CLI, SDK, data models, WHERE language, providers, file formats.
 
 ## Design principles

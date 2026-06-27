@@ -341,4 +341,4 @@ Then repeat the link and dedupe steps. The sidecar files (`.links.json`) are aut
 ## See also
 
 - [Canonical view & dedupe](../canonical.md) — deeper dive into fingerprinting and duration tolerance.
-- [`examples/cross_source_dataset.py`](../examples/cross_source_dataset.py) — programmatic equivalent.
+- [`examples/cross_source_dataset.py`](../../examples/cross_source_dataset.py) — programmatic equivalent.

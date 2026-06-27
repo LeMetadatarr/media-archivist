@@ -1,12 +1,36 @@
 # Changelog
 
-## [0.1.0a2](https://github.com/TigreGotico/media-archivist/tree/0.1.0a2) (2026-05-07)
+## [0.1.1a4](https://github.com/TigreGotico/media-archivist/tree/0.1.1a4) (2026-06-27)
 
-[Full Changelog](https://github.com/TigreGotico/media-archivist/compare/a642b6baf3a810e0b51932c563324fc2f5a9ea9c...0.1.0a2)
+[Full Changelog](https://github.com/TigreGotico/media-archivist/compare/0.1.1a3...0.1.1a4)
 
 **Merged pull requests:**
 
-- Configure Renovate [\#1](https://github.com/TigreGotico/media-archivist/pull/1) ([renovate[bot]](https://github.com/apps/renovate))
+- docs: timeless documentation cleanup [\#15](https://github.com/TigreGotico/media-archivist/pull/15) ([JarbasAl](https://github.com/JarbasAl))
+
+## [0.1.1a3](https://github.com/TigreGotico/media-archivist/tree/0.1.1a3) (2026-06-27)
+
+[Full Changelog](https://github.com/TigreGotico/media-archivist/compare/0.1.1a2...0.1.1a3)
+
+**Merged pull requests:**
+
+- chore: add LICENSE, fix repo URLs, drop duplicate license workflow [\#13](https://github.com/TigreGotico/media-archivist/pull/13) ([JarbasAl](https://github.com/JarbasAl))
+
+## [0.1.1a2](https://github.com/TigreGotico/media-archivist/tree/0.1.1a2) (2026-06-27)
+
+[Full Changelog](https://github.com/TigreGotico/media-archivist/compare/0.1.1a1...0.1.1a2)
+
+**Merged pull requests:**
+
+- chore: migrate to mediavocab 1.0 [\#10](https://github.com/TigreGotico/media-archivist/pull/10) ([JarbasAl](https://github.com/JarbasAl))
+
+## [0.1.1a1](https://github.com/TigreGotico/media-archivist/tree/0.1.1a1) (2026-05-07)
+
+[Full Changelog](https://github.com/TigreGotico/media-archivist/compare/0.1.0...0.1.1a1)
+
+**Merged pull requests:**
+
+- chore\(deps\): update actions/checkout action to v6 [\#4](https://github.com/TigreGotico/media-archivist/pull/4) ([renovate[bot]](https://github.com/apps/renovate))
 
 
 

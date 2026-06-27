@@ -6,9 +6,6 @@ external-id model, entity layer, and ~22 built-in providers all live
 in metadatarr (which in turn imports the foundation primitives from
 `mediavocab`).
 
-There are **no** `metadatarr_*` wrapper providers in
-`media_archivist.providers/` — those existed pre-0.2 but were
-collapsed when the resolver moved to metadatarr. Instead,
 `media_archivist.providers` re-exports metadatarr's registry as-is:
 
 ```python
@@ -49,14 +46,6 @@ Provider source: `metadatarr/resolve/providers/` — `servarr_proxy.py`, etc.
 There is no standalone `tmdb` provider; TMDB-shaped data for movies / series comes
 through `skyhook` (`ServarrProxyProvider`) — `metadatarr/resolve/providers/servarr_proxy.py:30`.
 
-## media-archivist-specific providers
-
-None. Every resolver provider — including `metal_archives` — lives in
-metadatarr. There is no `MetalArchivesArchivist` or
-`media_archivist.metalarchives` module; that symbol was removed in 0.2
-because metal-archives.com hosts no streamable audio and did not fit
-this package's "index streams, download on demand" abstraction.
-
 ## Routing
 
 Providers are gated by the **three-axis** `(media, modality, genre_filter)` rule
@@ -83,8 +72,8 @@ rather than a fake `MediaType.ANIME` value. Anime is a *genre* per
 mediavocab spec axiom 2, not a media type.
 
 `media_archivist.canonicalize._providers_for(providers, medium,
-content_genres)` is the dispatcher. `signals_from_entry()` does not yet
-populate `modality`; that field defaults to `None` and does not gate any
+content_genres)` is the dispatcher. `signals_from_entry()` leaves
+`modality` unset; that field defaults to `None` and does not gate any
 provider unless the caller constructs a `Signals` object directly.
 
 ## Configuration
