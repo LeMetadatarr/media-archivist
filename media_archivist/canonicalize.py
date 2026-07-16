@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from mediavocab import MediaType, PlaybackType, infer_playback_type
+from media_archivist._atomic import atomic_write_text
 from media_archivist.entities import (
     attach_work,
     load_entities,
@@ -81,7 +82,7 @@ def load_canonical(db_path: str) -> CanonicalSidecar:
 
 def save_canonical(db_path: str, sidecar: CanonicalSidecar) -> Path:
     p = _canonical_path(db_path)
-    p.write_text(sidecar.model_dump_json(indent=2))
+    atomic_write_text(str(p), sidecar.model_dump_json(indent=2))
     return p
 
 
@@ -94,7 +95,7 @@ def load_quarantine(db_path: str) -> QuarantineSidecar:
 
 def save_quarantine(db_path: str, sidecar: QuarantineSidecar) -> Path:
     p = _quarantine_path(db_path)
-    p.write_text(sidecar.model_dump_json(indent=2))
+    atomic_write_text(str(p), sidecar.model_dump_json(indent=2))
     return p
 
 
@@ -321,6 +322,14 @@ def canonicalize(db_path: str, *,
     Returns the (canonical, quarantine, entities) sidecar triple after
     persisting all three. Stamps ``_meta.canonical_id`` /
     ``_meta.canonical_status`` on each row when ``stamp_rows=True``.
+
+    The envelope is stored exactly once, at the very end of the run, after all
+    three sidecars are on disk. Row stamps accumulate in memory during the loop
+    and are committed by that single :meth:`store`. This enforces the
+    sidecars-first / envelope-last consistency contract: the sidecars are
+    derivable annotations keyed by entry id, while the envelope's
+    ``_meta.canonical_id`` stamps are the commit point that must land last so
+    they never reference sidecar records that failed to persist.
     """
     chosen = _select_providers(providers)
     if not chosen:
@@ -346,11 +355,18 @@ def canonicalize(db_path: str, *,
             LOG.exception("canonicalize: row %s raised unexpectedly; skipping", entry.id)
             _stamp(db, entry.url, status="unmatched")
 
-    if stamp_rows:
-        db.store()
+    # Write-ordering contract: sidecars first, envelope last.
+    #   1. .entities.json  2. .canonical.json  3. .quarantine.json  4. envelope
+    # The sidecars are derivable annotations keyed by entry id; the envelope's
+    # _meta.canonical_id stamps are the commit point. A crash before the
+    # envelope store leaves stamped-but-richer sidecars, which the next run
+    # simply overwrites. Because the stamps land last, a crash can never leave
+    # envelope stamps pointing at sidecar records that were never persisted.
+    save_entities(db_path, entities)
     save_canonical(db_path, canonical)
     save_quarantine(db_path, quarantine)
-    save_entities(db_path, entities)
+    if stamp_rows:
+        db.store()
     return canonical, quarantine, entities
 
 
@@ -521,13 +537,14 @@ def quarantine_resolve(db_path: str, row_id: str,
 
     db = EnvelopeJsonStorage(db_path)
     url = _build_row_id_index(db).get(row_id)
+    # Sidecars first, envelope last (see canonicalize() contract).
+    save_canonical(db_path, canonical)
+    save_quarantine(db_path, quarantine)
     if url is not None:
         _stamp(db, url, status="matched", canonical_id=target_id)
         db.store()
     else:
         LOG.warning("quarantine_resolve: row_id %s not found in db", row_id)
-    save_canonical(db_path, canonical)
-    save_quarantine(db_path, quarantine)
     return True
 
 
@@ -554,13 +571,14 @@ def quarantine_reject(db_path: str, row_id: str) -> bool:
 
     db = EnvelopeJsonStorage(db_path)
     url = _build_row_id_index(db).get(row_id)
+    # Sidecars first, envelope last (see canonicalize() contract).
+    save_canonical(db_path, canonical)
+    save_quarantine(db_path, quarantine)
     if url is not None:
         _stamp(db, url, status="matched", canonical_id=new_id)
         db.store()
     else:
         LOG.warning("quarantine_reject: row_id %s not found in db", row_id)
-    save_canonical(db_path, canonical)
-    save_quarantine(db_path, quarantine)
     return True
 
 
