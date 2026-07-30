@@ -15,8 +15,8 @@ reusable workflows (pinned to `@dev`) rather than per-repo CI logic.
 
 ## Branching model
 
-- `master` — stable. Tagged releases cut here.
-- `dev` — integration branch. PRs land here first; the alpha-release
+- `master`, stable. Tagged releases cut here.
+- `dev`, integration branch. PRs land here first. The alpha-release
   workflow opens a release PR `dev → master` once changes are ready to
   ship.
 
@@ -36,3 +36,6 @@ python -m build                 # smoke-tests the build
   be installed before running tests (`bandcamp`, `soundcloud`).
 - The release workflow reads the version from
   `media_archivist/version.py` automatically.
+
+---
+[← CLI Architecture](cli.md) · [Home](index.md) · [Roadmap →](roadmap.md)

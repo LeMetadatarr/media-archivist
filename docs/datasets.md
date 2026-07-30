@@ -7,7 +7,7 @@ This page documents the dataset-publishing surface:
 - **Splits**: `export --split` / `--split-by` emit deterministic
   train/val/test or per-source files.
 - **Snapshots**: `media-archivist snapshot` makes a dated copy of the
-  DB; `diff` compares two snapshots structurally.
+  DB.`diff` compares two snapshots structurally.
 - **HuggingFace publishing**: `media-archivist hub-publish` pushes a
   JSONL + auto-generated dataset card to the Hub.
 
@@ -33,7 +33,7 @@ validated by the `EnrichedBlock` pydantic model
 (`media_archivist/models/enriched.py`). The raw row is otherwise
 untouched.
 
-Re-run with `--overwrite` to refresh existing blocks; without it,
+Re-run with `--overwrite` to refresh existing blocks. Without it,
 enrichers skip rows whose block is already populated. `--limit N`
 caps the number of rows processed (handy when iterating).
 
@@ -52,7 +52,7 @@ media-archivist export --db-file songs.json --canonical --format jsonl \
 ```
 
 `--split` keys on `canonical_id` when present (so all variants of a
-work end up in the same split — no leakage across sources), then on
+work end up in the same split, no leakage across sources), then on
 the row id, then on the URL. Re-running on the same DB always yields
 identical bucketing, which keeps train/eval splits stable across
 re-fetches.
@@ -68,7 +68,7 @@ media-archivist diff a.json b.json
 ```
 
 `diff` returns `{added, removed, changed}` URL lists. Volatile
-metadata (`last_synced`, etc.) is ignored — only structural changes
+metadata (`last_synced`, etc.) is ignored, only structural changes
 to the entry payload count as "changed".
 
 ## HuggingFace Hub publishing
@@ -109,7 +109,7 @@ print(build_card("talks.json", name="talks-dataset",
 The `--canonical` flag on `export` switches the row shape from raw to
 the canonical `MediaEntry` view, so the JSONL carries `canonical_id`
 and `external_ids` (if you ran `media-archivist canonicalize` first).
-Splits then key on `canonical_id` automatically — different sources
+Splits then key on `canonical_id` automatically, different sources
 of the same work always land in the same split.
 
 ## Verification
@@ -122,3 +122,6 @@ of the same work always land in the same split.
 - `media-archivist snapshot && media-archivist diff <a> <b>` returns
   empty lists when nothing changed and the expected sets after
   `prune` / `add`.
+
+---
+[← metadatarr Resolver Integration](metadatarr.md) · [Home](index.md) · [Running as a Service →](deploy.md)

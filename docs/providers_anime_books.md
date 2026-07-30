@@ -3,14 +3,14 @@
 This page covers the zero-setup providers for anime, manga, and supplementary
 book lookups: **AniList**, **Jikan (MAL)**, and **Google Books**.
 
-All three are always-on (`is_available()` returns `True`); they require no API
+All three are always-on (`is_available()` returns `True`). They require no API
 key, no environment variables, and no self-hosted services.
 
 ---
 
 ## AniList (`anilist`)
 
-**Source**: [anilist.co](https://anilist.co) — GraphQL API, 90 req/min, no key.
+**Source**: [anilist.co](https://anilist.co), GraphQL API, 90 req/min, no key.
 
 **Media**: `MediaType.EPISODIC_SERIES + content_genres=["anime"]`, `MediaType.COMIC + content_genres=["manga"]`
 
@@ -18,7 +18,7 @@ key, no environment variables, and no self-hosted services.
 
 | Field | Notes |
 |---|---|
-| `signals.title` | English title preferred; falls back to romaji |
+| `signals.title` | English title preferred. Falls back to romaji |
 | `signals.year` | `startDate.year` |
 | `signals.medium` | `ANIME` or `MANGA` depending on query type |
 | `external_ids.anilist_id` | AniList numeric media id |
@@ -28,7 +28,7 @@ key, no environment variables, and no self-hosted services.
 | `relations[AUTHOR]` | Staff edges with roles `"Original Creator"`, `"Original Story"`, `"Story"` |
 | `relations[WRITER]` | Staff edges with roles `"Series Composition"`, `"Script"` |
 | `relations[COMPOSER]` | Staff edges with role `"Music"` |
-| `relations[STUDIO]` | Main production studio; `extra["anilist_studio_id"]` |
+| `relations[STUDIO]` | Main production studio.`extra["anilist_studio_id"]` |
 
 Confidence: **0.90**
 
@@ -48,12 +48,12 @@ print(m.relations["studio"][0].name)      # Sunrise
 
 ---
 
-## Jikan — anime (`jikan_anime`) and manga (`jikan_manga`)
+## Jikan, anime (`jikan_anime`) and manga (`jikan_manga`)
 
-**Source**: [api.jikan.moe](https://docs.api.jikan.moe/) — unofficial MAL REST
+**Source**: [api.jikan.moe](https://docs.api.jikan.moe/), unofficial MAL REST
 proxy, 3 req/s / 60 req/min, no key.
 
-**Media**: `jikan_anime` → `MediaType.EPISODIC_SERIES + content_genres=["anime"]`; `jikan_manga` → `MediaType.COMIC + content_genres=["manga"]`
+**Media**: `jikan_anime` → `MediaType.EPISODIC_SERIES + content_genres=["anime"]`. `jikan_manga` → `MediaType.COMIC + content_genres=["manga"]`
 
 Jikan mirrors MyAnimeList data, the largest community anime/manga database.
 Use it alongside AniList: both providers run concurrently and the canonicalizer
@@ -63,12 +63,12 @@ merges their results.
 
 | Field | Notes |
 |---|---|
-| `signals.title` | `title_english` preferred; falls back to `title` |
+| `signals.title` | `title_english` preferred. Falls back to `title` |
 | `signals.year` | Extracted from `aired.prop.from.year` (anime) or `published.prop.from.year` (manga) |
 | `external_ids.mal_id` | MyAnimeList numeric id |
 | `external_ids.extra["title_japanese"]` | Japanese title in native script |
-| `relations[STUDIO]` | First studio from `studios[]`; `extra["mal_studio_id"]` |
-| `relations[AUTHOR]` | Manga only — `authors[]`; MAL `"Last, First"` order is flipped to `"First Last"` |
+| `relations[STUDIO]` | First studio from `studios[]`, `extra["mal_studio_id"]` |
+| `relations[AUTHOR]` | Manga only, `authors[]`. MAL `"Last, First"` order is flipped to `"First Last"` |
 
 Confidence: **0.85**
 
@@ -95,8 +95,7 @@ print(m2.relations["author"][0].name)     # Kentarou Miura
 
 ## Google Books (`google_books`)
 
-**Source**: [googleapis.com/books/v1](https://developers.google.com/books/docs/v1/using)
-— REST, no key required for up to 1,000 queries/day.
+**Source**: [googleapis.com/books/v1](https://developers.google.com/books/docs/v1/using), REST, no key required for up to 1,000 queries/day.
 
 **Media**: `MediaType.BOOK`, `MediaType.AUDIOBOOK`
 
@@ -147,8 +146,7 @@ media-archivist canonicalize --db-file anime.json \
 ```
 
 The canonicalizer runs both AniList and Jikan concurrently. They produce
-complementary IDs (`anilist_id` + `mal_id`) on the same canonical record —
-no conflict, just additive enrichment.
+complementary IDs (`anilist_id` + `mal_id`) on the same canonical record, no conflict, just additive enrichment.
 
 For a book-heavy database, stack all book providers:
 
@@ -158,7 +156,7 @@ media-archivist canonicalize --db-file books.json \
     --providers annas_archive
 ```
 
-Google Books fills ISBN gaps that OpenLibrary misses; Anna's Archive adds
+Google Books fills ISBN gaps that OpenLibrary misses. Anna's Archive adds
 `libgen_md5` and additional ISBN-13 coverage.
 
 ---
@@ -166,7 +164,7 @@ Google Books fills ISBN gaps that OpenLibrary misses; Anna's Archive adds
 ## Sources without a built-in provider
 
 These catalogues fall outside the zero-setup, keyless model and have no
-built-in provider; the table records why:
+built-in provider. The table records why:
 
 | Source | Reason |
 |---|---|
@@ -174,4 +172,7 @@ built-in provider; the table records why:
 | RAWG (`game`) | Free key required |
 | Audnexus (`audiobook`) | Lookup-only (ASIN), no search endpoint |
 | Trakt (`movie`, `tv`) | API key required for all endpoints |
-| AniDB (`anime`) | Throttled without registration; scraping brittle |
+| AniDB (`anime`) | Throttled without registration. Scraping brittle |
+
+---
+[← Release Variants](variants.md) · [Home](index.md) · [metadatarr Resolver Integration →](metadatarr.md)

@@ -6,7 +6,7 @@ repository ships two ready-to-use templates under `deploy/`.
 
 > **Security note:** The service has no built-in authentication. It is designed
 > for single-tenant, LAN use. Do not expose port 8000 directly to the internet
-> — put it behind your existing reverse proxy (Caddy, Traefik, nginx) and
+>, put it behind your existing reverse proxy (Caddy, Traefik, nginx) and
 > restrict access accordingly.
 
 ## Docker Compose (recommended)
@@ -52,8 +52,7 @@ systemctl --user enable --now media-archivist@$USER.service
 journalctl --user -fu media-archivist@$USER.service
 ```
 
-The unit reads its DB path / host / port from environment variables;
-override them via:
+The unit reads its DB path / host / port from environment variables.override them via:
 
 ```bash
 mkdir -p ~/.config/systemd/user/media-archivist@.service.d
@@ -72,7 +71,7 @@ Once the service is up, three endpoints connect it to the rest of your stack:
 
 | Endpoint | Client |
 | -------- | ------ |
-| `GET /strm/{id}` | Jellyfin / Kodi `.strm` files — returns the playable URL as `text/plain`. See [Jellyfin docs](./jellyfin.md). |
+| `GET /strm/{id}` | Jellyfin / Kodi `.strm` files, returns the playable URL as `text/plain`. See [Jellyfin docs](./jellyfin.md). |
 | `GET /m3u` | Any M3U-capable client (VLC, Kodi, IPTV apps). Accepts `source`, `where`, `has_stream`, `limit` query params. |
 | `GET /feed.rss` | Podcast clients, Jellyfin RSS plugin, Freshrss. Accepts `limit`. |
 | `GET /healthz` | Uptime Kuma, Docker healthcheck, Compose healthcheck, k8s liveness probe. Returns `{status: "ok", version, db_path}`. |
@@ -83,20 +82,23 @@ Once the service is up, three endpoints connect it to the rest of your stack:
 | ------ | -------------------- | ------- |
 | `GET`  | `/entries`           | Query the canonical view (filters: `source`, `where`, `grep`, `has_stream`, `explicit`, `limit`). |
 | `GET`  | `/entries/{id}`      | Fetch a single `MediaEntry` by id. |
-| `POST` | `/archive`           | Enqueue an archive task; returns a `Task`. |
+| `POST` | `/archive`           | Enqueue an archive task. Returns a `Task`. |
 | `GET`  | `/tasks/{id}`        | Task progress (`queued`, `running`, `ok`, `error`). |
 | `GET`  | `/feed.rss`          | RSS feed of recently-added entries. |
 | `GET`  | `/m3u`               | M3U playlist of stream URLs. |
 | `GET`  | `/stats`             | Source mix, canonical / quarantined counts. |
-| `GET`  | `/healthz`           | Liveness check — `{status: "ok", version, db_path}`. |
-| `GET`  | `/providers`         | Registry introspection — every provider with `available`, `media`, `modality`, `genre_filter`. |
+| `GET`  | `/healthz`           | Liveness check, `{status: "ok", version, db_path}`. |
+| `GET`  | `/providers`         | Registry introspection, every provider with `available`, `media`, `modality`, `genre_filter`. |
 | `POST` | `/canonicalize`      | Run providers across the DB. Body: `{providers?: [str], stamp_rows?: bool, max_workers?: int}`. Returns counts. |
 | `GET`  | `/quarantine`        | List quarantined rows + their conflicts. |
 | `POST` | `/quarantine/{id}/accept` | Accept a quarantined row (optional `?canonical_id=` to link). |
 | `POST` | `/quarantine/{id}/reject` | Reject and force a fresh canonical_id. |
 | `GET`  | `/docs`              | Auto-generated OpenAPI / Swagger UI. |
 
-The schedulable surface is single-tenant by design — submitted tasks
+The schedulable surface is single-tenant by design, submitted tasks
 queue and run sequentially. Task state persists in
-`<db>.tasks.json`; if the service is restarted, anything still pending
+`<db>.tasks.json`. If the service is restarted, anything still pending
 is re-queued automatically.
+
+---
+[← Datasets, Enrichment & Sharing](datasets.md) · [Home](index.md) · [Jellyfin / Kodi Remote Media →](jellyfin.md)
