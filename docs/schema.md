@@ -24,7 +24,7 @@ Each backend has a dedicated pydantic model in
 - `source` (literal, used as the discriminator)
 - `url` (canonical entry key on disk)
 - `title`, `tags`, `thumbnail`
-- `extra: dict` — free-form per-archive metadata that doesn't map to a
+- `extra: dict`, free-form per-archive metadata that doesn't map to a
   named field (preserved verbatim, round-trippable).
 
 Backend-specific fields (excerpt):
@@ -43,7 +43,7 @@ pydantic uses to dispatch when validating an unknown row.
 ## Validating raw rows
 
 `media_archivist.models.parse_raw(dict)` validates an arbitrary dict
-into the right `Raw*Entry` subclass — dispatched on the row's `source`
+into the right `Raw*Entry` subclass, dispatched on the row's `source`
 discriminator:
 
 ```python
@@ -57,7 +57,7 @@ row = parse_raw({
 assert row.source is Source.BANDCAMP
 ```
 
-The `source` field is required; `parse_raw` raises if it's missing or
+The `source` field is required.`parse_raw` raises if it's missing or
 unknown.
 
 ## Strictness
@@ -65,11 +65,14 @@ unknown.
 Models are **lenient on construction** (every optional field has a
 default) and **strict on round-trip** in tests
 (`test/test_models.py` exercises every model). When a backend gains a new
-field, the corresponding `Raw*Entry` must be updated — CI catches drift.
+field, the corresponding `Raw*Entry` must be updated, CI catches drift.
 
 ## Canonical view
 
 A `MediaEntry` model in `models/canonical.py` projects any raw row to a
 unified shape (`id, source, url, title, artist?, album?, duration?,
 published?, …`) for cross-source queries and dataset export. The on-disk
-format does **not** change — the view is computed on read.
+format does **not** change, the view is computed on read.
+
+---
+[← FAQ](faq.md) · [Home](index.md) · [Storage Format →](storage.md)

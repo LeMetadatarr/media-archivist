@@ -2,7 +2,7 @@
 
 Two-step recipe: run `media-archivist serve` somewhere reachable
 (NAS, homelab box) and export `.strm` files into a directory Jellyfin
-or Kodi treats as a library. The actual stream stays remote — your
+or Kodi treats as a library. The actual stream stays remote, your
 Jellyfin server doesn't download or transcode anything.
 
 ## Why it works
@@ -13,8 +13,8 @@ of body work:
 
 | Body                                   | When to use |
 | -------------------------------------- | ----------- |
-| Direct stream URL (Bandcamp / SoundCloud / IA) | Source already exposes a public MP3 / MP4 — embedded directly. |
-| `<base_url>/strm/<entry_id>`           | Indirect via `media-archivist serve`. The server resolves at request time and returns the current URL; useful for sources whose URLs expire (YouTube). |
+| Direct stream URL (Bandcamp / SoundCloud / IA) | Source already exposes a public MP3 / MP4, embedded directly. |
+| `<base_url>/strm/<entry_id>`           | Indirect via `media-archivist serve`. The server resolves at request time and returns the current URL. Useful for sources whose URLs expire (YouTube). |
 
 ## End-to-end
 
@@ -46,8 +46,7 @@ Output layout:
     └── ...
 ```
 
-Each `.strm` body is `http://nas.local:8000/strm/<entry_id>` —
-Jellyfin calls into the server when the user hits play, and the
+Each `.strm` body is `http://nas.local:8000/strm/<entry_id>`, Jellyfin calls into the server when the user hits play, and the
 server returns the resolved URL with `text/plain` content type.
 
 ## Without a running server
@@ -85,10 +84,12 @@ media-archivist strm-export --db-file songs.json \
 - **YouTube via the redirect endpoint** still requires a player that
   can resolve a YouTube watch URL. Jellyfin's official YouTube plugin
   or `yt-dlp`-based extensions handle this. The server does *not*
-  transcode or extract; it returns the canonical watch URL.
-- **URL stability**: direct Bandcamp / SoundCloud streams are stable;
-  YouTube CDN URLs are not — that is why the server-redirect mode is
+  transcode or extract. It returns the canonical watch URL.
+- **URL stability**: direct Bandcamp / SoundCloud streams are stable.  YouTube CDN URLs are not, that is why the server-redirect mode is
   recommended for YouTube rows.
 - **Authentication**: the server is single-tenant and unauthenticated
   by design. If you expose the port outside a trusted network, put it
   behind a reverse proxy that handles auth.
+
+---
+[← Running as a Service](deploy.md) · [Home](index.md) · [CLI Architecture →](cli.md)

@@ -105,20 +105,20 @@ To deduplicate across sources, use `link` and `dedupe` (see [Tutorial](tutorial.
 
 | Backend | Method | ToS | Scraping? |
 |---------|--------|-----|-----------|
-| YouTube | `tutubo` (web scrape) | Technically gray; no API key needed | Yes, but metadata-only |
+| YouTube | `tutubo` (web scrape) | Technically gray. No API key needed | Yes, but metadata-only |
 | YouTube Music | `ytmusicapi` (web scrape) | Technically gray | Yes, but metadata-only |
 | Bandcamp | Public artist pages | Public data, no login | No, public access |
 | SoundCloud | `nuvem_de_som` (API-like) | Unclear | Possibly |
 | Internet Archive | Metadata API | Encouraged | No, uses official API |
 
-**Key point:** `media_archivist` is **metadata-only**. It reads title, URL, artist, duration, and other publicly-visible metadata. It does **not download content**; that's a separate, independent step via `yt-dlp` or your own tool.
+**Key point:** `media_archivist` is **metadata-only**. It reads title, URL, artist, duration, and other publicly-visible metadata. It does **not download content**. That's a separate, independent step via `yt-dlp` or your own tool.
 
 **Recommendation:** For production use cases, especially at scale:
 - Use **Internet Archive** (openly encouraged).
 - Consider **YouTube Data API** if you have sufficient quota.
 - Check the **Bandcamp** and **SoundCloud** ToS if using at scale.
 
-The library is designed for **research, curation, and dataset building** — typical uses have never triggered enforcement action.
+The library is designed for **research, curation, and dataset building**, typical uses have never triggered enforcement action.
 
 ### Q: Can I index a private YouTube playlist?
 
@@ -143,7 +143,7 @@ media-archivist list --db-file my_data.json
 media-archivist export --db-file my_data.json --format jsonl -o data.jsonl
 ```
 
-The JSON DB is just a file; you can copy it to an offline machine and use `list`, `export`, `urls` without network access.
+The JSON DB is just a file. You can copy it to an offline machine and use `list`, `export`, `urls` without network access.
 
 For download, you need `yt-dlp` (or another tool) and internet access to the video platform.
 
@@ -153,14 +153,14 @@ For download, you need `yt-dlp` (or another tool) and internet access to the vid
 
 **A:** Depends on the backend:
 
-- **YouTube channels** (1000+ videos): ~5–10 minutes for 1000 videos (network-bound).
+- **YouTube channels** (1000+ videos): ~5-10 minutes for 1000 videos (network-bound).
 - **YouTube Music playlists** (500 tracks): ~30 seconds per 100 tracks.
 - **Bandcamp artists** (100+ tracks): ~1 minute.
-- **Internet Archive collections** (10000+ items): ~2–3 minutes for 10000.
+- **Internet Archive collections** (10000+ items): ~2-3 minutes for 10000.
 
 Speed is limited by:
 1. Network latency to the source.
-2. Pagination (most backends paginate in 50–100 item chunks).
+2. Pagination (most backends paginate in 50-100 item chunks).
 3. Per-entry metadata extraction.
 
 **Tip:** Use `--limit N` during development to test with small result sets, then re-run without `--limit` for the full index.
@@ -169,15 +169,15 @@ Speed is limited by:
 
 **A:** Yes, but with caveats:
 
-- **File size:** 100K entries @ ~1–2KB per entry = 100–200MB JSON (still manageable).
-- **Memory:** Loaded into memory at once; Python can handle this on modern machines.
-- **Speed:** Index operation may take 1–2 hours if network-bound.
-- **Diff:** Git diffs on 200MB files are slow; consider using `--db NAME` (XDG) and not version-controlling the raw DB.
+- **File size:** 100K entries @ ~1-2KB per entry = 100-200MB JSON (still manageable).
+- **Memory:** Loaded into memory at once. Python can handle this on modern machines.
+- **Speed:** Index operation may take 1-2 hours if network-bound.
+- **Diff:** Git diffs on 200MB files are slow. Consider using `--db NAME` (XDG) and not version-controlling the raw DB.
 
 **Recommendations for large DBs:**
 1. Use `--db NAME` (XDG-managed) instead of `--db-file` for the raw index.
 2. Export to JSONL (`--format jsonl`) for downstream processing.
-3. Use `link` and `dedupe` to reduce to a deduplicated JSONL (typically 30–50% smaller).
+3. Use `link` and `dedupe` to reduce to a deduplicated JSONL (typically 30-50% smaller).
 4. If you need versioning, version-control the deduplicated JSONL, not the raw JSON.
 
 ## Filtering & Querying
@@ -186,14 +186,14 @@ Speed is limited by:
 
 **A:** YouTube bare-channel scraping (via `tutubo`) doesn't expose duration metadata. The `--min-duration` flag is a no-op in that case.
 
-**Why?** YouTube's channel pages don't list video duration in the public HTML; you'd need to fetch each video's metadata individually (slow and ToS-risky).
+**Why?** YouTube's channel pages don't list video duration in the public HTML. You'd need to fetch each video's metadata individually (slow and ToS-risky).
 
 **When does `--min-duration` work?**
-- YouTube Music (`--music`) — durations are exposed.
-- Bandcamp (`--bandcamp`) — durations are exposed.
-- SoundCloud (`--soundcloud`) — durations are exposed.
-- Internet Archive (`--ia`) — durations are exposed.
-- YouTube search results — durations are in the preview metadata.
+- YouTube Music (`--music`), durations are exposed.
+- Bandcamp (`--bandcamp`), durations are exposed.
+- SoundCloud (`--soundcloud`), durations are exposed.
+- Internet Archive (`--ia`), durations are exposed.
+- YouTube search results, durations are in the preview metadata.
 
 **Workaround for plain YouTube:** Use `--blacklist` to exclude common short-form patterns:
 
@@ -207,8 +207,8 @@ media-archivist add --db-file yt.json \
 
 **A:** 
 
-- **`--blacklist KW`** — skip entries whose title contains this keyword (case-insensitive substring match).
-- **`--require KW`** — index *only* entries whose title contains this keyword.
+- **`--blacklist KW`**, skip entries whose title contains this keyword (case-insensitive substring match).
+- **`--require KW`**, index *only* entries whose title contains this keyword.
 
 Examples:
 
@@ -282,15 +282,15 @@ media-archivist dedupe --db-file music.json \
     --output music.canonical.jsonl
 ```
 
-The sidecar and source DB are **not modified** by these operations — only the output JSONL is new.
+The sidecar and source DB are **not modified** by these operations, only the output JSONL is new.
 
 ### Q: What's the difference between `dedupe` and `canonicalize`?
 
 **A:**
 
-- **`dedupe`** — Fingerprint-based deduplication. Matches entries by normalized title + artist and duration tolerance. Outputs a JSONL with one row per unique work. Simple, local, no external API calls.
+- **`dedupe`**, Fingerprint-based deduplication. Matches entries by normalized title + artist and duration tolerance. Outputs a JSONL with one row per unique work. Simple, local, no external API calls.
 
-- **`canonicalize`** — Mints canonical IDs and looks up external IDs (MusicBrainz, TMDB, IMDb, etc.) via registered providers. Matches entries based on a signal set (title, artist, year, runtime, language, etc.) with conservative disagreement handling (quarantine rows that don't match). Outputs sidecar JSONs and stamps `_meta.canonical_id` on rows.
+- **`canonicalize`**, Mints canonical IDs and looks up external IDs (MusicBrainz, TMDB, IMDb, etc.) via registered providers. Matches entries based on a signal set (title, artist, year, runtime, language, etc.) with conservative disagreement handling (quarantine rows that don't match). Outputs sidecar JSONs and stamps `_meta.canonical_id` on rows.
 
 **Choose:**
 - Use **`dedupe`** for quick, local deduplication without external lookups.
@@ -359,7 +359,7 @@ media-archivist import --db-file my.json yt-dlp-export.jsonl
 
 However, the schema differs from `media_archivist`'s raw models, so some fields may be lost. For best results, use `media-archivist add` directly.
 
-### Q: I have a flat JSON mapping — can media_archivist read it?
+### Q: I have a flat JSON mapping, can media_archivist read it?
 
 **A:** Yes. A flat JSON mapping (`{url: {title, ...}, ...}`) loads transparently and is rewritten as the envelope format on the next `store()`:
 
@@ -396,7 +396,7 @@ All `prune` operations are **in-place** (modify the source JSON). Always back up
 
 **A:** The keyless `skyhook` provider (Servarr's public proxy) covers
 TMDB / TVDB / IMDb / MusicBrainz / OpenLibrary cross-references for
-movies, TV, music, and books out of the box — no env vars required.
+movies, TV, music, and books out of the box, no env vars required.
 
 Then run `canonicalize`:
 
@@ -435,8 +435,7 @@ register(MyProvider())
 ```
 
 Call `register(MyProvider())` at module import time in your own package.
-`media_archivist.providers` is a thin re-export of metadatarr's registry —
-do not add files into it. Any import that calls `register()` before
+`media_archivist.providers` is a thin re-export of metadatarr's registry, do not add files into it. Any import that calls `register()` before
 `canonicalize()` runs will wire the provider in correctly.
 
 ## Data Integrity & Troubleshooting
@@ -445,9 +444,9 @@ do not add files into it. Any import that calls `register()` before
 
 **A:** You can edit the JSON manually (it's just a plain file), but:
 
-1. **Envelope structure** — The outer `_meta` block and `entries` key must be preserved.
-2. **Validation** — When you load the file with `media-archivist`, it validates against the pydantic models. Invalid entries are skipped with a warning.
-3. **Rewrite** — The next `store()` (any command that modifies the DB) rewrites the file with validated entries.
+1. **Envelope structure**, The outer `_meta` block and `entries` key must be preserved.
+2. **Validation**, When you load the file with `media-archivist`, it validates against the pydantic models. Invalid entries are skipped with a warning.
+3. **Rewrite**, The next `store()` (any command that modifies the DB) rewrites the file with validated entries.
 
 Example: If you manually add an entry without a `source` field, the next save will fail or skip it.
 
@@ -455,7 +454,7 @@ Example: If you manually add an entry without a `source` field, the next save wi
 
 ### Q: Can I run multiple media-archivist commands concurrently?
 
-**A:** Yes, with caveats. The JSON file is locked during read/write (via `ComboLock`), so concurrent commands serialize. Performance is fine for reasonable concurrency; for highly parallel workloads, batch operations (e.g., merge multiple DBs) instead of parallel CLI calls.
+**A:** Yes, with caveats. The JSON file is locked during read/write (via `ComboLock`), so concurrent commands serialize. Performance is fine for reasonable concurrency. For highly parallel workloads, batch operations (e.g., merge multiple DBs) instead of parallel CLI calls.
 
 ### Q: What does "Value error, prune requires at least one of: ..." mean?
 
@@ -524,3 +523,6 @@ for entry in idx.view(grep="tutorial", limit=10):
 ```
 
 See [CLI Architecture](cli.md) for the public API surface.
+
+---
+[← Tutorial](tutorial.md) · [Home](index.md) · [Schema & Validation →](schema.md)
