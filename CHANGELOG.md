@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.1a5](https://github.com/TigreGotico/media-archivist/tree/0.1.1a5) (2026-07-30)
+
+[Full Changelog](https://github.com/TigreGotico/media-archivist/compare/0.1.1a4...0.1.1a5)
+
+**Merged pull requests:**
+
+- docs: rewrite README in Simplified Technical English [\#22](https://github.com/TigreGotico/media-archivist/pull/22) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.1.1a4](https://github.com/TigreGotico/media-archivist/tree/0.1.1a4) (2026-06-27)
 
 [Full Changelog](https://github.com/TigreGotico/media-archivist/compare/0.1.1a3...0.1.1a4)
