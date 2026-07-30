@@ -21,7 +21,7 @@ DBs are plain JSON files validated by the
 }
 ```
 
-`_meta.source_mix` is recomputed on every store; useful for `stats` and
+`_meta.source_mix` is recomputed on every store. Useful for `stats` and
 dataset metadata.
 
 ## Storage classes
@@ -50,12 +50,14 @@ YoutubeArchivist(db_name="talks")                     # EnvelopeJsonStorageXDG
 ## Diff-friendliness
 
 The on-disk format is sorted-key indented JSON. Source-faithful raw rows
-mean a `git diff` shows exactly what changed in the upstream metadata —
-no schema gymnastics.
+mean a `git diff` shows exactly what changed in the upstream metadata, no schema gymnastics.
 
 ## Concurrency
 
 `json_database` provides per-file locking (`ComboLock`) on the
 `<filename>.lock` sentinel under `$TMPDIR`. The envelope wrapper inherits
-this lock; concurrent `media-archivist` invocations against the same DB
+this lock. Concurrent `media-archivist` invocations against the same DB
 file serialise on the lock.
+
+---
+[← Schema & Validation](schema.md) · [Home](index.md) · [Canonical View & Dedupe →](canonical.md)

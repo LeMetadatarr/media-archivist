@@ -6,9 +6,6 @@ external-id model, entity layer, and ~22 built-in providers all live
 in metadatarr (which in turn imports the foundation primitives from
 `mediavocab`).
 
-There are **no** `metadatarr_*` wrapper providers in
-`media_archivist.providers/` — those existed pre-0.2 but were
-collapsed when the resolver moved to metadatarr. Instead,
 `media_archivist.providers` re-exports metadatarr's registry as-is:
 
 ```python
@@ -43,39 +40,31 @@ media-archivist-specific providers.
 | `youtube` / `youtube_music` | tutubo (YouTube Data API + YT Music) | MUSIC / MUSIC_VIDEO / EPISODIC_SERIES | * / AUDIO | `extra.youtube_video_id`, `extra.youtube_music_video_id`, `extra.youtube_channel_id` |
 | `metal_archives` | pymetal scraper | MUSIC | * | `metal_archives_band`, `metal_archives_release`, `metal_archives_song` |
 
-`*` in Modality means the provider's `modality` set is empty — it accepts requests with any or no modality declared.
+`*` in Modality means the provider's `modality` set is empty, it accepts requests with any or no modality declared.
 
-Provider source: `metadatarr/resolve/providers/` — `servarr_proxy.py`, etc.
-There is no standalone `tmdb` provider; TMDB-shaped data for movies / series comes
-through `skyhook` (`ServarrProxyProvider`) — `metadatarr/resolve/providers/servarr_proxy.py:30`.
-
-## media-archivist-specific providers
-
-None. Every resolver provider — including `metal_archives` — lives in
-metadatarr. There is no `MetalArchivesArchivist` or
-`media_archivist.metalarchives` module; that symbol was removed in 0.2
-because metal-archives.com hosts no streamable audio and did not fit
-this package's "index streams, download on demand" abstraction.
+Provider source: `metadatarr/resolve/providers/`, `servarr_proxy.py`, etc.
+There is no standalone `tmdb` provider. TMDB-shaped data for movies / series comes
+through `skyhook` (`ServarrProxyProvider`), `metadatarr/resolve/providers/servarr_proxy.py:30`.
 
 ## Routing
 
 Providers are gated by the **three-axis** `(media, modality, genre_filter)` rule
-declared on `metadatarr.resolve.base.MetadataProvider` — `metadatarr/resolve/base.py:82`:
+declared on `metadatarr.resolve.base.MetadataProvider`, `metadatarr/resolve/base.py:82`:
 
-- `media: ClassVar[Set[MediaType]]` — the candidate's `signals.medium` must be
+- `media: ClassVar[Set[MediaType]]`, the candidate's `signals.medium` must be
   in the set, OR the set is empty (universal), OR the signals do not
   declare a medium.
-- `modality: ClassVar[Set[PlaybackModality]]` — `signals.modality` must be
+- `modality: ClassVar[Set[PlaybackModality]]`, `signals.modality` must be
   in the set, OR the set is empty (universal), OR the signals do not
   declare a modality. `PlaybackModality` is imported from `mediavocab`
   and carries values `AUDIO`, `VIDEO`, `INTERACTIVE`, `TEXT`, `UNKNOWN`.
   Lets a caller constrain resolution to audio-only providers via
   `Signals(modality=PlaybackModality.AUDIO)` without changing `medium`.
-- `genre_filter: ClassVar[Set[str]]` — at least one tag in
+- `genre_filter: ClassVar[Set[str]]`, at least one tag in
   `signals.content_genres` must overlap the filter, OR the filter is
   empty (no gate).
 
-All three axes must pass; any failing axis skips the provider.
+All three axes must pass. Any failing axis skips the provider.
 
 Anime / manga providers therefore declare e.g.
 `media = {EPISODIC_SERIES, MOVIE}` plus `genre_filter = {"anime"}`
@@ -83,16 +72,19 @@ rather than a fake `MediaType.ANIME` value. Anime is a *genre* per
 mediavocab spec axiom 2, not a media type.
 
 `media_archivist.canonicalize._providers_for(providers, medium,
-content_genres)` is the dispatcher. `signals_from_entry()` does not yet
-populate `modality`; that field defaults to `None` and does not gate any
+content_genres)` is the dispatcher. `signals_from_entry()` leaves
+`modality` unset. That field defaults to `None` and does not gate any
 provider unless the caller constructs a `Signals` object directly.
 
 ## Configuration
 
 Most providers self-disable via `is_available()` if their optional
-upstream dependency or required API key is missing — the registry
+upstream dependency or required API key is missing, the registry
 stays consistent across environments. Set keys via env vars
 documented in each provider's docstring (`DISCOGS_TOKEN`,
 `SONARR_URL` + `SONARR_API_KEY`, etc.). The `skyhook` provider
-requires no credentials — it uses the same public Servarr proxies
+requires no credentials, it uses the same public Servarr proxies
 that Sonarr / Radarr / Lidarr use for their own metadata lookups.
+
+---
+[← Anime, Manga & Books Providers](providers_anime_books.md) · [Home](index.md) · [Datasets, Enrichment & Sharing →](datasets.md)

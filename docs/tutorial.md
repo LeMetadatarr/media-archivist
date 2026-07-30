@@ -67,7 +67,7 @@ You'll see entries like:
 
 ### Index Bandcamp
 
-Bandcamp is crucial because it ships direct audio stream URLs (when available) and artist / album metadata.
+Bandcamp is useful here because it ships direct audio stream URLs (when available) and artist / album metadata.
 
 ```bash
 media-archivist add --db-file aphex.json --bandcamp \
@@ -89,7 +89,7 @@ This indexes the artist's official Bandcamp profile. Bandcamp entries look like:
 }
 ```
 
-Note the `stream` field — a direct MP3/OGG URL.
+Note the `stream` field, a direct MP3/OGG URL.
 
 ### Index SoundCloud
 
@@ -157,9 +157,9 @@ This creates a sidecar file `aphex.links.json` (the source file is not modified)
 }
 ```
 
-Each key is a fingerprint hash; the value is a list of matching entry IDs. The suffix (`:1`, `:2`, etc.) represents duration clusters within the same fingerprint.
+Each key is a fingerprint hash. The value is a list of matching entry IDs. The suffix (`:1`, `:2`, etc.) represents duration clusters within the same fingerprint.
 
-**The source database is untouched** — `link` only writes the sidecar.
+**The source database is untouched**, `link` only writes the sidecar.
 
 ## Part 3: Deduplicate to Canonical JSONL
 
@@ -174,11 +174,11 @@ bandcamp > internet_archive > youtube_music > soundcloud > youtube
 ```
 
 This order favors:
-1. **Bandcamp & IA** — ship direct stream URLs, enabling offline playback.
-2. **YouTube Music** — rich metadata (album, year, explicit, duration in seconds).
-3. **SoundCloud & YouTube** — general purpose, lower metadata richness.
+1. **Bandcamp & IA**, ship direct stream URLs, enabling offline playback.
+2. **YouTube Music**, rich metadata (album, year, explicit, duration in seconds).
+3. **SoundCloud & YouTube**, general purpose, lower metadata richness.
 
-For this music dataset, the default is perfect: Bandcamp tracks have stream URLs; YouTube Music provides quality metadata; SoundCloud is a fallback.
+For this music dataset, the default is perfect: Bandcamp tracks have stream URLs. YouTube Music provides quality metadata. SoundCloud is a fallback.
 
 ### Run the deduper
 
@@ -235,8 +235,8 @@ The deduped JSONL looks like:
 ```
 
 Each canonical row carries:
-- **Canonical fields** — the best version from the preferred source.
-- **`raw.alternates`** — metadata from other sources in the fingerprint group (for reference).
+- **Canonical fields**, the best version from the preferred source.
+- **`raw.alternates`**, metadata from other sources in the fingerprint group (for reference).
 
 ### Inspect the results
 
@@ -356,7 +356,7 @@ media-archivist export --db-file aphex.json --canonical --format jsonl \
 
 Available operators: `==`, `!=`, `<`, `<=`, `>`, `>=`, `in`, `not in`, `and`, `or`, `not`. String functions: `len()`, `lower()`, `upper()`. Denied: attribute access, list comprehensions, imports, lambdas.
 
-## Part 7: Advanced — Per-Source Deduplication
+## Part 7: Advanced, Per-Source Deduplication
 
 If you want to keep cover versions and remixes *separate*, deduplicate per-source instead of globally:
 
@@ -454,12 +454,12 @@ Step 4: Export and analyze
 
 ## Key Takeaways
 
-1. **Index from multiple sources** — same artist, different platforms.
-2. **Fingerprint by normalized title + artist** — finds real duplicates.
-3. **Dedupe with source preference** — Bandcamp > YouTube Music > SoundCloud.
-4. **Export to JSONL** — one row per canonical work, alternates in `raw.alternates`.
-5. **Use --canonical and --where** — query the deduplicated view without re-deduping.
-6. **Load into HuggingFace** — share your dataset publicly.
+1. **Index from multiple sources**, same artist, different platforms.
+2. **Fingerprint by normalized title + artist**, finds real duplicates.
+3. **Dedupe with source preference**, Bandcamp > YouTube Music > SoundCloud.
+4. **Export to JSONL**, one row per canonical work, alternates in `raw.alternates`.
+5. **Use --canonical and --where**, query the deduplicated view without re-deduping.
+6. **Load into HuggingFace**, share your dataset publicly.
 
 ## Troubleshooting
 
@@ -475,7 +475,7 @@ Step 4: Export and analyze
 
 **Problem:** Different versions (live, remix, remaster) are collapsing into one canonical entry.
 
-**Cause:** Duration is within ±2 seconds; title normalizes away "live" / "remix" suffixes.
+**Cause:** Duration is within ±2 seconds. Title normalizes away "live" / "remix" suffixes.
 
 **Solution:** Use per-source deduplication (`--source youtube_music`) or widen the exported JSONL to include alternates and manually filter.
 
@@ -489,7 +489,10 @@ Step 4: Export and analyze
 
 ## Next Steps
 
-1. **Canonicalize against external metadata** — Run `canonicalize` to mint canonical IDs and link to MusicBrainz, Wikidata, TMDB (see [Disambiguation](disambiguation.md)).
-2. **Build ML datasets** — Load the JSONL into `datasets` and train retrieval models.
-3. **Scale to playlists** — Use the same workflow for multi-source playlists (e.g., curated lo-fi beats collections).
-4. **Automate updates** — Use `monitor` to re-sync periodically and push updates to HuggingFace.
+1. **Canonicalize against external metadata**, Run `canonicalize` to mint canonical IDs and link to MusicBrainz, Wikidata, TMDB (see [Disambiguation](disambiguation.md)).
+2. **Build ML datasets**, Load the JSONL into `datasets` and train retrieval models.
+3. **Scale to playlists**, Use the same workflow for multi-source playlists (e.g., curated lo-fi beats collections).
+4. **Automate updates**, Use `monitor` to re-sync periodically and push updates to HuggingFace.
+
+---
+[← Getting Started](getting-started.md) · [Home](index.md) · [FAQ →](faq.md)

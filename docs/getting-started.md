@@ -117,7 +117,7 @@ https://www.youtube.com/watch?v=xyz789
 
 ## Pipe to yt-dlp
 
-Now download the actual videos. This is why `media_archivist` is **metadata-only** — it does the heavy lifting of listing, filtering, and deduplication so `yt-dlp` just downloads:
+Now download the actual videos. This is why `media_archivist` is **metadata-only**, it does the heavy lifting of listing, filtering, and deduplication so `yt-dlp` just downloads:
 
 ```bash
 # Download the first 5 videos
@@ -155,7 +155,7 @@ Each backend is activated with a flag. Here's how to pick one:
 ### YouTube (default)
 
 ```bash
-# No flag needed — YouTube is the default
+# No flag needed, YouTube is the default
 media-archivist add --db-file yt.json https://www.youtube.com/@SomeChannel
 media-archivist add --db-file yt.json https://www.youtube.com/watch?v=abc123
 media-archivist add --db-file yt.json https://www.youtube.com/playlist?list=PLxxx
@@ -238,7 +238,7 @@ media-archivist add --db my_dataset https://www.youtube.com/@SomeChannel
 
 The file is auto-placed at `~/.local/share/media_archivist/my_dataset.json` and is shared across all commands using the same `--db my_dataset` name. Good for persistent, system-wide collections.
 
-You cannot mix `--db` and `--db-file`; exactly one is required per command.
+You cannot mix `--db` and `--db-file`. Exactly one is required per command.
 
 ## Common Pitfalls
 
@@ -298,3 +298,14 @@ Now that you have a working database:
    ```
 
 For full CLI reference, see [CLI Architecture](cli.md).
+
+6. **Run as a service (homelab):** Start the HTTP API with one command and
+   connect Jellyfin, Kodi, or any M3U/RSS client:
+   ```bash
+   docker compose -f deploy/docker-compose.yml up -d
+   ```
+   See [Running as a service](deploy.md) for details on the full HTTP surface,
+   `/strm`, `/m3u`, and `/feed.rss` endpoints.
+
+---
+[Home](index.md) · [Tutorial →](tutorial.md)
