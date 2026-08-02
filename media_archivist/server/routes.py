@@ -140,12 +140,14 @@ def register_routes(app, *, db_path: str) -> None:
 
     @app.get("/feed.rss", response_class=Response)
     def feed_rss(limit: int = Query(default=50, ge=1, le=500)):
+        from xml.sax.saxutils import escape
+
         idx = Index(db_path)
         items: list[str] = []
         for e in idx.to_list(limit=limit):
-            title = (e.title or "").replace("&", "&amp;").replace("<", "&lt;")
-            url = e.url
-            published = e.published or ""
+            title = escape(e.title or "")
+            url = escape(e.url)
+            published = escape(e.published or "")
             items.append(
                 f"<item><title>{title}</title><link>{url}</link>"
                 f"<guid isPermaLink=\"true\">{url}</guid>"
@@ -155,7 +157,7 @@ def register_routes(app, *, db_path: str) -> None:
             '<?xml version="1.0" encoding="UTF-8"?>'
             '<rss version="2.0"><channel>'
             '<title>media_archivist</title>'
-            f'<link>{db_path}</link>'
+            f'<link>{escape(db_path)}</link>'
             '<description>Recently indexed entries.</description>'
             + "".join(items)
             + "</channel></rss>"

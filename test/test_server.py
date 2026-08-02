@@ -82,6 +82,35 @@ def test_feed_rss(client):
     assert "<rss" in r.text and "Hello" in r.text
 
 
+def test_feed_rss_escapes_ampersands_in_urls(tmp_path):
+    """Regression: an unescaped ``&`` in a video URL produced invalid XML.
+
+    YouTube watch URLs routinely carry more than one query parameter (e.g.
+    ``...&list=...``); the raw ``&`` broke every RSS/podcast client that
+    actually parses the feed as XML instead of eyeballing it.
+    """
+    db_path = tmp_path / "db.json"
+    db = EnvelopeJsonStorage(str(db_path))
+    db["https://www.youtube.com/watch?v=a&list=PL1"] = {
+        "source": "youtube",
+        "url": "https://www.youtube.com/watch?v=a&list=PL1",
+        "videoId": "a",
+        "title": "Rock & Roll",
+        "duration": 240,
+    }
+    db.store()
+    app = create_app(str(db_path))
+    with TestClient(app) as c:
+        r = c.get("/feed.rss")
+    assert r.status_code == 200
+    assert "v=a&list=PL1" not in r.text, "raw & must not appear in the XML body"
+    assert "v=a&amp;list=PL1" in r.text
+    assert "Rock &amp; Roll" in r.text
+
+    import xml.etree.ElementTree as ET
+    ET.fromstring(r.text)  # raises if the feed isn't well-formed XML
+
+
 def test_m3u(client):
     r = client.get("/m3u", params={"has_stream": True})
     assert r.status_code == 200

@@ -203,6 +203,58 @@ def test_canonicalize_dedupes_artists_across_providers(tmp_path, stub_registry):
     assert "Foo (alias)" in rec.aliases
 
 
+def test_canonicalize_one_bad_row_does_not_abort_the_batch(tmp_path, stub_registry, monkeypatch):
+    """A record that blows up mid-pipeline must not lose every other row's work.
+
+    Regression test: previously an unexpected exception anywhere inside the
+    per-row body *after* provider lookup (e.g. consolidation, relation
+    merging) propagated out of ``canonicalize()`` entirely, so *no* sidecar
+    was persisted even for rows already matched successfully — one
+    malformed record could wipe out an entire archive's worth of progress.
+    """
+    db_path = tmp_path / "db.json"
+    db = EnvelopeJsonStorage(str(db_path))
+    db["good"] = {"source": "bandcamp", "url": "good", "title": "Hello",
+                  "artist": "Foo", "duration": 240}
+    db["bad"] = {"source": "bandcamp", "url": "bad", "title": "Boom",
+                 "artist": "Baz", "duration": 240}
+    db.store()
+
+    class EchoStub(_StubProvider):
+        def lookup(self, signals):
+            return ProviderMatch(
+                provider="stub_entities", confidence=0.9,
+                signals=Signals(title=signals.title, artist=signals.artist,
+                                runtime=signals.runtime, medium=MediaType.MUSIC),
+                relations={EntityRole.ARTIST: [ProviderEntity(
+                    role=EntityRole.ARTIST, name=signals.artist,
+                )]},
+            )
+
+    register(EchoStub(None))
+
+    import media_archivist.canonicalize as canon_mod
+    real_consolidate = canon_mod._consolidate
+
+    def _flaky_consolidate(matches, local):
+        if local.title == "Boom":
+            raise RuntimeError("simulated corrupt record downstream of lookup")
+        return real_consolidate(matches, local)
+
+    monkeypatch.setattr(canon_mod, "_consolidate", _flaky_consolidate)
+
+    canonical, quarantine, entities = canonicalize(str(db_path), providers=["stub_entities"])
+
+    [good_entry] = [e for e in Index(str(db_path)).view() if e.url == "good"]
+    [bad_entry] = [e for e in Index(str(db_path)).view() if e.url == "bad"]
+
+    all_members = {mid for rec in canonical.records.values() for mid in rec.members}
+    assert good_entry.id in all_members, \
+        "the good row's canonical record must survive the bad row's crash"
+    assert good_entry.canonical_status == "matched"
+    assert bad_entry.canonical_status == "unmatched"
+
+
 # ---------------------------------------------------------------------------
 # Index.view + --where dotted access
 # ---------------------------------------------------------------------------

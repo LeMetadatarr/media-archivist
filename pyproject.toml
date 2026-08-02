@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest"]
+test = ["pytest", "httpx", "fastapi", "uvicorn[standard]"]
 hub = ["huggingface_hub"]
 server = ["fastapi", "uvicorn[standard]"]
 all = ["huggingface_hub", "fastapi", "uvicorn[standard]"]
