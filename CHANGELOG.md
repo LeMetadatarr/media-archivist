@@ -1,44 +1,52 @@
 # Changelog
 
-## [0.1.1a5](https://github.com/TigreGotico/media-archivist/tree/0.1.1a5) (2026-07-30)
+## [0.1.1a6](https://github.com/LeMetadatarr/media-archivist/tree/0.1.1a6) (2026-08-02)
 
-[Full Changelog](https://github.com/TigreGotico/media-archivist/compare/0.1.1a4...0.1.1a5)
-
-**Merged pull requests:**
-
-- docs: rewrite README in Simplified Technical English [\#22](https://github.com/TigreGotico/media-archivist/pull/22) ([JarbasAl](https://github.com/JarbasAl))
-
-## [0.1.1a4](https://github.com/TigreGotico/media-archivist/tree/0.1.1a4) (2026-06-27)
-
-[Full Changelog](https://github.com/TigreGotico/media-archivist/compare/0.1.1a3...0.1.1a4)
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.1.1a5...0.1.1a6)
 
 **Merged pull requests:**
 
-- docs: timeless documentation cleanup [\#15](https://github.com/TigreGotico/media-archivist/pull/15) ([JarbasAl](https://github.com/JarbasAl))
+- docs: QA pass — accuracy, org-move URLs, related projects [\#24](https://github.com/LeMetadatarr/media-archivist/pull/24) ([JarbasAl](https://github.com/JarbasAl))
 
-## [0.1.1a3](https://github.com/TigreGotico/media-archivist/tree/0.1.1a3) (2026-06-27)
+## [0.1.1a5](https://github.com/LeMetadatarr/media-archivist/tree/0.1.1a5) (2026-07-30)
 
-[Full Changelog](https://github.com/TigreGotico/media-archivist/compare/0.1.1a2...0.1.1a3)
-
-**Merged pull requests:**
-
-- chore: add LICENSE, fix repo URLs, drop duplicate license workflow [\#13](https://github.com/TigreGotico/media-archivist/pull/13) ([JarbasAl](https://github.com/JarbasAl))
-
-## [0.1.1a2](https://github.com/TigreGotico/media-archivist/tree/0.1.1a2) (2026-06-27)
-
-[Full Changelog](https://github.com/TigreGotico/media-archivist/compare/0.1.1a1...0.1.1a2)
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.1.1a4...0.1.1a5)
 
 **Merged pull requests:**
 
-- chore: migrate to mediavocab 1.0 [\#10](https://github.com/TigreGotico/media-archivist/pull/10) ([JarbasAl](https://github.com/JarbasAl))
+- docs: rewrite README in Simplified Technical English [\#22](https://github.com/LeMetadatarr/media-archivist/pull/22) ([JarbasAl](https://github.com/JarbasAl))
 
-## [0.1.1a1](https://github.com/TigreGotico/media-archivist/tree/0.1.1a1) (2026-05-07)
+## [0.1.1a4](https://github.com/LeMetadatarr/media-archivist/tree/0.1.1a4) (2026-06-27)
 
-[Full Changelog](https://github.com/TigreGotico/media-archivist/compare/0.1.0...0.1.1a1)
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.1.1a3...0.1.1a4)
 
 **Merged pull requests:**
 
-- chore\(deps\): update actions/checkout action to v6 [\#4](https://github.com/TigreGotico/media-archivist/pull/4) ([renovate[bot]](https://github.com/apps/renovate))
+- docs: timeless documentation cleanup [\#15](https://github.com/LeMetadatarr/media-archivist/pull/15) ([JarbasAl](https://github.com/JarbasAl))
+
+## [0.1.1a3](https://github.com/LeMetadatarr/media-archivist/tree/0.1.1a3) (2026-06-27)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.1.1a2...0.1.1a3)
+
+**Merged pull requests:**
+
+- chore: add LICENSE, fix repo URLs, drop duplicate license workflow [\#13](https://github.com/LeMetadatarr/media-archivist/pull/13) ([JarbasAl](https://github.com/JarbasAl))
+
+## [0.1.1a2](https://github.com/LeMetadatarr/media-archivist/tree/0.1.1a2) (2026-06-27)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.1.1a1...0.1.1a2)
+
+**Merged pull requests:**
+
+- chore: migrate to mediavocab 1.0 [\#10](https://github.com/LeMetadatarr/media-archivist/pull/10) ([JarbasAl](https://github.com/JarbasAl))
+
+## [0.1.1a1](https://github.com/LeMetadatarr/media-archivist/tree/0.1.1a1) (2026-05-07)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.1.0...0.1.1a1)
+
+**Merged pull requests:**
+
+- chore\(deps\): update actions/checkout action to v6 [\#4](https://github.com/LeMetadatarr/media-archivist/pull/4) ([renovate[bot]](https://github.com/apps/renovate))
 
 
 
