@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.1a8](https://github.com/LeMetadatarr/media-archivist/tree/0.1.1a8) (2026-08-02)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.1.1a7...0.1.1a8)
+
+**Merged pull requests:**
+
+- fix: pin mediavocab\>=2.0.0a0 and metadatarr\>=0.5.0a0 \(prerelease floor pins\) [\#26](https://github.com/LeMetadatarr/media-archivist/pull/26) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.1.1a7](https://github.com/LeMetadatarr/media-archivist/tree/0.1.1a7) (2026-08-02)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.1.1a6...0.1.1a7)
