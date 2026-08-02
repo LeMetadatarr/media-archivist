@@ -15,10 +15,11 @@ This example uses Aphex Twin, a prolific artist with releases across all three p
 ### Install the full suite
 
 ```bash
-pip install media_archivist[all]
+pip install media_archivist py_bandcamp nuvem_de_som
 ```
 
-This installs `media_archivist` with support for YouTube Music, Bandcamp, and SoundCloud.
+This installs `media_archivist` with support for YouTube Music (built in), Bandcamp, and
+SoundCloud.
 
 ### Create a working directory
 

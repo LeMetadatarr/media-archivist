@@ -13,9 +13,9 @@ Frequently asked questions and troubleshooting for the metadata-only media index
 pip install media_archivist
 
 # Or with optional backends
-pip install media_archivist[bandcamp]
-pip install media_archivist[soundcloud]
-pip install media_archivist[all]
+pip install media_archivist py_bandcamp
+pip install media_archivist nuvem_de_som
+pip install "media_archivist[all]"  # hub publishing, HTTP service
 ```
 
 If you installed via `all`, check your `$PYTHONPATH`:
@@ -30,10 +30,10 @@ python -c "import media_archivist; print(media_archivist.__file__)"
 
 ```bash
 # If you get "bandcamp backend requires py_bandcamp":
-pip install media_archivist[bandcamp]
+pip install media_archivist py_bandcamp
 
 # If you get "soundcloud backend requires nuvem_de_som":
-pip install media_archivist[soundcloud]
+pip install media_archivist nuvem_de_som
 ```
 
 After install, retry the command.
@@ -494,7 +494,7 @@ media-archivist prune --db-file my.json --missing "duration"
 
 ### Q: I found a bug. How do I report it?
 
-**A:** File an issue on GitHub: https://github.com/TigreGotico/media-archivist/issues
+**A:** File an issue on GitHub: https://github.com/LeMetadatarr/media-archivist/issues
 
 Include:
 - Python version (`python --version`)

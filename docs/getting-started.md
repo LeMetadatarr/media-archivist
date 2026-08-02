@@ -11,13 +11,13 @@ Choose the right variant for your use case:
 pip install media_archivist
 
 # Add Bandcamp
-pip install media_archivist[bandcamp]
+pip install media_archivist py_bandcamp
 
 # Add SoundCloud
-pip install media_archivist[soundcloud]
+pip install media_archivist nuvem_de_som
 
 # Everything
-pip install media_archivist[all]
+pip install "media_archivist[all]" py_bandcamp nuvem_de_som
 ```
 
 Verify the install:
@@ -194,7 +194,7 @@ Pass collection names or individual item IDs. Downloads format URLs (MPEG4, Ogg 
 
 ### Bandcamp
 
-Requires `pip install media_archivist[bandcamp]`.
+Requires `pip install media_archivist py_bandcamp`.
 
 ```bash
 media-archivist add --db-file bc.json --bandcamp \
@@ -207,7 +207,7 @@ Bandcamp entries include direct audio stream URLs (when Bandcamp exposes them), 
 
 ### SoundCloud
 
-Requires `pip install media_archivist[soundcloud]`.
+Requires `pip install media_archivist nuvem_de_som`.
 
 ```bash
 media-archivist add --db-file sc.json --soundcloud \
@@ -246,7 +246,7 @@ You cannot mix `--db` and `--db-file`. Exactly one is required per command.
 
 **Problem:** You used `--bandcamp` but didn't install the optional dependency.
 
-**Solution:** `pip install media_archivist[bandcamp]`
+**Solution:** `pip install media_archivist py_bandcamp`
 
 ### URLs are blank in the export
 

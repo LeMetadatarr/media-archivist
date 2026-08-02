@@ -14,7 +14,7 @@ Create a searchable, cross-platform music dataset for an artist by:
 
 ```bash
 # Install all backends
-pip install media_archivist[all]
+pip install "media_archivist[all]" py_bandcamp nuvem_de_som
 
 # Your favorite artist (we'll use Aphex Twin as the example)
 export ARTIST="Aphex Twin"

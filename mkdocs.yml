@@ -1,8 +1,8 @@
 site_name: media_archivist
 site_description: Cross-source media metadata indexer (YouTube, YT Music, Internet Archive, Bandcamp, SoundCloud)
 site_url: https://tigregotico.github.io/media-archivist/
-repo_url: https://github.com/TigreGotico/media-archivist
-repo_name: TigreGotico/media-archivist
+repo_url: https://github.com/LeMetadatarr/media-archivist
+repo_name: LeMetadatarr/media-archivist
 edit_uri: edit/master/docs/
 
 theme:

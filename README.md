@@ -5,11 +5,11 @@ from YouTube, YouTube Music, Internet Archive, Bandcamp and SoundCloud.
 
 | Backend | Library | What you can index |
 | --- | --- | --- |
-| **YouTube** | [`tutubo`](https://github.com/OpenJarbas/tutubo) | channels, playlists, videos (no API key) |
+| **YouTube** | [`tutubo`](https://github.com/LeMetadatarr/tutubo) | channels, playlists, videos (no API key) |
 | **YouTube Music** | `tutubo.ytmus` (via `ytmusicapi`) | tracks, albums, artists, playlists |
 | **Internet Archive** | `internetarchive` | items, collections |
-| **Bandcamp** | [`py_bandcamp`](https://github.com/JarbasAl/py_bandcamp) | tracks, albums, artists, tag/search |
-| **SoundCloud** | [`nuvem_de_som`](https://github.com/JarbasAl/nuvem_de_som) | tracks, sets, profiles, search |
+| **Bandcamp** | [`py_bandcamp`](https://github.com/LeMetadatarr/py_bandcamp) | tracks, albums, artists, tag/search |
+| **SoundCloud** | [`nuvem_de_som`](https://github.com/LeMetadatarr/nuvem_de_som) | tracks, sets, profiles, search |
 
 `media_archivist` is **metadata-only**: it indexes streams. It does not
 download them. Pair it with [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) (or
@@ -22,10 +22,10 @@ Ships as both a Python library and a `media-archivist` CLI.
 ## Install
 
 ```bash
-pip install media_archivist                 # core (YouTube + IA + YT Music)
-pip install media_archivist[bandcamp]       # + py_bandcamp
-pip install media_archivist[soundcloud]     # + nuvem_de_som
-pip install media_archivist[all]            # everything
+pip install media_archivist              # core (YouTube + IA + YT Music)
+pip install media_archivist py_bandcamp  # + Bandcamp
+pip install media_archivist nuvem_de_som # + SoundCloud
+pip install media_archivist[all]         # + huggingface_hub, fastapi, uvicorn (hub publishing, HTTP service)
 ```
 
 ## CLI
@@ -84,7 +84,7 @@ Pick the backend with `--ia`, `--music`, `--bandcamp`, or `--soundcloud`
 
 DBs are plain JSON, edit, back up, version-control, share. With `--db NAME` the
 file is managed under XDG via
-[`json_database`](https://github.com/OpenJarbas/json_database).
+[`json_database`](https://github.com/TigreGotico/json_database).
 
 ## Homelab / HTTP service
 
@@ -301,7 +301,7 @@ All archivists inherit from `JsonArchivist`:
 
 `media-archivist canonicalize` enriches indexed entries with external IDs
 and structured metadata via the cross-source resolver in
-[`metadatarr`](https://github.com/TigreGotico/metadatarr). The provider
+[`metadatarr`](https://github.com/LeMetadatarr/metadatarr). The provider
 registry, dispatcher, and ~24 built-in providers (MusicBrainz, Wikidata,
 TMDB, AniList, Jikan, Google Books, LibriVox, Apple Podcasts, *arr family,
 Discogs, Blu-ray.com, DVDCompare, OpenLibrary, Anna's Archive, Bandcamp,
@@ -314,6 +314,17 @@ The resolver gates providers on three independent axes: `media` (MediaType),
 and `genre_filter` (genre tag set). Callers constructing `Signals` directly can
 pass `modality=PlaybackModality.AUDIO` to restrict resolution to audio-only
 providers. See [`docs/metadatarr.md`](docs/metadatarr.md#routing) for details.
+
+## Related projects
+
+- [`metadatarr`](https://github.com/LeMetadatarr/metadatarr), the cross-source
+  metadata resolver used by `canonicalize`
+- [`tutubo`](https://github.com/LeMetadatarr/tutubo), the YouTube / YouTube
+  Music client backing the YouTube backends
+- [`py_bandcamp`](https://github.com/LeMetadatarr/py_bandcamp), the Bandcamp
+  client backing the Bandcamp backend
+- [`nuvem_de_som`](https://github.com/LeMetadatarr/nuvem_de_som), the
+  SoundCloud client backing the SoundCloud backend
 
 ## License
 
