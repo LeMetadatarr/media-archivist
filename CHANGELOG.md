@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.1a7](https://github.com/LeMetadatarr/media-archivist/tree/0.1.1a7) (2026-08-02)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.1.1a6...0.1.1a7)
+
+**Merged pull requests:**
+
+- deep: bugs, real-fixture tests, docs/examples [\#25](https://github.com/LeMetadatarr/media-archivist/pull/25) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.1.1a6](https://github.com/LeMetadatarr/media-archivist/tree/0.1.1a6) (2026-08-02)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.1.1a5...0.1.1a6)
