@@ -316,115 +316,17 @@ def canonicalize(db_path: str, *,
     rows: List[MediaEntry] = list(idx.view())
 
     for entry in rows:
-        local = signals_from_entry(entry)
-        # Skip rows we can't match: no title, or music rows with no artist signal.
-        if not local.title:
-            _stamp(db, entry.url, status="unmatched")
-            continue
-        if local.medium == MediaType.MUSIC and not local.artist:
-            _stamp(db, entry.url, status="unmatched")
-            continue
-
-        matches: List[ProviderMatch] = []
-        eligible = _providers_for(chosen, local.medium, local.content_genres)
-        n_workers = min(len(eligible), max_workers)
-        with ThreadPoolExecutor(max_workers=n_workers) as pool:
-            futures = {pool.submit(_safe_lookup, p, local): p for p in eligible}
-            for fut in as_completed(futures):
-                m = fut.result()
-                if m is not None:
-                    matches.append(m)
-
-        # Verify each match against our local signals; collect conflicts.
-        verified: List[ProviderMatch] = []
-        first_conflict = None
-        for m in matches:
-            conflicts = compare(local, m.signals)
-            if conflicts:
-                first_conflict = (m, conflicts)
-                continue
-            verified.append(m)
-
-        if first_conflict is not None and not verified:
-            # Provider returned but disagreed — quarantine.
-            m, conflicts = first_conflict
-            cand_signals = merged(local, m.signals)
-            cid = signal_hash(cand_signals)
-            quarantine.entries[entry.id] = QuarantineEntry(
-                row_id=entry.id,
-                candidate_canonical_id=cid,
-                conflicts=conflicts,
-                proposed_signals=cand_signals,
+        try:
+            _canonicalize_one(
+                entry, chosen, canonical, quarantine, entities,
+                db, max_workers=max_workers, stamp_rows=stamp_rows,
             )
-            _stamp(db, entry.url, status="quarantined")
-            continue
-
-        consolidated, external, log = _consolidate(verified, local)
-        if consolidated is None:
-            # Two providers disagreed with each other — quarantine.
-            quarantine.entries[entry.id] = QuarantineEntry(
-                row_id=entry.id,
-                conflicts=[],
-                proposed_signals=local,
-            )
-            _stamp(db, entry.url, status="quarantined")
-            continue
-
-        canonical_id = signal_hash(consolidated)
-        rec = canonical.records.get(canonical_id) or CanonicalRecord(
-            canonical_id=canonical_id, signals=consolidated,
-        )
-        rec.signals = merged(rec.signals, consolidated)
-        rec.external_ids = rec.external_ids.merge(external)
-        if entry.id not in rec.members:
-            rec.members.append(entry.id)
-        for hit in log:
-            rec.log_hit(hit)
-        # Merge provider-supplied relations into the entity sidecar.
-        for match in verified:
-            for role, candidates in (match.relations or {}).items():
-                for cand in candidates:
-                    # Force the candidate's role to match the relations-dict key
-                    # so the role-key on ProviderEntity always agrees with where
-                    # it ended up in the relations map.
-                    if cand.role != role:
-                        cand = cand.model_copy(update={"role": role})
-                    eid = upsert_entity(entities, cand)
-                    rec.add_relation(role, eid)
-                    attach_work(entities, eid, canonical_id)
-            # Variants emitted directly on the match.
-            for variant in (match.variants or []):
-                eid = upsert_entity(entities, variant)
-                if eid not in rec.variants:
-                    rec.variants.append(eid)
-                attach_work(entities, eid, canonical_id)
-
-        # Fan out to variant-aware providers when requested.
-        # Check both the raw local signals and the consolidated result (a
-        # provider match may have set include_variants=True via merged()).
-        if local.include_variants or consolidated.include_variants:
-            variant_eligible = _providers_for(chosen, local.medium, local.content_genres)
-            n_workers = min(len(variant_eligible), max_workers)
-            with ThreadPoolExecutor(max_workers=n_workers) as pool:
-                vfuts = {
-                    pool.submit(_safe_list_variants, p, rec.external_ids, local): p
-                    for p in variant_eligible
-                }
-                for vfut in as_completed(vfuts):
-                    for variant in vfut.result():
-                        eid = upsert_entity(entities, variant)
-                        if eid not in rec.variants:
-                            rec.variants.append(eid)
-                        attach_work(entities, eid, canonical_id)
-
-        rec.touch()
-        canonical.records[canonical_id] = rec
-
-        # Clear any prior quarantine for this row — we matched.
-        quarantine.entries.pop(entry.id, None)
-
-        if stamp_rows:
-            _stamp(db, entry.url, status="matched", canonical_id=canonical_id)
+        except Exception:
+            # One malformed/edge-case record must not abort the whole batch —
+            # every other row's progress (already accumulated in-memory and
+            # persisted below) would otherwise be silently lost.
+            LOG.exception("canonicalize: row %s raised unexpectedly; skipping", entry.id)
+            _stamp(db, entry.url, status="unmatched")
 
     if stamp_rows:
         db.store()
@@ -432,6 +334,125 @@ def canonicalize(db_path: str, *,
     save_quarantine(db_path, quarantine)
     save_entities(db_path, entities)
     return canonical, quarantine, entities
+
+
+def _canonicalize_one(entry: MediaEntry,
+                      chosen: List[MetadataProvider],
+                      canonical: CanonicalSidecar,
+                      quarantine: QuarantineSidecar,
+                      entities: EntitySidecar,
+                      db: EnvelopeJsonStorage,
+                      *, max_workers: int, stamp_rows: bool) -> None:
+    """Canonicalize a single row in-place against the shared sidecars."""
+    local = signals_from_entry(entry)
+    # Skip rows we can't match: no title, or music rows with no artist signal.
+    if not local.title:
+        _stamp(db, entry.url, status="unmatched")
+        return
+    if local.medium == MediaType.MUSIC and not local.artist:
+        _stamp(db, entry.url, status="unmatched")
+        return
+
+    matches: List[ProviderMatch] = []
+    eligible = _providers_for(chosen, local.medium, local.content_genres)
+    n_workers = min(len(eligible), max_workers)
+    with ThreadPoolExecutor(max_workers=n_workers) as pool:
+        futures = {pool.submit(_safe_lookup, p, local): p for p in eligible}
+        for fut in as_completed(futures):
+            m = fut.result()
+            if m is not None:
+                matches.append(m)
+
+    # Verify each match against our local signals; collect conflicts.
+    verified: List[ProviderMatch] = []
+    first_conflict = None
+    for m in matches:
+        conflicts = compare(local, m.signals)
+        if conflicts:
+            first_conflict = (m, conflicts)
+            continue
+        verified.append(m)
+
+    if first_conflict is not None and not verified:
+        # Provider returned but disagreed — quarantine.
+        m, conflicts = first_conflict
+        cand_signals = merged(local, m.signals)
+        cid = signal_hash(cand_signals)
+        quarantine.entries[entry.id] = QuarantineEntry(
+            row_id=entry.id,
+            candidate_canonical_id=cid,
+            conflicts=conflicts,
+            proposed_signals=cand_signals,
+        )
+        _stamp(db, entry.url, status="quarantined")
+        return
+
+    consolidated, external, log = _consolidate(verified, local)
+    if consolidated is None:
+        # Two providers disagreed with each other — quarantine.
+        quarantine.entries[entry.id] = QuarantineEntry(
+            row_id=entry.id,
+            conflicts=[],
+            proposed_signals=local,
+        )
+        _stamp(db, entry.url, status="quarantined")
+        return
+
+    canonical_id = signal_hash(consolidated)
+    rec = canonical.records.get(canonical_id) or CanonicalRecord(
+        canonical_id=canonical_id, signals=consolidated,
+    )
+    rec.signals = merged(rec.signals, consolidated)
+    rec.external_ids = rec.external_ids.merge(external)
+    if entry.id not in rec.members:
+        rec.members.append(entry.id)
+    for hit in log:
+        rec.log_hit(hit)
+    # Merge provider-supplied relations into the entity sidecar.
+    for match in verified:
+        for role, candidates in (match.relations or {}).items():
+            for cand in candidates:
+                # Force the candidate's role to match the relations-dict key
+                # so the role-key on ProviderEntity always agrees with where
+                # it ended up in the relations map.
+                if cand.role != role:
+                    cand = cand.model_copy(update={"role": role})
+                eid = upsert_entity(entities, cand)
+                rec.add_relation(role, eid)
+                attach_work(entities, eid, canonical_id)
+        # Variants emitted directly on the match.
+        for variant in (match.variants or []):
+            eid = upsert_entity(entities, variant)
+            if eid not in rec.variants:
+                rec.variants.append(eid)
+            attach_work(entities, eid, canonical_id)
+
+    # Fan out to variant-aware providers when requested.
+    # Check both the raw local signals and the consolidated result (a
+    # provider match may have set include_variants=True via merged()).
+    if local.include_variants or consolidated.include_variants:
+        variant_eligible = _providers_for(chosen, local.medium, local.content_genres)
+        n_workers = min(len(variant_eligible), max_workers)
+        with ThreadPoolExecutor(max_workers=n_workers) as pool:
+            vfuts = {
+                pool.submit(_safe_list_variants, p, rec.external_ids, local): p
+                for p in variant_eligible
+            }
+            for vfut in as_completed(vfuts):
+                for variant in vfut.result():
+                    eid = upsert_entity(entities, variant)
+                    if eid not in rec.variants:
+                        rec.variants.append(eid)
+                    attach_work(entities, eid, canonical_id)
+
+    rec.touch()
+    canonical.records[canonical_id] = rec
+
+    # Clear any prior quarantine for this row — we matched.
+    quarantine.entries.pop(entry.id, None)
+
+    if stamp_rows:
+        _stamp(db, entry.url, status="matched", canonical_id=canonical_id)
 
 
 def _stamp(db: EnvelopeJsonStorage, url: str, *,

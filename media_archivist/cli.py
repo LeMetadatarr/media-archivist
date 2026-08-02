@@ -11,12 +11,15 @@ Two ways to point at a database:
 - ``--db NAME`` — auto-placed under XDG at
   ``~/.local/share/media_archivist/<NAME>.json``.
 
+``--db-file``/``--db`` are per-subcommand flags — pass them *after* the
+subcommand name.
+
 Examples::
 
-    media-archivist --db-file talks.json add https://www.youtube.com/@SomeChannel
-    media-archivist --db-file talks.json urls | yt-dlp -a -
-    media-archivist --db-file talks.json export --format jsonl > talks.jsonl
-    media-archivist --db-file talks.json export --format csv \\
+    media-archivist add https://www.youtube.com/@SomeChannel --db-file talks.json
+    media-archivist urls --db-file talks.json | yt-dlp -a -
+    media-archivist export --db-file talks.json --format jsonl > talks.jsonl
+    media-archivist export --db-file talks.json --format csv \\
         --fields videoId,title,url,published > talks.csv
 """
 from __future__ import annotations
