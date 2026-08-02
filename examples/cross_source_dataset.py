@@ -11,7 +11,7 @@ This recipe shows how to:
 
 Run::
 
-    pip install media_archivist[bandcamp,soundcloud]
+    pip install media_archivist py_bandcamp nuvem_de_som
     python examples/cross_source_dataset.py "Aphex Twin"
 """
 from __future__ import annotations

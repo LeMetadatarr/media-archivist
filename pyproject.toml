@@ -30,8 +30,8 @@ all = ["huggingface_hub", "fastapi", "uvicorn[standard]"]
 media-archivist = "media_archivist.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/TigreGotico/media-archivist"
-Repository = "https://github.com/TigreGotico/media-archivist"
+Homepage = "https://github.com/LeMetadatarr/media-archivist"
+Repository = "https://github.com/LeMetadatarr/media-archivist"
 
 [tool.setuptools.dynamic]
 version = { attr = "media_archivist.version.__version__" }
