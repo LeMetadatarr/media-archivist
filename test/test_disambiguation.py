@@ -542,8 +542,11 @@ def test_providers_for_filters_by_medium():
     all_p = [AniListProvider(), JikanAnimeProvider(), _StubProvider(ProviderMatch(
         provider="stub_movie", confidence=0.9, signals=Signals(title="X"),
     ))]
-    # Override stub media to MOVIE for clarity
-    all_p[-1].__class__.media = {MediaType.MOVIE}
+    # Override stub media to MOVIE for clarity. Set it on the instance, not
+    # the class — mutating _StubProvider.media leaks into every other test's
+    # stub (they default to {MOVIE, MUSIC}) and, under a randomized order,
+    # silently drops music providers so quarantine tests find nothing.
+    all_p[-1].media = {MediaType.MOVIE}
 
     anime_only = _providers_for(all_p, MediaType.EPISODIC_SERIES,
                                   content_genres=["anime"])
