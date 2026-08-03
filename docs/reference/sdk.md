@@ -559,7 +559,7 @@ class SoundCloudArchivist(JsonArchivist):
 Cross-source deduplication and metadata enrichment.
 
 ```python
-from media_archivist.canon import fingerprint, build_links, dedupe, write_dedupe_jsonl
+from media_archivist.dedupe import fingerprint, build_links, dedupe, write_dedupe_jsonl
 
 def fingerprint(entry: MediaEntry) -> str:
     """Return a deterministic fingerprint for cross-source matching.
@@ -625,7 +625,7 @@ def write_dedupe_jsonl(canonical_rows: List[dict], output_path: str) -> int:
 
 ```python
 from media_archivist import Index
-from media_archivist.canon import fingerprint, build_links
+from media_archivist.dedupe import fingerprint, build_links
 
 idx = Index("./db.json")
 entries = list(idx.view())
