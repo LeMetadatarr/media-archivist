@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.3a3](https://github.com/LeMetadatarr/media-archivist/tree/0.1.3a3) (2026-08-03)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.1.3a2...0.1.3a3)
+
+**Merged pull requests:**
+
+- refactor: split cli.py monolith into media\_archivist/commands package [\#31](https://github.com/LeMetadatarr/media-archivist/pull/31) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.1.3a2](https://github.com/LeMetadatarr/media-archivist/tree/0.1.3a2) (2026-08-03)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.1.3a1...0.1.3a2)
