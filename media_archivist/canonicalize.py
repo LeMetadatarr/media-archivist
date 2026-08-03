@@ -355,7 +355,7 @@ def _canonicalize_one(entry: MediaEntry,
 
     matches: List[ProviderMatch] = []
     eligible = _providers_for(chosen, local.medium, local.content_genres)
-    n_workers = min(len(eligible), max_workers)
+    n_workers = max(1, min(len(eligible), max_workers))
     with ThreadPoolExecutor(max_workers=n_workers) as pool:
         futures = {pool.submit(_safe_lookup, p, local): p for p in eligible}
         for fut in as_completed(futures):
@@ -432,7 +432,7 @@ def _canonicalize_one(entry: MediaEntry,
     # provider match may have set include_variants=True via merged()).
     if local.include_variants or consolidated.include_variants:
         variant_eligible = _providers_for(chosen, local.medium, local.content_genres)
-        n_workers = min(len(variant_eligible), max_workers)
+        n_workers = max(1, min(len(variant_eligible), max_workers))
         with ThreadPoolExecutor(max_workers=n_workers) as pool:
             vfuts = {
                 pool.submit(_safe_list_variants, p, rec.external_ids, local): p
