@@ -129,7 +129,7 @@ Field coverage:
 
 ## Part 2: Fingerprint and Link Duplicates
 
-Now we have 117 entries across three sources. Many are the same song listed multiple times. We use `media_archivist.canon.link()` to find cross-source duplicates via a fingerprint based on normalized artist and title.
+Now we have 117 entries across three sources. Many are the same song listed multiple times. We use `media_archivist.dedupe.link()` to find cross-source duplicates via a fingerprint based on normalized artist and title.
 
 ### Understanding fingerprints
 

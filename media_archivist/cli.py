@@ -635,7 +635,7 @@ def cmd_quarantine_reject(args) -> int:
 def cmd_link(args) -> int:
     """Compute fingerprint groups and write the ``<db>.links.json`` sidecar."""
     _validated_args(_cli_args.LinkArgs, args)
-    from media_archivist.canon import link as canon_link
+    from media_archivist.dedupe import link as canon_link
 
     db_path = args.db_file or _index_for(args).path
     links = canon_link(db_path, duration_tolerance=args.duration_tolerance)
@@ -647,7 +647,7 @@ def cmd_link(args) -> int:
 def cmd_dedupe(args) -> int:
     """Read view+links and emit a deduped canonical JSONL."""
     _validated_args(_cli_args.DedupeArgs, args)
-    from media_archivist.canon import dedupe, write_dedupe_jsonl
+    from media_archivist.dedupe import dedupe, write_dedupe_jsonl
 
     db_path = args.db_file or _index_for(args).path
     preference = [s.strip() for s in args.prefer.split(",") if s.strip()]
