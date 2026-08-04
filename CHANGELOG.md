@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.6.0a1) (2026-08-04)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.5.0a1...0.6.0a1)
+
+**Merged pull requests:**
+
+- feat: yt-dlp stream resolution for player + /strm \(keep archived streams playable\) [\#39](https://github.com/LeMetadatarr/media-archivist/pull/39) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.5.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.5.0a1) (2026-08-04)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.4.0a1...0.5.0a1)
