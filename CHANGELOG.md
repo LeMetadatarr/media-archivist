@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.2a1](https://github.com/LeMetadatarr/media-archivist/tree/0.2.2a1) (2026-08-04)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.2.1a1...0.2.2a1)
+
+**Merged pull requests:**
+
+- fix: cap where-DSL allocation \(unauth OOM\), honest healthz, indexed lookup, path leak, bandcamp explicit [\#35](https://github.com/LeMetadatarr/media-archivist/pull/35) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.2.1a1](https://github.com/LeMetadatarr/media-archivist/tree/0.2.1a1) (2026-08-04)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.2.0a2...0.2.1a1)
