@@ -58,6 +58,8 @@ EXPECTED_DISPATCH = {
     "link": "cmd_link",
     "dedupe": "cmd_dedupe",
     "monitor": "cmd_monitor",
+    "resolve": "cmd_resolve",
+    "download": "cmd_download",
 }
 
 

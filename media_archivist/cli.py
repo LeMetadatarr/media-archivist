@@ -69,6 +69,10 @@ from media_archivist.commands.remote import (
     cmd_snapshot,
     cmd_sync,
 )
+from media_archivist.commands.streams import (
+    cmd_download,
+    cmd_resolve,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -332,6 +336,37 @@ def build_parser() -> argparse.ArgumentParser:
                           help="comma-separated source preference order (winners first)")
     p_dedupe.add_argument("--duration-tolerance", type=float, default=2.0)
     p_dedupe.set_defaults(func=cmd_dedupe)
+
+    p_resolve = sub.add_parser("resolve",
+                               help="resolve a fresh direct stream URL for a "
+                                    "URL or stored entry id")
+    p_resolve.add_argument("url_or_id", help="http(s) URL, or a stored entry id")
+    p_resolve.add_argument("--db", metavar="NAME",
+                           help="DB name, used when url_or_id is an entry id")
+    p_resolve.add_argument("--db-file", metavar="PATH",
+                           help="explicit DB path, used when url_or_id is an entry id")
+    p_resolve.add_argument("--format", default="best",
+                           help="format selector: best/bestaudio/worst (default: best)")
+    p_resolve.add_argument("--json", dest="json_out", action="store_true",
+                           help="print the full ResolvedStream as JSON")
+    p_resolve.set_defaults(func=cmd_resolve)
+
+    p_download = sub.add_parser("download",
+                                help="download matching entries (or a single "
+                                     "--url) to a local directory")
+    p_download.add_argument("--db", metavar="NAME")
+    p_download.add_argument("--db-file", metavar="PATH")
+    p_download.add_argument("--url", help="download this single URL directly")
+    p_download.add_argument("--id", help="download this single stored entry id")
+    p_download.add_argument("--where", metavar="EXPR",
+                            help="filter expression, e.g. 'duration>180'")
+    p_download.add_argument("--source", dest="source_filter", metavar="NAME",
+                            help="keep only entries from this source")
+    p_download.add_argument("--output-dir", dest="output_dir", required=True,
+                            help="directory downloads are written into")
+    p_download.add_argument("--format", default="best",
+                            help="format selector passed to yt-dlp (default: best)")
+    p_download.set_defaults(func=cmd_download)
 
     p_mon = sub.add_parser("monitor", parents=[common],
                            help="background-poll URLs and keep the DB in sync")
