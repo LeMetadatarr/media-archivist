@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.7.0a1) (2026-08-04)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.6.0a1...0.7.0a1)
+
+**Merged pull requests:**
+
+- feat: Jellyfin/Kodi .nfo metadata sidecars + library layouts for .strm export [\#40](https://github.com/LeMetadatarr/media-archivist/pull/40) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.6.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.6.0a1) (2026-08-04)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.5.0a1...0.6.0a1)
