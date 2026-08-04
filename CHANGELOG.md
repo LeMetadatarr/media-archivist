@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.4.0a1) (2026-08-04)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.3.0a1...0.4.0a1)
+
+**Merged pull requests:**
+
+- feat: yt-dlp stream resolver + optional download \(core module + CLI\) [\#37](https://github.com/LeMetadatarr/media-archivist/pull/37) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.3.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.3.0a1) (2026-08-04)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.2.2a1...0.3.0a1)
