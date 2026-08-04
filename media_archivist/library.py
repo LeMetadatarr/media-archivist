@@ -20,8 +20,9 @@ from pathlib import Path
 from typing import Any, Dict, Iterator, List, Literal, Optional
 
 from mediavocab import MediaType
+from mediavocab.models import ExternalIds
 from mediavocab.models.signals import Signals
-from metadatarr.resolve import resolve
+from metadatarr.resolve import enrich, resolve
 
 from media_archivist.models.canonical import MediaEntry
 from media_archivist.models.raw import Source
@@ -31,6 +32,24 @@ LOG = logging.getLogger("media_archivist.library")
 
 VIDEO_EXTS = {".mkv", ".mp4", ".avi", ".webm", ".mov", ".m4v", ".ts"}
 AUDIO_EXTS = {".mp3", ".flac", ".m4a", ".ogg", ".opus", ".wav", ".aac"}
+
+# Kodi/Jellyfin local-extras filename suffixes: "<basename>-<suffix>.ext".
+# https://jellyfin.org/docs/general/server/media/movies/#extras
+_EXTRAS_SUFFIXES = (
+    "trailer", "sample", "behindthescenes", "featurette",
+    "deleted", "interview", "scene", "short", "clip", "other",
+)
+_EXTRAS_SUFFIX_RE = re.compile(
+    r"[-.](" + "|".join(_EXTRAS_SUFFIXES) + r")$", re.IGNORECASE
+)
+# A standalone ".sample." / "-sample-" / trailing ".sample" token anywhere
+# in the path (deliberately narrow so "The Sample" as a title is untouched).
+_LOOSE_SAMPLE_RE = re.compile(r"[.\-_]sample(?:[.\-_]|$)", re.IGNORECASE)
+
+_EXTRAS_DIR_NAMES = {
+    "trailers", "extras", "featurettes", "behind the scenes",
+    "deleted scenes", "interviews", "sample", "samples", "other",
+}
 
 try:
     import guessit as _guessit  # type: ignore
@@ -55,23 +74,51 @@ class LocalMediaFile:
     kind: Literal["video", "music"]
 
 
-def scan(root: str, *, media: str = "both") -> Iterator[LocalMediaFile]:
+def _is_extra_path(path: Path) -> bool:
+    """True if *path* is a Jellyfin/Kodi local-extra (trailer/sample/etc)."""
+    for part in path.parent.parts:
+        if part.lower() in _EXTRAS_DIR_NAMES:
+            return True
+    stem = path.stem
+    if _EXTRAS_SUFFIX_RE.search(stem):
+        return True
+    if _LOOSE_SAMPLE_RE.search(path.name):
+        return True
+    return False
+
+
+def scan(root: str, *, media: str = "both", skip_extras: bool = True,
+        stats: Optional[Dict[str, int]] = None) -> Iterator[LocalMediaFile]:
     """Recursively walk *root*, yielding every matched media file.
 
     ``media`` restricts the walk to ``"video"``, ``"music"``, or the
     default ``"both"``. Non-media files (subtitles, artwork, existing
     ``.nfo`` sidecars, etc.) are silently skipped.
+
+    When ``skip_extras`` (the default) is true, Jellyfin/Kodi local-extras
+    — trailers, samples, behind-the-scenes, deleted scenes, etc, whether
+    named via suffix (``Foo-trailer.mkv``) or filed under a conventional
+    folder (``Trailers/``, ``Extras/``) — are excluded from the walk. Pass
+    a ``stats`` dict to have the count of skipped extras recorded under
+    the ``"skipped_extras"`` key.
     """
     want_video = media in ("both", "video")
     want_music = media in ("both", "music")
     root_path = Path(root)
     for dirpath, _dirnames, filenames in os.walk(root_path):
         for name in filenames:
-            ext = Path(name).suffix.lower()
-            if want_video and ext in VIDEO_EXTS:
-                yield LocalMediaFile(path=Path(dirpath) / name, kind="video")
-            elif want_music and ext in AUDIO_EXTS:
-                yield LocalMediaFile(path=Path(dirpath) / name, kind="music")
+            path = Path(dirpath) / name
+            ext = path.suffix.lower()
+            is_media = (want_video and ext in VIDEO_EXTS) or (want_music and ext in AUDIO_EXTS)
+            if not is_media:
+                continue
+            if skip_extras and _is_extra_path(path):
+                if stats is not None:
+                    stats["skipped_extras"] = stats.get("skipped_extras", 0) + 1
+                LOG.debug("skipping extra: %s", path)
+                continue
+            kind = "video" if ext in VIDEO_EXTS else "music"
+            yield LocalMediaFile(path=path, kind=kind)
 
 
 # ---------------------------------------------------------------------------
@@ -222,6 +269,50 @@ def extract_signals(file: LocalMediaFile) -> Signals:
 
 
 # ---------------------------------------------------------------------------
+# Embedded id extraction (Radarr/Sonarr/Jellyfin filename conventions)
+# ---------------------------------------------------------------------------
+
+# ``{tmdb-696806}``, ``{tmdbid-696806}``, ``[tmdbid-696806]``, ``tmdb=696806``.
+_TMDB_ID_RE = re.compile(r"[\[{]tmdb(?:id)?[-=](\d+)[\]}]", re.IGNORECASE)
+# ``{imdb-tt1254207}``, ``[imdbid-tt1254207]``.
+_IMDB_ID_RE = re.compile(r"[\[{]imdb(?:id)?[-=](tt\d+)[\]}]", re.IGNORECASE)
+# ``{tvdb-12345}``, ``[tvdbid-12345]``.
+_TVDB_ID_RE = re.compile(r"[\[{]tvdb(?:id)?[-=](\d+)[\]}]", re.IGNORECASE)
+
+
+def extract_embedded_ids(name: str, *, episodic: bool = False) -> Optional[ExternalIds]:
+    """Extract Radarr/Sonarr/Jellyfin-style embedded ids from *name*.
+
+    *name* may be a bare filename or a full path — both the file's own
+    name and any parent folder name commonly carry the id tag (Radarr
+    puts it in the movie folder name, e.g.
+    ``The Adam Project (2022) {tmdb-696806}/...mkv``), so callers should
+    pass the fully joined string (``str(path)``) to catch both.
+
+    Only well-delimited ``{...}``/``[...]`` tag forms are matched, to
+    avoid false positives on incidental digit runs in a title/year.
+    Returns ``None`` when no id tag is found.
+    """
+    ids: Dict[str, Any] = {}
+
+    m = _TMDB_ID_RE.search(name)
+    if m:
+        ids["tmdb_tv" if episodic else "tmdb_movie"] = int(m.group(1))
+
+    m = _IMDB_ID_RE.search(name)
+    if m:
+        ids["imdb"] = m.group(1)
+
+    m = _TVDB_ID_RE.search(name)
+    if m:
+        ids["tvdb"] = int(m.group(1))
+
+    if not ids:
+        return None
+    return ExternalIds.model_validate(ids)
+
+
+# ---------------------------------------------------------------------------
 # Tagging
 # ---------------------------------------------------------------------------
 
@@ -284,22 +375,52 @@ def tag_file(file: LocalMediaFile, *, write_nfo: bool = True,
     external_ids: Optional[Dict[str, Any]] = None
     matched = False
     note = ""
-    try:
-        result = resolve(signals)
-        if result.signals is not None and result.external_ids is not None:
-            ids_dict = {
-                k: v for k, v in result.external_ids.model_dump().items()
+
+    episodic = signals.medium == MediaType.EPISODIC_SERIES or (
+        signals.season is not None or signals.episode is not None
+    )
+    seed_ids = extract_embedded_ids(str(file.path), episodic=episodic)
+
+    if seed_ids is not None:
+        # Authoritative: an id embedded by Radarr/Sonarr/Jellyfin beats a
+        # title/year guess. Skip resolve() entirely and try to expand the
+        # seed into the full cross-catalog id set; fall back to the raw
+        # seed id (still authoritative on its own) if that fails.
+        seed_dict = {
+            k: v for k, v in seed_ids.model_dump().items()
+            if v and k != "extra"
+        }
+        external_ids = seed_dict
+        matched = True
+        note = "matched (embedded id)"
+        try:
+            expanded = enrich(seed_ids, medium=signals.medium)
+            expanded_dict = {
+                k: v for k, v in expanded.model_dump().items()
                 if v and k != "extra"
             }
-            if ids_dict:
-                external_ids = ids_dict
-                matched = True
-                signals = result.signals
-    except Exception as exc:
-        # A provider failure (network, missing key, bad response) must never
-        # abort the run — fall through and write a filename-only nfo.
-        LOG.warning("metadatarr resolve failed for %s: %s", file.path, exc)
-        note = f"resolve failed: {exc}"
+            if expanded_dict:
+                external_ids = expanded_dict
+        except Exception as exc:
+            LOG.warning("metadatarr enrich failed for %s: %s", file.path, exc)
+    else:
+        try:
+            result = resolve(signals)
+            if result.signals is not None and result.external_ids is not None:
+                ids_dict = {
+                    k: v for k, v in result.external_ids.model_dump().items()
+                    if v and k != "extra"
+                }
+                if ids_dict:
+                    external_ids = ids_dict
+                    matched = True
+                    signals = result.signals
+        except Exception as exc:
+            # A provider failure (network, missing key, bad response) must
+            # never abort the run — fall through and write a filename-only
+            # nfo.
+            LOG.warning("metadatarr resolve failed for %s: %s", file.path, exc)
+            note = f"resolve failed: {exc}"
 
     if not signals.title:
         return TagResult(path=file.path, matched=False, external_ids=None,
@@ -336,12 +457,20 @@ def tag_file(file: LocalMediaFile, *, write_nfo: bool = True,
 
 def tag_library(root: str, *, media: str = "both", write_nfo: bool = True,
                 dry_run: bool = False, index_db: Optional[str] = None,
-                min_confidence: float = 0.5) -> List[TagResult]:
+                min_confidence: float = 0.5,
+                skip_extras: bool = True,
+                stats: Optional[Dict[str, int]] = None) -> List[TagResult]:
     """Scan *root* and tag every discovered media file.
 
     When *index_db* is given, matched entries are additionally upserted
     into that media-archivist DB (as ``Source.LOCAL`` rows) so they show up
     in the WebUI/index alongside the other sources.
+
+    ``skip_extras`` (default ``True``) excludes Jellyfin/Kodi local-extras
+    (trailers, samples, behind-the-scenes, etc) from the scan — see
+    :func:`scan`. Pass a ``stats`` dict to have the number of skipped
+    extras recorded under its ``"skipped_extras"`` key, for summary
+    reporting.
     """
     results: List[TagResult] = []
     db = None
@@ -349,7 +478,7 @@ def tag_library(root: str, *, media: str = "both", write_nfo: bool = True,
         from media_archivist.storage import EnvelopeJsonStorage
         db = EnvelopeJsonStorage(index_db)
 
-    for file in scan(root, media=media):
+    for file in scan(root, media=media, skip_extras=skip_extras, stats=stats):
         result = tag_file(file, write_nfo=write_nfo, dry_run=dry_run,
                           min_confidence=min_confidence)
         results.append(result)
