@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from typing import List, Optional
+from typing import Annotated, List, Optional
 
 from media_archivist.canonicalize import (
     canonicalize as run_canonicalize,
@@ -327,6 +327,47 @@ def register_web(app, *, db_path: str, templates, scheduler) -> None:
     def quarantine_list_fragment(request: Request):
         return _render(request, "fragments/quarantine_list.html",
                        entries=_quarantine_entries())
+
+    def _quarantine_bulk(request: Request, row_ids: List[str], *, action: str):
+        # Homelabbers hit hundreds of conflicts after a big canonicalize —
+        # bulk accept/reject saves them from clicking each row individually.
+        row_ids = [r for r in row_ids if r]
+        if not row_ids:
+            return _render(request, "fragments/quarantine_list.html",
+                           entries=_quarantine_entries(),
+                           bulk_note="Nothing selected — check one or more rows first.")
+        done = skipped = 0
+        for row_id in row_ids:
+            if action == "accept":
+                ok = quarantine_resolve(db_path, row_id, canonical_id=None)
+            else:
+                ok = quarantine_reject(db_path, row_id)
+            if ok:
+                done += 1
+            else:
+                skipped += 1
+        verb = "Accepted" if action == "accept" else "Rejected"
+        summary = f"✓ {verb} {done}"
+        if skipped:
+            summary += f" · {skipped} already resolved or unknown"
+        return _render(request, "fragments/quarantine_list.html",
+                       entries=_quarantine_entries(), bulk_note=summary)
+
+    # NOTE: these literal "/bulk/..." routes must be registered *before*
+    # the "/{row_id}/accept" and "/{row_id}/reject" routes below — FastAPI
+    # (Starlette) matches path routes in registration order, and "bulk"
+    # would otherwise be captured as a row_id by the single-row routes.
+    @app.post("/ui/quarantine/bulk/accept", response_class=HTMLResponse)
+    def quarantine_bulk_accept_fragment(
+        request: Request, row_ids: Annotated[List[str], Form()] = [],
+    ):
+        return _quarantine_bulk(request, row_ids, action="accept")
+
+    @app.post("/ui/quarantine/bulk/reject", response_class=HTMLResponse)
+    def quarantine_bulk_reject_fragment(
+        request: Request, row_ids: Annotated[List[str], Form()] = [],
+    ):
+        return _quarantine_bulk(request, row_ids, action="reject")
 
     @app.post("/ui/quarantine/{row_id}/accept", response_class=HTMLResponse)
     def quarantine_accept_fragment(request: Request, row_id: str):
