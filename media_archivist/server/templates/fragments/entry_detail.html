@@ -22,6 +22,25 @@
             </button>
           </span>
         {% endif %}
+        {% if ytdlp_available %}
+          {% if yt_id %}
+            <span class="player-embed">
+              <button type="button" class="btn btn-ghost"
+                      hx-get="{{ root_path }}/ui/entries/{{ entry.id }}/resolve"
+                      hx-target="closest .player-embed" hx-swap="innerHTML">
+                &#9654; Play (yt-dlp)
+              </button>
+            </span>
+          {% elif safe_stream %}
+            <span class="player-embed">
+              <button type="button" class="btn btn-ghost"
+                      hx-get="{{ root_path }}/ui/entries/{{ entry.id }}/resolve"
+                      hx-target="closest .player-embed" hx-swap="innerHTML">
+                &#8635; refresh stream
+              </button>
+            </span>
+          {% endif %}
+        {% endif %}
         <div class="player-fallback">
           <a href="{{ entry.url|safe_url }}" target="_blank" rel="noopener">Open original &#8599;</a>
         </div>
