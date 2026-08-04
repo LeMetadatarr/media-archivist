@@ -13,6 +13,13 @@ from typing import List, Optional
 
 LOG = logging.getLogger("media_archivist.server.routes")
 
+# Imported at module scope (not inside register_routes, unlike most fastapi
+# symbols here) because `from __future__ import annotations` makes route
+# signatures resolve their type hints against *module* globals -- a
+# ``Request`` type hint only visible inside register_routes's local scope
+# fails that resolution and silently degrades to a query-param model.
+from fastapi import Request  # noqa: E402
+
 # Truthy env var strings, matching the shell/CI convention used elsewhere
 # in the codebase (1/true/yes/on, case-insensitive).
 _TRUTHY = {"1", "true", "yes", "on"}
@@ -27,6 +34,17 @@ def _env_strm_resolve_default() -> bool:
     ``?resolve=1``.
     """
     return os.environ.get("MEDIA_ARCHIVIST_STRM_RESOLVE", "").strip().lower() in _TRUTHY
+
+
+def _env_strm_proxy_default() -> bool:
+    """Default for the ``mode=proxy`` query param on ``/strm/{id}``.
+
+    ``MEDIA_ARCHIVIST_STRM_PROXY`` lets an operator force byte-proxying
+    for every resolved ``.strm`` request (e.g. players that don't follow
+    redirects, or a CDN the player box can't reach directly) without
+    every caller having to pass ``?mode=proxy``.
+    """
+    return os.environ.get("MEDIA_ARCHIVIST_STRM_PROXY", "").strip().lower() in _TRUTHY
 
 from media_archivist.canonicalize import (
     canonicalize as run_canonicalize,
@@ -76,7 +94,13 @@ def register_routes(app, *, db_path: str) -> Scheduler:
     from contextlib import asynccontextmanager
 
     from fastapi import HTTPException, Query
-    from fastapi.responses import JSONResponse, PlainTextResponse, Response
+    from fastapi.responses import (
+        JSONResponse,
+        PlainTextResponse,
+        RedirectResponse,
+        Response,
+        StreamingResponse,
+    )
 
     async def _archive_worker(task: Task) -> None:
         from media_archivist.bandcamp import BandcampArchivist
@@ -244,25 +268,73 @@ def register_routes(app, *, db_path: str) -> Scheduler:
             raise HTTPException(status_code=404, detail="task not found")
         return task
 
-    @app.get("/strm/{entry_id}", response_class=PlainTextResponse)
-    def strm(entry_id: str, resolve: Optional[bool] = None):
-        """Return the playable URL for an entry as plain text.
+    def _proxy_stream(url: str, range_header: Optional[str]):
+        """Stream ``url``'s bytes through us, forwarding ``Range``.
+
+        Belt-and-suspenders path for players that don't follow redirects
+        (or can't reach the resolved CDN host directly). Never raises —
+        callers must fall back to a redirect on any failure.
+        """
+        import requests
+
+        headers = {"Range": range_header} if range_header else {}
+        upstream = requests.get(url, headers=headers, stream=True, timeout=30)
+        upstream.raise_for_status()
+        resp_headers = {}
+        for h in ("Content-Type", "Content-Range", "Accept-Ranges", "Content-Length"):
+            if h in upstream.headers:
+                resp_headers[h] = upstream.headers[h]
+        status_code = 206 if upstream.status_code == 206 else 200
+
+        def _iter():
+            try:
+                for chunk in upstream.iter_content(chunk_size=64 * 1024):
+                    if chunk:
+                        yield chunk
+            finally:
+                upstream.close()
+
+        return StreamingResponse(
+            _iter(),
+            status_code=status_code,
+            media_type=upstream.headers.get("Content-Type", "application/octet-stream"),
+            headers=resp_headers,
+        )
+
+    @app.api_route("/strm/{entry_id}", methods=["GET", "HEAD"])
+    def strm(entry_id: str, request: Request, resolve: Optional[bool] = None,
+             mode: Optional[str] = None):
+        """Resolve and serve the playable URL/stream for an entry.
 
         ``.strm`` files are one-line text files whose body is a URL —
-        Jellyfin / Kodi follow it to the actual stream. By default we
-        return the already-resolved ``stream`` field when present
-        (Bandcamp, SoundCloud, IA), otherwise the canonical watch URL so
-        the client's resolver (yt-dlp / Jellyfin plugin) handles it.
+        Jellyfin / Kodi read that body at *scan* time. By default (no
+        ``resolve``) we return the already-resolved ``stream`` field
+        when present (Bandcamp, SoundCloud, IA), otherwise the canonical
+        watch URL as plain text, so the client's own resolver (yt-dlp /
+        a Jellyfin plugin) handles it — unchanged, classic .strm
+        behavior.
 
         When ``resolve=1`` (or the ``MEDIA_ARCHIVIST_STRM_RESOLVE`` env
-        var is truthy), we instead resolve a *fresh* direct media URL
-        ourselves via yt-dlp — so Jellyfin/Kodi can play the file
-        directly without needing their own yt-dlp plugin, and stored
-        stream URLs that have expired get refreshed on demand.
+        var is truthy), this endpoint becomes a *play-time* yt-dlp hook:
+        point a .strm file's body AT this URL
+        (``<base_url>/strm/{id}?resolve=1``) and Jellyfin/ffmpeg will
+        open it every time the item is played. We resolve a fresh
+        direct media URL via yt-dlp on every call and 302-redirect to
+        it, so ffmpeg follows the redirect to the live CDN URL instead
+        of us handing back inert text a player can't follow as a
+        stream. This also means stale/expired stored stream URLs get
+        refreshed automatically on every play.
 
-        This must never 500: Jellyfin needs a body back or the item
-        breaks in the library. Any resolution failure falls back to the
-        unresolved behavior with a logged warning.
+        ``mode=proxy`` (or ``MEDIA_ARCHIVIST_STRM_PROXY``) streams the
+        resolved URL's bytes through media-archivist instead of
+        redirecting, forwarding the client's ``Range`` header for
+        seeking — for players that don't follow redirects or can't
+        reach the CDN directly.
+
+        This must never 500: Jellyfin needs a usable response or the
+        item breaks in the library. Any resolution/proxy failure falls
+        back to a redirect to the unresolved URL, with a logged
+        warning.
         """
         idx = Index(db_path)
         entry = idx.get(entry_id)
@@ -270,20 +342,40 @@ def register_routes(app, *, db_path: str) -> Scheduler:
             raise HTTPException(status_code=404, detail="entry not found")
         fallback = entry.stream or entry.url
         do_resolve = resolve if resolve is not None else _env_strm_resolve_default()
-        if do_resolve:
-            from media_archivist import streams
+        do_proxy = mode == "proxy" if mode is not None else _env_strm_proxy_default()
 
-            target = entry.stream or entry.url
+        if not do_resolve:
+            return PlainTextResponse(fallback, media_type="text/plain")
+
+        from media_archivist import streams
+
+        target = entry.stream or entry.url
+        resolved_url: Optional[str] = None
+        try:
+            resolved = streams.resolve_stream(target)
+            resolved_url = resolved.url
+        except streams.StreamResolveError as e:
+            LOG.warning("strm resolve failed for %s (%s) — falling back to "
+                        "unresolved url: %s", entry_id, target, e)
+        except Exception as e:  # pragma: no cover — defensive, never 500 a .strm
+            LOG.warning("strm resolve raised unexpectedly for %s (%s) — "
+                        "falling back to unresolved url: %s", entry_id, target, e)
+
+        if resolved_url is None:
+            # Best-effort fallback: still a redirect, so the response shape
+            # (and what ffmpeg/Jellyfin expect from this endpoint) stays
+            # consistent whether or not resolution succeeded.
+            return RedirectResponse(url=fallback, status_code=302)
+
+        if do_proxy:
             try:
-                resolved = streams.resolve_stream(target)
-                return PlainTextResponse(resolved.url, media_type="text/plain")
-            except streams.StreamResolveError as e:
-                LOG.warning("strm resolve failed for %s (%s) — falling back to "
-                            "unresolved url: %s", entry_id, target, e)
-            except Exception as e:  # pragma: no cover — defensive, never 500 a .strm
-                LOG.warning("strm resolve raised unexpectedly for %s (%s) — "
-                            "falling back to unresolved url: %s", entry_id, target, e)
-        return PlainTextResponse(fallback, media_type="text/plain")
+                return _proxy_stream(resolved_url, request.headers.get("range"))
+            except Exception as e:
+                LOG.warning("strm proxy failed for %s (%s) — falling back to "
+                            "redirect: %s", entry_id, resolved_url, e)
+                return RedirectResponse(url=resolved_url, status_code=302)
+
+        return RedirectResponse(url=resolved_url, status_code=302)
 
     @app.get("/feed.rss", response_class=Response)
     def feed_rss(limit: int = Query(default=50, ge=1, le=500)):
