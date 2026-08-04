@@ -24,5 +24,23 @@
   </tbody>
 </table>
 </div>
-<p class="label" style="color:var(--text-dim); margin-top:8px">{{ entries|length }} shown</p>
+<div class="pagination" style="display:flex; align-items:center; gap:12px; margin-top:8px">
+  <p class="label" style="color:var(--text-dim); margin:0">
+    Showing {{ showing_from }}–{{ showing_to }} of {{ total }}
+  </p>
+  {% if has_prev %}
+  <button class="btn btn-ghost" type="button"
+          hx-get="{{ root_path }}/ui/entries/table"
+          hx-include="#filters-form"
+          hx-vals='{"offset": {{ prev_offset }}}'
+          hx-target="#entries-table" hx-swap="innerHTML">Prev</button>
+  {% endif %}
+  {% if has_next %}
+  <button class="btn btn-ghost" type="button"
+          hx-get="{{ root_path }}/ui/entries/table"
+          hx-include="#filters-form"
+          hx-vals='{"offset": {{ next_offset }}}'
+          hx-target="#entries-table" hx-swap="innerHTML">Next</button>
+  {% endif %}
+</div>
 {% endif %}

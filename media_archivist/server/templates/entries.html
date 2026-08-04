@@ -4,7 +4,7 @@
 {% block page_title %}Library{% endblock %}
 {% block content %}
 <div class="card">
-  <form class="form-grid" hx-get="{{ root_path }}/ui/entries/table" hx-target="#entries-table" hx-swap="innerHTML" hx-trigger="submit, change delay:300ms">
+  <form id="filters-form" class="form-grid" hx-get="{{ root_path }}/ui/entries/table" hx-target="#entries-table" hx-swap="innerHTML" hx-trigger="submit, change delay:300ms" hx-vals='{"offset": 0}'>
     <div class="field">
       <label for="f-source">Source</label>
       <input id="f-source" name="source" placeholder="youtube, bandcamp, ...">
@@ -26,8 +26,8 @@
       </details>
     </div>
     <div class="field">
-      <label for="f-limit">Limit</label>
-      <input id="f-limit" name="limit" type="number" value="100" min="1" max="10000">
+      <label for="f-limit">Page size</label>
+      <input id="f-limit" name="limit" type="number" value="50" min="1" max="10000">
     </div>
     <div class="field">
       <label for="f-has-stream"><input id="f-has-stream" name="has_stream" type="checkbox" value="true"> Has stream</label>
@@ -41,7 +41,7 @@
   </form>
 </div>
 
-<div id="entries-table" style="margin-top: var(--gap);" hx-get="{{ root_path }}/ui/entries/table" hx-trigger="load" hx-swap="innerHTML">
+<div id="entries-table" style="margin-top: var(--gap);" hx-get="{{ root_path }}/ui/entries/table" hx-include="#filters-form" hx-trigger="load" hx-swap="innerHTML">
   <p class="empty">Loading…</p>
 </div>
 

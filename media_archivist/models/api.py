@@ -69,6 +69,8 @@ class EntryListResponse(BaseModel):
 
     total: int
     entries: List[MediaEntry]
+    limit: int = 0
+    offset: int = 0
 
 
 class HealthResponse(BaseModel):

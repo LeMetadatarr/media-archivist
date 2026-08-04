@@ -188,16 +188,22 @@ def register_routes(app, *, db_path: str) -> Scheduler:
         has_stream: Optional[bool] = None,
         explicit: Optional[bool] = None,
         limit: int = Query(default=100, ge=1, le=10_000),
+        offset: int = Query(default=0, ge=0),
     ) -> EntryListResponse:
         idx = Index(db_path)
         try:
             entries: List[MediaEntry] = idx.to_list(
                 source=source, where=where, grep=grep,
                 has_stream=has_stream, explicit=explicit, limit=limit,
+                offset=offset,
+            )
+            total = idx.count(
+                source=source, where=where, grep=grep,
+                has_stream=has_stream, explicit=explicit,
             )
         except WhereError as e:
             raise HTTPException(status_code=400, detail=f"--where: {e}") from None
-        return EntryListResponse(total=len(entries), entries=entries)
+        return EntryListResponse(total=total, entries=entries, limit=limit, offset=offset)
 
     @app.get("/entries/{entry_id}", response_model=MediaEntry)
     def get_entry(entry_id: str) -> MediaEntry:

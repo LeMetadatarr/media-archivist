@@ -107,7 +107,7 @@ def test_entries_table_where_dsl_positive_case(client):
 def test_entries_table_limit_caps_results(client):
     r = client.get("/ui/entries/table", params={"limit": 1})
     assert r.status_code == 200
-    assert "1 shown" in r.text
+    assert "Showing 1–1 of" in r.text
 
 
 # --- /ui/entries/{id} detail -------------------------------------------------
