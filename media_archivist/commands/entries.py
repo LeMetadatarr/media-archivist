@@ -288,6 +288,8 @@ def cmd_strm_export(args) -> int:
         has_stream=args.has_stream,
         limit=args.limit,
         dry_run=args.dry_run,
+        layout=args.layout,
+        nfo=args.nfo,
     )
     print(f"{'would write' if args.dry_run else 'wrote'} {n} .strm files",
           file=sys.stderr)
