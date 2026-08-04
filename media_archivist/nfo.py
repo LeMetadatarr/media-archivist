@@ -7,13 +7,17 @@ lookup. This module builds that XML from a :class:`MediaEntry` —
 **metadata only**: it never downloads the thumbnail, it just writes
 the URL into ``<thumb>`` and lets Jellyfin fetch it itself.
 
-Two root elements are used, matching Jellyfin's NFO support:
+Three root elements are used, matching Jellyfin's NFO support:
 
-* ``<musicvideo>`` for music sources (bandcamp, soundcloud, youtube_music)
-* ``<movie>`` for everything else (youtube, internet_archive)
+* ``<musicvideo>`` for music sources (bandcamp, soundcloud, youtube_music,
+  and local audio files)
+* ``<episodedetails>`` for local files identified as a TV/episodic-series
+  episode (``entry.raw["season"]``/``entry.raw["episode"]`` set)
+* ``<movie>`` for everything else (youtube, internet_archive, local movies)
 """
 from __future__ import annotations
 
+from typing import Optional
 from xml.sax.saxutils import escape
 
 from media_archivist.models.canonical import MediaEntry
@@ -53,10 +57,39 @@ def _plot(entry: MediaEntry) -> str:
     return " ".join(bits)
 
 
+def _is_music(entry: MediaEntry) -> bool:
+    if entry.source in _MUSIC_SOURCES:
+        return True
+    if entry.source == Source.LOCAL:
+        return str((entry.raw or {}).get("media_type") or "").lower() in (
+            "music", "audio",
+        )
+    return False
+
+
+def _episode_info(entry: MediaEntry) -> tuple[Optional[int], Optional[int]]:
+    """Return (season, episode) when *entry* is a local episodic-series row."""
+    if entry.source != Source.LOCAL:
+        return None, None
+    raw = entry.raw or {}
+    season = raw.get("season")
+    episode = raw.get("episode")
+    if season is None and episode is None:
+        return None, None
+    return season, episode
+
+
 def nfo_xml(entry: MediaEntry) -> str:
     """Build a well-formed Kodi/Jellyfin-compatible NFO XML string."""
-    is_music = entry.source in _MUSIC_SOURCES
-    root = "musicvideo" if is_music else "movie"
+    is_music = _is_music(entry)
+    season, episode = (None, None) if is_music else _episode_info(entry)
+    is_episode = season is not None or episode is not None
+    if is_music:
+        root = "musicvideo"
+    elif is_episode:
+        root = "episodedetails"
+    else:
+        root = "movie"
 
     lines = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
              f"<{root}>"]
@@ -69,6 +102,12 @@ def nfo_xml(entry: MediaEntry) -> str:
         lines.append(_tag("album", entry.album))
     if not is_music and entry.artist:
         lines.append(_tag("studio", entry.artist))
+
+    if is_episode:
+        if season is not None:
+            lines.append(_tag("season", season))
+        if episode is not None:
+            lines.append(_tag("episode", episode))
 
     for t in entry.tags:
         lines.append(_tag("genre", t))

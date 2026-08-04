@@ -55,6 +55,7 @@ from media_archivist.commands.entries import (
     cmd_strm_export,
     cmd_urls,
 )
+from media_archivist.commands.library import cmd_tag_library
 from media_archivist.commands.quarantine import (
     cmd_quarantine_list,
     cmd_quarantine_reject,
@@ -380,6 +381,33 @@ def build_parser() -> argparse.ArgumentParser:
     p_download.add_argument("--format", default="best",
                             help="format selector passed to yt-dlp (default: best)")
     p_download.set_defaults(func=cmd_download)
+
+    p_tag = sub.add_parser(
+        "tag-library",
+        help="scan a local media folder, resolve via metadatarr, write "
+             "Jellyfin/Kodi .nfo sidecars IN PLACE — never touches the "
+             "media files themselves",
+    )
+    p_tag.add_argument("--path", "-p", required=True,
+                       help="root folder to scan recursively")
+    p_tag.add_argument("--media", choices=["both", "video", "music"],
+                       default="both", help="restrict scan to this kind (default: both)")
+    p_tag.add_argument("--nfo", dest="nfo", action="store_true", default=True,
+                       help="write .nfo sidecars (default: on)")
+    p_tag.add_argument("--no-nfo", dest="nfo", action="store_false",
+                       help="resolve only; don't write .nfo sidecars")
+    p_tag.add_argument(
+        "--dry-run", dest="dry_run", action="store_true",
+        help="SAFE PREVIEW: report exactly what would be written/matched "
+             "without touching the filesystem at all",
+    )
+    p_tag.add_argument("--index", metavar="DB_FILE",
+                       help="also upsert matched entries into this media-archivist "
+                            "DB (Source.LOCAL rows) so they show up in the index/WebUI")
+    p_tag.add_argument("--min-confidence", dest="min_confidence", type=float,
+                       default=0.5,
+                       help="minimum resolution confidence to treat as matched (default: 0.5)")
+    p_tag.set_defaults(func=cmd_tag_library)
 
     p_mon = sub.add_parser("monitor", parents=[common],
                            help="background-poll URLs and keep the DB in sync")

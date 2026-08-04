@@ -19,6 +19,7 @@ class Source(str, Enum):
     BANDCAMP = "bandcamp"
     SOUNDCLOUD = "soundcloud"
     INTERNET_ARCHIVE = "internet_archive"
+    LOCAL = "local"
 
 
 class _RawEntryBase(BaseModel):
@@ -88,6 +89,24 @@ class RawSoundcloudEntry(_RawEntryBase):
     source_url: Optional[str] = None
 
 
+class RawLocalEntry(_RawEntryBase):
+    """A locally-scanned media file, tagged by ``media-archivist tag-library``.
+
+    ``url`` is a ``file://`` URI (or bare local path) pointing at the media
+    file on disk — never re-hosted, never mutated.
+    """
+    source: Literal[Source.LOCAL] = Source.LOCAL
+    path: str
+    artist: Optional[str] = None
+    album: Optional[str] = None
+    duration: Optional[float] = None  # seconds
+    published: Optional[str] = None   # ISO 8601 year/date if known
+    media_type: Optional[str] = None  # mediavocab MediaType value, e.g. "movie"
+    season: Optional[int] = None
+    episode: Optional[int] = None
+    nfo_path: Optional[str] = None
+
+
 class RawIAEntry(_RawEntryBase):
     source: Literal[Source.INTERNET_ARCHIVE] = Source.INTERNET_ARCHIVE
     collection: Union[str, List[str]] = ""
@@ -105,6 +124,7 @@ RawEntry = Annotated[
         RawBandcampEntry,
         RawSoundcloudEntry,
         RawIAEntry,
+        RawLocalEntry,
     ],
     Field(discriminator="source"),
 ]
@@ -122,5 +142,6 @@ def parse_raw(data: dict) -> _RawEntryBase:
         Source.BANDCAMP: RawBandcampEntry,
         Source.SOUNDCLOUD: RawSoundcloudEntry,
         Source.INTERNET_ARCHIVE: RawIAEntry,
+        Source.LOCAL: RawLocalEntry,
     }
     return cls_map[src].model_validate(data)
