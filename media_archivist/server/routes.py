@@ -7,6 +7,7 @@ All bodies / responses use pydantic models from
 from __future__ import annotations
 
 import asyncio
+import os
 from typing import List, Optional
 
 from media_archivist.canonicalize import (
@@ -52,7 +53,7 @@ def register_routes(app, *, db_path: str) -> Scheduler:
     from contextlib import asynccontextmanager
 
     from fastapi import HTTPException, Query
-    from fastapi.responses import PlainTextResponse, Response
+    from fastapi.responses import JSONResponse, PlainTextResponse, Response
 
     async def _archive_worker(task: Task) -> None:
         from media_archivist.bandcamp import BandcampArchivist
@@ -121,10 +122,10 @@ def register_routes(app, *, db_path: str) -> Scheduler:
     @app.get("/entries/{entry_id}", response_model=MediaEntry)
     def get_entry(entry_id: str) -> MediaEntry:
         idx = Index(db_path)
-        for e in idx.view():
-            if e.id == entry_id:
-                return e
-        raise HTTPException(status_code=404, detail="entry not found")
+        entry = idx.get(entry_id)
+        if entry is None:
+            raise HTTPException(status_code=404, detail="entry not found")
+        return entry
 
     @app.post("/archive", response_model=Task)
     def submit_archive(request: ArchiveRequest) -> Task:
@@ -151,10 +152,10 @@ def register_routes(app, *, db_path: str) -> Scheduler:
         client's resolver (yt-dlp / Jellyfin plugin) handles it.
         """
         idx = Index(db_path)
-        for entry in idx.view():
-            if entry.id == entry_id:
-                return PlainTextResponse(entry.stream or entry.url,
-                                         media_type="text/plain")
+        entry = idx.get(entry_id)
+        if entry is not None:
+            return PlainTextResponse(entry.stream or entry.url,
+                                     media_type="text/plain")
         raise HTTPException(status_code=404, detail="entry not found")
 
     @app.get("/feed.rss", response_class=Response)
@@ -176,7 +177,7 @@ def register_routes(app, *, db_path: str) -> Scheduler:
             '<?xml version="1.0" encoding="UTF-8"?>'
             '<rss version="2.0"><channel>'
             '<title>media_archivist</title>'
-            f'<link>{escape(db_path)}</link>'
+            f'<link>{escape(os.path.basename(db_path))}</link>'
             '<description>Recently indexed entries.</description>'
             + "".join(items)
             + "</channel></rss>"
@@ -206,8 +207,19 @@ def register_routes(app, *, db_path: str) -> Scheduler:
         return PlainTextResponse("\n".join(lines), media_type="audio/x-mpegurl")
 
     @app.get("/healthz", response_model=HealthResponse)
-    def healthz() -> HealthResponse:
-        return HealthResponse(version=__version__, db_path=db_path)
+    def healthz():
+        try:
+            idx = Index(db_path)
+            len(idx)
+            _ = idx.meta
+        except Exception:
+            unhealthy = HealthResponse(
+                status="unhealthy",
+                version=__version__,
+                db_path=os.path.basename(db_path),
+            )
+            return JSONResponse(status_code=503, content=unhealthy.model_dump())
+        return HealthResponse(version=__version__, db_path=os.path.basename(db_path))
 
     @app.get("/providers", response_model=ProvidersResponse)
     def providers() -> ProvidersResponse:
@@ -292,7 +304,7 @@ def register_routes(app, *, db_path: str) -> Scheduler:
             canonical_records=canonical_n,
             quarantined=quarantined_n,
             archivist_version=__version__,
-            db_path=db_path,
+            db_path=os.path.basename(db_path),
         )
 
     return scheduler

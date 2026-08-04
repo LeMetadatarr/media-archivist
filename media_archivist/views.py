@@ -54,6 +54,7 @@ def _bandcamp(raw: Dict[str, Any]) -> MediaEntry:
         duration=raw.get("duration"),
         thumbnail=raw.get("thumbnail") or raw.get("artwork"),
         stream=raw.get("stream"),
+        explicit=bool(raw.get("explicit")),
         tags=list(raw.get("tags") or []),
     )
 
@@ -68,6 +69,7 @@ def _soundcloud(raw: Dict[str, Any]) -> MediaEntry:
         duration=raw.get("duration"),
         thumbnail=raw.get("thumbnail"),
         stream=raw.get("stream"),
+        explicit=bool(raw.get("explicit")),
         tags=list(raw.get("tags") or []),
     )
 
