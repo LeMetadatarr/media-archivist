@@ -2,28 +2,73 @@
 {% if not entries %}
 <p class="empty">No quarantined rows — nothing to review.</p>
 {% else %}
-<div class="scroll-x">
-<table class="table">
-  <thead>
-    <tr><th>Row</th><th>Candidate canonical id</th><th>Conflicts</th><th></th></tr>
-  </thead>
-  <tbody id="quarantine-rows">
-    {% for q in entries %}
-    <tr id="q-row-{{ q.row_id }}">
-      <td><code>{{ q.row_id }}</code></td>
-      <td>{{ q.candidate_canonical_id or "—" }}</td>
-      <td>{{ q.conflicts | join(", ") }}</td>
-      <td class="q-actions">
-        <button class="btn btn-ok" hx-post="{{ root_path }}/ui/quarantine/{{ q.row_id }}/accept"
-                hx-target="#q-row-{{ q.row_id }}" hx-swap="outerHTML"
-                hx-confirm="Accept this match? The row will be linked to {{ q.candidate_canonical_id or 'a new canonical record' }}.">Accept</button>
-        <button class="btn btn-ghost btn-err-outline" hx-post="{{ root_path }}/ui/quarantine/{{ q.row_id }}/reject"
-                hx-target="#q-row-{{ q.row_id }}" hx-swap="outerHTML"
-                hx-confirm="Reject this match? The row will be dropped from canonicalization.">Reject</button>
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-</div>
+{% if bulk_note %}
+<p class="q-bulk-note">{{ bulk_note }}</p>
+{% endif %}
+<form id="quarantine-form">
+  <div id="q-bulk-bar" class="q-bulk-bar" style="display:none">
+    <span id="q-selected-count" class="q-selected-count">0 selected</span>
+    <button type="button" class="btn btn-ok"
+            hx-post="{{ root_path }}/ui/quarantine/bulk/accept"
+            hx-target="#quarantine-list" hx-swap="innerHTML"
+            hx-confirm="Accept the selected quarantine matches?">Accept selected</button>
+    <button type="button" class="btn btn-ghost btn-err-outline"
+            hx-post="{{ root_path }}/ui/quarantine/bulk/reject"
+            hx-target="#quarantine-list" hx-swap="innerHTML"
+            hx-confirm="Reject the selected quarantine matches?">Reject selected</button>
+  </div>
+  <div class="scroll-x">
+  <table class="table">
+    <thead>
+      <tr>
+        <th><input type="checkbox" id="q-select-all" aria-label="Select all quarantine rows"
+                    onclick="qToggleAll(this)"></th>
+        <th>Row</th><th>Candidate canonical id</th><th>Conflicts</th><th></th>
+      </tr>
+    </thead>
+    <tbody id="quarantine-rows">
+      {% for q in entries %}
+      <tr id="q-row-{{ q.row_id }}">
+        <td><input type="checkbox" name="row_ids" value="{{ q.row_id }}"
+                     aria-label="Select row {{ q.row_id }}" onchange="qUpdateBar()"></td>
+        <td><code>{{ q.row_id }}</code></td>
+        <td>{{ q.candidate_canonical_id or "—" }}</td>
+        <td>{{ q.conflicts | join(", ") }}</td>
+        <td class="q-actions">
+          <button class="btn btn-ok" hx-post="{{ root_path }}/ui/quarantine/{{ q.row_id }}/accept"
+                  hx-target="#q-row-{{ q.row_id }}" hx-swap="outerHTML"
+                  hx-confirm="Accept this match? The row will be linked to {{ q.candidate_canonical_id or 'a new canonical record' }}.">Accept</button>
+          <button class="btn btn-ghost btn-err-outline" hx-post="{{ root_path }}/ui/quarantine/{{ q.row_id }}/reject"
+                  hx-target="#q-row-{{ q.row_id }}" hx-swap="outerHTML"
+                  hx-confirm="Reject this match? The row will be dropped from canonicalization.">Reject</button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</form>
+<script>
+function qUpdateBar() {
+  var checked = document.querySelectorAll('#quarantine-rows input[name="row_ids"]:checked');
+  var bar = document.getElementById('q-bulk-bar');
+  var count = document.getElementById('q-selected-count');
+  if (!bar || !count) return;
+  if (checked.length > 0) {
+    bar.style.display = 'flex';
+    count.textContent = checked.length + ' selected';
+  } else {
+    bar.style.display = 'none';
+  }
+  var all = document.getElementById('q-select-all');
+  var boxes = document.querySelectorAll('#quarantine-rows input[name="row_ids"]');
+  if (all) all.checked = boxes.length > 0 && checked.length === boxes.length;
+}
+function qToggleAll(master) {
+  document.querySelectorAll('#quarantine-rows input[name="row_ids"]').forEach(function (cb) {
+    cb.checked = master.checked;
+  });
+  qUpdateBar();
+}
+</script>
 {% endif %}

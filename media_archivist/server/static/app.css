@@ -92,6 +92,13 @@ a { color: var(--accent); }
 .q-actions { display: flex; gap: 10px; }
 .q-action-accepted { color: var(--ok); }
 .q-action-rejected { color: var(--err); }
+.q-bulk-bar {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+  padding: 10px 12px; background: var(--bg-elev); border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.q-selected-count { color: var(--text-dim); font-size: 0.85rem; }
+.q-bulk-note { color: var(--text-dim); margin-bottom: 12px; }
 
 .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
 .field label { font-size: 0.85rem; color: var(--text-dim); }
