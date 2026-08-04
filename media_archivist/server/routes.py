@@ -37,6 +37,16 @@ from media_archivist.models.canonical import MediaEntry
 from media_archivist.server.scheduler import Scheduler
 from media_archivist.version import __version__
 
+# A stalled/wedged download (e.g. a CDN socket that never closes) must not
+# block every other queued task forever, since the scheduler runs tasks
+# strictly sequentially (see Scheduler._run). Bound each archive() call;
+# on timeout the task is marked "error" and the queue proceeds to the next
+# task. Note asyncio.to_thread() cannot be force-killed once started (the
+# underlying thread keeps running the blocking call to completion in the
+# background), but wait_for() still frees the scheduler loop to move on to
+# the next queued task — that's the intended mitigation, not a true kill.
+ARCHIVE_TIMEOUT_S = 3600
+
 
 def register_routes(app, *, db_path: str) -> Scheduler:
     from contextlib import asynccontextmanager
@@ -67,8 +77,13 @@ def register_routes(app, *, db_path: str) -> Scheduler:
         )
         before = len(archivist.video_urls) if hasattr(archivist, "video_urls") else 0
         # Run the (synchronous) archive call in a worker thread so we don't
-        # block the event loop on network I/O.
-        await asyncio.to_thread(archivist.archive, task.request.url)
+        # block the event loop on network I/O. Bounded by ARCHIVE_TIMEOUT_S
+        # so one wedged download can't head-of-line-block every other
+        # queued task forever (see module docstring above).
+        await asyncio.wait_for(
+            asyncio.to_thread(archivist.archive, task.request.url),
+            timeout=ARCHIVE_TIMEOUT_S,
+        )
         after = len(archivist.video_urls) if hasattr(archivist, "video_urls") else 0
         task.rows_added = max(0, after - before)
 
@@ -113,7 +128,10 @@ def register_routes(app, *, db_path: str) -> Scheduler:
 
     @app.post("/archive", response_model=Task)
     def submit_archive(request: ArchiveRequest) -> Task:
-        return scheduler.submit(request)
+        try:
+            return scheduler.submit(request)
+        except asyncio.QueueFull:
+            raise HTTPException(status_code=429, detail="archive queue full") from None
 
     @app.get("/tasks/{task_id}", response_model=Task)
     def get_task(task_id: str) -> Task:

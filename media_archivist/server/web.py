@@ -140,7 +140,11 @@ def register_web(app, *, db_path: str, templates, scheduler) -> None:
             blacklist=[s.strip() for s in blacklist.split(",") if s.strip()],
             min_duration=min_duration,
         )
-        task = scheduler.submit(req)
+        try:
+            task = scheduler.submit(req)
+        except asyncio.QueueFull:
+            return _render(request, "fragments/task_status.html",
+                           error="archive queue full", status_code=429)
         return _render(request, "fragments/task_status.html", task=task)
 
     @app.get("/ui/tasks/{task_id}", response_class=HTMLResponse)
