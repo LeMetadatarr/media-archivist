@@ -495,6 +495,117 @@ def test_tag_file_no_embedded_id_falls_back_to_resolve(tmp_path, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# tag_file() — embedded {tmdb-} id defaults to movie unless real SxxEyy
+# (regression for a real Radarr library: "65 (2023) {tmdb-700391}" is a
+# MOVIE that guessit mis-parses as an episode because "65" looks numeric)
+# ---------------------------------------------------------------------------
+
+def test_tag_file_numeric_title_guessit_misparse_still_maps_tmdb_movie(tmp_path, monkeypatch):
+    """guessit mis-reads the numeric title "65" as episodic; no SxxEyy is in
+    the filename, so the embedded {tmdb-} id must still map to tmdb_movie."""
+    path = _touch(tmp_path / "65 (2023) {tmdb-700391}.mkv")
+    f = library.LocalMediaFile(path=path, kind="video")
+
+    # Simulate guessit's real misparse: EPISODIC_SERIES with a lone episode
+    # number and no season, no genuine SxxEyy marker in the filename.
+    monkeypatch.setattr(
+        library, "extract_signals",
+        lambda file: Signals(title="65", episode=700391, medium=MediaType.EPISODIC_SERIES),
+    )
+    monkeypatch.setattr(library, "resolve",
+                        lambda signals, **kw: (_ for _ in ()).throw(
+                            AssertionError("resolve() must not be called")))
+    monkeypatch.setattr(library, "enrich",
+                        lambda seed, **kw: _FakeExpandedExternalIds({}))
+
+    result = library.tag_file(f, write_nfo=True, dry_run=False)
+
+    assert result.matched is True
+    assert result.external_ids == {"tmdb_movie": 700391}
+
+
+def test_tag_file_doomsday_regression_still_movie(tmp_path, monkeypatch):
+    monkeypatch.setattr(library, "_guessit", None)
+    path = _touch(tmp_path / "Doomsday (2008) {tmdb-13460}.mkv")
+    f = library.LocalMediaFile(path=path, kind="video")
+
+    monkeypatch.setattr(library, "resolve",
+                        lambda signals, **kw: (_ for _ in ()).throw(
+                            AssertionError("resolve() must not be called")))
+    monkeypatch.setattr(library, "enrich",
+                        lambda seed, **kw: _FakeExpandedExternalIds({}))
+
+    result = library.tag_file(f, write_nfo=True, dry_run=False)
+
+    assert result.matched is True
+    assert result.external_ids == {"tmdb_movie": 13460}
+
+
+def test_tag_file_real_sxxexx_still_maps_tmdb_tv(tmp_path, monkeypatch):
+    path = _touch(tmp_path / "Show Name S01E02 {tmdb-1234}.mkv")
+    f = library.LocalMediaFile(path=path, kind="video")
+
+    monkeypatch.setattr(
+        library, "extract_signals",
+        lambda file: Signals(title="Show Name", season=1, episode=2,
+                              medium=MediaType.EPISODIC_SERIES),
+    )
+    monkeypatch.setattr(library, "resolve",
+                        lambda signals, **kw: (_ for _ in ()).throw(
+                            AssertionError("resolve() must not be called")))
+    monkeypatch.setattr(library, "enrich",
+                        lambda seed, **kw: _FakeExpandedExternalIds({}))
+
+    result = library.tag_file(f, write_nfo=True, dry_run=False)
+
+    assert result.matched is True
+    assert result.external_ids == {"tmdb_tv": 1234}
+
+
+def test_tag_file_tvdb_tag_unchanged_by_episodic_gating(tmp_path, monkeypatch):
+    path = _touch(tmp_path / "Show {tvdb-555} S03E04.mkv")
+    f = library.LocalMediaFile(path=path, kind="video")
+
+    monkeypatch.setattr(
+        library, "extract_signals",
+        lambda file: Signals(title="Show", season=3, episode=4,
+                              medium=MediaType.EPISODIC_SERIES),
+    )
+    monkeypatch.setattr(library, "resolve",
+                        lambda signals, **kw: (_ for _ in ()).throw(
+                            AssertionError("resolve() must not be called")))
+    monkeypatch.setattr(library, "enrich",
+                        lambda seed, **kw: _FakeExpandedExternalIds({}))
+
+    result = library.tag_file(f, write_nfo=True, dry_run=False)
+
+    assert result.matched is True
+    assert result.external_ids == {"tvdb": 555}
+
+
+def test_tag_file_bare_numeric_episode_no_season_treated_as_movie(tmp_path, monkeypatch):
+    """A lone episode-ish number with no season (and no SxxEyy in the
+    filename) must not flip an embedded {tmdb-} id to tmdb_tv."""
+    path = _touch(tmp_path / "42 (2019) {tmdb-99999}.mkv")
+    f = library.LocalMediaFile(path=path, kind="video")
+
+    monkeypatch.setattr(
+        library, "extract_signals",
+        lambda file: Signals(title="42", episode=42, medium=MediaType.MOVIE),
+    )
+    monkeypatch.setattr(library, "resolve",
+                        lambda signals, **kw: (_ for _ in ()).throw(
+                            AssertionError("resolve() must not be called")))
+    monkeypatch.setattr(library, "enrich",
+                        lambda seed, **kw: _FakeExpandedExternalIds({}))
+
+    result = library.tag_file(f, write_nfo=True, dry_run=False)
+
+    assert result.matched is True
+    assert result.external_ids == {"tmdb_movie": 99999}
+
+
+# ---------------------------------------------------------------------------
 # scan() — skip_extras
 # ---------------------------------------------------------------------------
 

@@ -379,7 +379,16 @@ def tag_file(file: LocalMediaFile, *, write_nfo: bool = True,
     episodic = signals.medium == MediaType.EPISODIC_SERIES or (
         signals.season is not None or signals.episode is not None
     )
-    seed_ids = extract_embedded_ids(str(file.path), episodic=episodic)
+    # An embedded ``{tmdb-...}`` tag defaults to a movie id (Radarr's
+    # convention) unless there is a *genuine* episodic signal — a real
+    # SxxEyy marker parsed straight from the filename. guessit's ``type``/
+    # ``medium`` guess (and a lone episode number with no season) is not
+    # reliable enough on its own: it mis-parses numeric titles like
+    # "65 (2023) {tmdb-700391}" as an episode, which would otherwise send
+    # a movie's id to ``tmdb_tv``. Sonarr's ``{tvdb-...}`` tag is unaffected
+    # since a tvdb id is inherently a TV id.
+    is_true_episodic = bool(_SXXEXX_RE.search(str(file.path)))
+    seed_ids = extract_embedded_ids(str(file.path), episodic=is_true_episodic)
 
     if seed_ids is not None:
         # Authoritative: an id embedded by Radarr/Sonarr/Jellyfin beats a
