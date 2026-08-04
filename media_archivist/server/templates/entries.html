@@ -1,0 +1,41 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+{% extends "base.html" %}
+{% block title %}Library — media_archivist{% endblock %}
+{% block page_title %}Library{% endblock %}
+{% block content %}
+<div class="card">
+  <form class="form-grid" hx-get="{{ root_path }}/ui/entries/table" hx-target="#entries-table" hx-swap="innerHTML" hx-trigger="submit, change delay:300ms">
+    <div class="field">
+      <label for="f-source">Source</label>
+      <input id="f-source" name="source" placeholder="youtube, bandcamp, ...">
+    </div>
+    <div class="field">
+      <label for="f-grep">Grep (title contains)</label>
+      <input id="f-grep" name="grep" placeholder="free text">
+    </div>
+    <div class="field">
+      <label for="f-where">Where (DSL)</label>
+      <input id="f-where" name="where" placeholder="duration > 60 and source == 'youtube'">
+    </div>
+    <div class="field">
+      <label for="f-limit">Limit</label>
+      <input id="f-limit" name="limit" type="number" value="100" min="1" max="10000">
+    </div>
+    <div class="field">
+      <label for="f-has-stream"><input id="f-has-stream" name="has_stream" type="checkbox" value="true"> Has stream</label>
+    </div>
+    <div class="field">
+      <label for="f-explicit"><input id="f-explicit" name="explicit" type="checkbox" value="true"> Explicit</label>
+    </div>
+    <div class="field">
+      <button class="btn" type="submit">Filter</button>
+    </div>
+  </form>
+</div>
+
+<div id="entries-table" style="margin-top: var(--gap);" hx-get="{{ root_path }}/ui/entries/table" hx-trigger="load" hx-swap="innerHTML">
+  <p class="empty">Loading…</p>
+</div>
+
+<div id="entry-detail"></div>
+{% endblock %}

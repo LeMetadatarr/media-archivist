@@ -21,10 +21,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest", "httpx", "fastapi", "uvicorn[standard]"]
+test = ["pytest", "httpx", "fastapi", "uvicorn[standard]", "jinja2", "python-multipart"]
 hub = ["huggingface_hub"]
-server = ["fastapi", "uvicorn[standard]"]
-all = ["huggingface_hub", "fastapi", "uvicorn[standard]"]
+server = ["fastapi", "uvicorn[standard]", "jinja2", "python-multipart"]
+all = ["huggingface_hub", "fastapi", "uvicorn[standard]", "jinja2", "python-multipart"]
 
 [project.scripts]
 media-archivist = "media_archivist.cli:main"
@@ -38,3 +38,6 @@ version = { attr = "media_archivist.version.__version__" }
 
 [tool.setuptools.packages.find]
 include = ["media_archivist*"]
+
+[tool.setuptools.package-data]
+media_archivist = ["server/templates/*.html", "server/templates/fragments/*.html", "server/static/*"]

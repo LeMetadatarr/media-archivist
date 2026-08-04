@@ -51,6 +51,7 @@ nav:
       - Install & first run: getting-started.md
       - Tutorial: cross-source music dataset: tutorial.md
       - FAQ: faq.md
+  - Web UI: webui.md
   - Concepts:
       - Schema & validation: schema.md
       - Storage format: storage.md

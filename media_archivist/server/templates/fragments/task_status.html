@@ -1,0 +1,21 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+{% if error %}
+<div class="error">{{ error }}</div>
+{% else %}
+<div class="card"
+     {% if task.status in ("queued", "running") %}
+     hx-get="{{ root_path }}/ui/tasks/{{ task.id }}" hx-trigger="every 1s" hx-swap="outerHTML"
+     {% endif %}>
+  <div class="kv">
+    <dt>task id</dt><dd><code>{{ task.id }}</code></dd>
+    <dt>status</dt>
+    <dd>
+      {% if task.status == "ok" %}<span class="badge badge-ok">ok</span>
+      {% elif task.status == "error" %}<span class="badge badge-err">error</span>
+      {% else %}<span class="badge badge-dim">{{ task.status }}</span>{% endif %}
+    </dd>
+    <dt>rows added</dt><dd>{{ task.rows_added }}</dd>
+    {% if task.error %}<dt>error</dt><dd class="error">{{ task.error }}</dd>{% endif %}
+  </div>
+</div>
+{% endif %}

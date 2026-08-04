@@ -17,7 +17,8 @@ SoundCloud's `resolve_stream`, Bandcamp's `track.stream`) for on-demand
 extraction, or use the JSON DB to drive dataset-collection scripts, recommender
 experiments, OVOS skills, etc.
 
-Ships as both a Python library and a `media-archivist` CLI.
+Ships as a Python library, a `media-archivist` CLI, a JSON HTTP API, and a
+build-free Web UI on top of that API.
 
 ## Install
 
@@ -27,6 +28,52 @@ pip install media_archivist py_bandcamp  # + Bandcamp
 pip install media_archivist nuvem_de_som # + SoundCloud
 pip install media_archivist[all]         # + huggingface_hub, fastapi, uvicorn (hub publishing, HTTP service)
 ```
+
+## Web UI
+
+A build-free [htmx](https://htmx.org) Web UI ships with the server, no
+Node, no JS build step. It gives you a dashboard, a library browser, one-click
+archiving with live progress, and a dedup quarantine review queue, all served
+alongside the existing JSON API.
+
+![Dashboard](docs/img/dashboard.png)
+
+```bash
+pip install "media-archivist[server]"
+media-archivist serve --db-file talks.json
+# open http://localhost:8000/
+```
+
+Or via Docker (already documented in [`docs/deploy.md`](docs/deploy.md)):
+
+```bash
+docker compose -f deploy/docker-compose.yml up
+```
+
+A quick tour of the pages:
+
+- **Library** — filter by source, free-text grep, or the `where` DSL, with
+  yes/no stream badges at a glance.
+  ![Library](docs/img/library.png)
+- **Archive** — kick off a new archive job and watch it progress live, no
+  page refresh.
+  ![Archive](docs/img/archive.png)
+- **Quarantine** — review dedup conflicts the resolver couldn't confidently
+  match, accept or reject each one.
+  ![Quarantine](docs/img/quarantine.png)
+- **Providers** — see which metadatarr providers are active at a glance.
+  ![Providers](docs/img/providers.png)
+
+It's responsive and themeable (dark/light), the same UI works fine on a
+phone from your homelab network:
+
+![Mobile](docs/img/mobile.png)
+
+Like the rest of the HTTP service, the Web UI ships with **no built-in
+authentication**. It's single-tenant, LAN-only by design, put it behind a
+reverse proxy if you expose it beyond your local network, see
+[`docs/deploy.md`](docs/deploy.md). Full page-by-page tour:
+[`docs/webui.md`](docs/webui.md).
 
 ## CLI
 

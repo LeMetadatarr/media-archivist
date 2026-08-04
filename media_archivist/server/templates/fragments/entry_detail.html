@@ -1,0 +1,34 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+{% if error %}
+<div class="error">{{ error }}</div>
+{% else %}
+<div class="drawer">
+  <div style="display:flex; gap:16px; flex-wrap:wrap;">
+    {% if entry.thumbnail %}<img src="{{ entry.thumbnail|safe_url }}" alt="">{% endif %}
+    <div style="flex:1; min-width:220px">
+      <h3 style="margin-top:0">{{ entry.title }}</h3>
+      <dl class="kv">
+        <dt>id</dt><dd><code>{{ entry.id }}</code></dd>
+        <dt>source</dt><dd>{{ entry.source.value }}</dd>
+        <dt>url</dt><dd><a href="{{ entry.url|safe_url }}" target="_blank" rel="noopener">{{ entry.url }}</a></dd>
+        <dt>artist</dt><dd>{{ entry.artist or "—" }}</dd>
+        <dt>album</dt><dd>{{ entry.album or "—" }}</dd>
+        <dt>duration</dt><dd>{{ (entry.duration | int) if entry.duration else "—" }}</dd>
+        <dt>published</dt><dd>{{ entry.published or "—" }}</dd>
+        <dt>explicit</dt><dd>{{ entry.explicit }}</dd>
+        <dt>canonical_id</dt><dd>{{ entry.canonical_id or "—" }}</dd>
+        <dt>canonical_status</dt><dd>{{ entry.canonical_status or "—" }}</dd>
+        <dt>external_ids</dt><dd>
+          {% set eids = entry.external_ids.model_dump(exclude_none=True) %}
+          {% set shown = eids.items() | selectattr(1) | list %}
+          {% if shown %}
+            {% for k, v in shown %}<div><code>{{ k }}</code> = {{ v }}</div>{% endfor %}
+          {% else %}—{% endif %}
+        </dd>
+        <dt>relations</dt><dd>{{ entry.relations or "—" }}</dd>
+        <dt>stream</dt><dd>{% if entry.stream %}<a href="{{ entry.stream|safe_url }}" target="_blank" rel="noopener">{{ entry.stream }}</a>{% else %}<a href="{{ root_path }}/strm/{{ entry.id }}">resolve via /strm</a>{% endif %}</dd>
+      </dl>
+    </div>
+  </div>
+</div>
+{% endif %}

@@ -1,0 +1,40 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}media_archivist{% endblock %}</title>
+  <link rel="stylesheet" href="{{ request.scope.get('root_path', '') }}/static/app.css">
+  <script src="{{ request.scope.get('root_path', '') }}/static/htmx.min.js"></script>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">📦 media_archivist</div>
+      <nav>
+        <a href="{{ request.scope.get('root_path', '') }}/" class="{{ 'active' if active == 'dashboard' else '' }}">Dashboard</a>
+        <a href="{{ request.scope.get('root_path', '') }}/ui/entries" class="{{ 'active' if active == 'entries' else '' }}">Library</a>
+        <a href="{{ request.scope.get('root_path', '') }}/ui/archive" class="{{ 'active' if active == 'archive' else '' }}">Archive</a>
+        <a href="{{ request.scope.get('root_path', '') }}/ui/quarantine" class="{{ 'active' if active == 'quarantine' else '' }}">Quarantine</a>
+        <a href="{{ request.scope.get('root_path', '') }}/ui/providers" class="{{ 'active' if active == 'providers' else '' }}">Providers</a>
+      </nav>
+      <div class="health">
+        <span id="health-dot" class="health-dot" hx-get="{{ request.scope.get('root_path', '') }}/ui/health-dot" hx-trigger="load, every 30s" hx-swap="outerHTML"></span>
+        <span>status</span>
+      </div>
+      <div class="version">v{{ version }}</div>
+    </aside>
+    <div class="main">
+      <div class="header">
+        <h1>{% block page_title %}{% endblock %}</h1>
+        <button id="theme-toggle" class="btn-ghost btn" type="button" aria-label="Toggle theme">🌓</button>
+      </div>
+      <main class="content">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+  <script src="{{ request.scope.get('root_path', '') }}/static/app.js"></script>
+</body>
+</html>

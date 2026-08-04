@@ -15,6 +15,7 @@ from media_archivist.canonicalize import (
     load_quarantine,
     quarantine_reject,
     quarantine_resolve,
+    render_conflict,
 )
 from media_archivist.index import Index, WhereError
 from media_archivist.models.api import (
@@ -37,7 +38,7 @@ from media_archivist.server.scheduler import Scheduler
 from media_archivist.version import __version__
 
 
-def register_routes(app, *, db_path: str) -> None:
+def register_routes(app, *, db_path: str) -> Scheduler:
     from contextlib import asynccontextmanager
 
     from fastapi import HTTPException, Query
@@ -237,7 +238,7 @@ def register_routes(app, *, db_path: str) -> None:
             QuarantineConflict(
                 row_id=qe.row_id,
                 candidate_canonical_id=qe.candidate_canonical_id,
-                conflicts=list(qe.conflicts or []),
+                conflicts=[render_conflict(c) for c in (qe.conflicts or [])],
             )
             for qe in sidecar.entries.values()
         ]
@@ -275,3 +276,5 @@ def register_routes(app, *, db_path: str) -> None:
             archivist_version=__version__,
             db_path=db_path,
         )
+
+    return scheduler

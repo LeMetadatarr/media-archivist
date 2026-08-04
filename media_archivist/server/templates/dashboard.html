@@ -1,0 +1,40 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+{% extends "base.html" %}
+{% block title %}Dashboard — media_archivist{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block content %}
+<div class="grid">
+  <div class="card stat"><div class="num">{{ stats.total }}</div><div class="label">total entries</div></div>
+  <div class="card stat"><div class="num">{{ stats.canonical_records }}</div><div class="label">canonical records</div></div>
+  <div class="card stat"><div class="num">{{ stats.quarantined }}</div><div class="label">quarantined</div></div>
+  <div class="card stat"><div class="num">{{ providers.active }}/{{ providers.total }}</div><div class="label">providers available</div></div>
+</div>
+
+<div class="card" style="margin-top: var(--gap);">
+  <h3 style="margin-top:0">Source mix</h3>
+  {% if stats.source_mix %}
+    {% for source, count in stats.source_mix.items() %}
+    <div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;font-size:0.85rem"><span>{{ source }}</span><span>{{ count }}</span></div>
+      <div class="bar"><div class="bar-fill" style="width: {{ (count / stats.total * 100) if stats.total else 0 }}%"></div></div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <p class="empty">No entries yet.</p>
+  {% endif %}
+</div>
+
+<div class="card" style="margin-top: var(--gap);">
+  <h3 style="margin-top:0">Quick links</h3>
+  <p><a href="{{ root_path }}/m3u">M3U playlist</a> ·
+     <a href="{{ root_path }}/feed.rss">RSS feed</a> ·
+     <a href="{{ root_path }}/strm/&lt;entry-id&gt;">STRM base</a></p>
+</div>
+
+<div class="card" style="margin-top: var(--gap);">
+  <h3 style="margin-top:0">Canonicalize</h3>
+  <p class="label" style="color:var(--text-dim)">Re-run cross-source matching against providers.</p>
+  <button class="btn" hx-post="{{ root_path }}/ui/canonicalize" hx-target="#canon-result" hx-swap="innerHTML">Run canonicalize</button>
+  <div id="canon-result" style="margin-top: var(--gap);"></div>
+</div>
+{% endblock %}
