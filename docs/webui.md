@@ -81,3 +81,21 @@ authentication**. It's designed for single-tenant, LAN-only use. If you need
 to reach it beyond your local network, put it behind a reverse proxy
 (Caddy, Traefik, nginx) — see [`deploy.md`](./deploy.md) for examples and
 the full route table.
+
+## Troubleshooting
+
+- **Port already in use** — `media-archivist serve` binds `:8000` by
+  default. Pass `--port` to pick another one, or find and stop whatever's
+  already bound: `lsof -i :8000`.
+- **"where: ..." error on the Library page** — the `where` DSL rejected
+  your filter (unsupported syntax, unknown field, or disallowed operator).
+  It's surfaced inline as an HTTP 400 on the filter fragment, not a page
+  crash; fix the expression and resubmit.
+- **A provider shows "unavailable" on the Providers page** — most
+  metadatarr providers need an API key or local credentials file. Check the
+  provider's own docs for the expected environment variable; an unavailable
+  provider is skipped during canonicalization, it doesn't block indexing.
+- **Running behind a reverse proxy** — the UI honours `root_path` for
+  every link and htmx `hx-get`/`hx-post` target, so it works fine mounted
+  under a sub-path. See [`deploy.md`](./deploy.md) for a Caddy/Traefik/nginx
+  example; forward `X-Forwarded-*` headers as usual.
