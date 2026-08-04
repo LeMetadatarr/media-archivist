@@ -1,4 +1,4 @@
-"""yt-dlp stream core.
+"""Stream resolution core — source-aware, yt-dlp by default.
 
 media-archivist archives *streams*, not bytes: the primary job of this
 module is :func:`resolve_stream` — resolving a fresh, directly-playable
@@ -7,10 +7,15 @@ direct URLs after a while, so a stored one goes stale). Downloading to a
 local directory (:func:`download`) is a secondary, optional path for
 callers that actually want a copy on disk.
 
-We prefer the ``yt_dlp`` Python API when it's importable, and fall back to
-shelling out to the ``yt-dlp`` binary on ``PATH`` (the same fallback shape
-used by :mod:`media_archivist.enrich.transcripts`). Subprocess calls always
-use an argument list — never ``shell=True``.
+``resolve_stream`` dispatches by ``source``: soundcloud and bandcamp use
+their native archivist libs (``nuvem_de_som`` / ``py_bandcamp`` — yt-dlp
+isn't the right or best backend for them), internet_archive URLs are
+already direct (no resolution needed), and everything else (YouTube,
+generic, or no source given) uses yt-dlp. We prefer the ``yt_dlp`` Python
+API when it's importable, and fall back to shelling out to the ``yt-dlp``
+binary on ``PATH`` (the same fallback shape used by
+:mod:`media_archivist.enrich.transcripts`). Subprocess calls always use an
+argument list — never ``shell=True``.
 """
 from __future__ import annotations
 
@@ -233,20 +238,93 @@ def _resolve_via_binary(url: str, prefer: str, timeout: float) -> ResolvedStream
     )
 
 
-def resolve_stream(url: str, *, prefer: str = "best",
-                    timeout: float = _DEFAULT_TIMEOUT) -> ResolvedStream:
-    """Resolve a fresh, directly-playable media URL for ``url``.
-
-    Prefers the ``yt_dlp`` Python API; falls back to the ``yt-dlp`` binary
-    on ``PATH``. Raises :class:`StreamResolveError` on failure, or if
-    ``url`` isn't http(s).
-    """
-    _require_http(url)
+def _resolve_via_ytdlp(url: str, prefer: str, timeout: float) -> ResolvedStream:
+    """The original yt-dlp-only path: python API, falling back to the binary."""
     yt_dlp = _import_yt_dlp()
     if yt_dlp is not None:
         return _resolve_via_python(url, prefer, timeout)
     LOG.debug("yt_dlp python module unavailable — falling back to the binary")
     return _resolve_via_binary(url, prefer, timeout)
+
+
+def _resolve_soundcloud(url: str) -> ResolvedStream:
+    from nuvem_de_som import SoundCloud  # local import: optional dep
+
+    direct_url = SoundCloud().resolve_stream(url)
+    if not direct_url:
+        raise StreamResolveError(f"nuvem_de_som resolved no stream for {url}")
+    return ResolvedStream(
+        url=direct_url,
+        is_direct=True,
+        expires=_guess_expiry(direct_url),
+    )
+
+
+def _resolve_bandcamp(url: str) -> ResolvedStream:
+    from py_bandcamp import BandcampTrack  # local import: optional dep
+
+    track = BandcampTrack.from_url(url)
+    direct_url = track.stream
+    if not direct_url:
+        raise StreamResolveError(f"py_bandcamp resolved no stream for {url}")
+    return ResolvedStream(
+        url=direct_url,
+        is_direct=True,
+        expires=_guess_expiry(direct_url),
+        title=getattr(track, "title", None),
+        duration=getattr(track, "duration", None),
+        thumbnail=getattr(track, "image", None),
+    )
+
+
+def _resolve_internet_archive(url: str) -> ResolvedStream:
+    # IA download URLs are stable direct files (no expiry) — the entry's
+    # stored `stream`/`url` (passed in here by the caller) already *is*
+    # the direct URL, so there is nothing to resolve.
+    return ResolvedStream(url=url, is_direct=True)
+
+
+# source value -> native resolver. Anything not listed here (including
+# "youtube"/"youtube_music"/None) falls through to the yt-dlp path.
+_NATIVE_RESOLVERS: Dict[str, Callable[[str], ResolvedStream]] = {
+    "soundcloud": _resolve_soundcloud,
+    "bandcamp": _resolve_bandcamp,
+    "internet_archive": _resolve_internet_archive,
+}
+
+
+def resolve_stream(url: str, *, source: Optional[str] = None, prefer: str = "best",
+                    timeout: float = _DEFAULT_TIMEOUT) -> ResolvedStream:
+    """Resolve a fresh, directly-playable media URL for ``url``.
+
+    Source-aware: soundcloud/bandcamp/internet_archive URLs are resolved
+    via their native archivist libs (``nuvem_de_som`` / ``py_bandcamp`` /
+    already-direct, respectively) — yt-dlp isn't the right or best backend
+    for those. YouTube and anything else (or ``source=None``, preserving
+    back-compat) go through the existing yt-dlp path.
+
+    If the native lib is missing (ImportError) or raises, this logs a
+    warning and falls back to the yt-dlp path rather than hard-failing —
+    yt-dlp may still be able to resolve the url. Raises
+    :class:`StreamResolveError` on total failure, or if ``url`` isn't
+    http(s).
+    """
+    _require_http(url)
+    resolver = _NATIVE_RESOLVERS.get(source) if source else None
+    if resolver is not None:
+        try:
+            return resolver(url)
+        except ImportError as e:
+            LOG.warning(
+                "native lib for source=%r unavailable (%s) — falling back to yt-dlp for %s",
+                source, e, url,
+            )
+        except Exception as e:
+            LOG.warning(
+                "native resolve failed for source=%r (%s) — falling back to yt-dlp for %s",
+                source, e, url,
+            )
+    return _resolve_via_ytdlp(url, prefer, timeout)
 
 
 def download(url: str, dest_dir: str, *, format: str = "best",
