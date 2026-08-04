@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.13.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.13.0a1) (2026-08-04)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.12.0a1...0.13.0a1)
+
+**Merged pull requests:**
+
+- feat: /strm?resolve returns a 302 to a fresh yt-dlp URL \(Jellyfin play-time hook\) + optional proxy mode [\#47](https://github.com/LeMetadatarr/media-archivist/pull/47) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.12.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.12.0a1) (2026-08-04)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.11.0a1...0.12.0a1)
