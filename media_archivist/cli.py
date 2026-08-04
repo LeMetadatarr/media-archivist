@@ -213,6 +213,19 @@ def build_parser() -> argparse.ArgumentParser:
     p_strm.add_argument("--no-stream", dest="has_stream", action="store_false")
     p_strm.add_argument("--limit", type=int, default=0)
     p_strm.add_argument("--dry-run", dest="dry_run", action="store_true")
+    p_strm.add_argument("--layout", choices=["by-source-artist", "flat",
+                                             "by-source", "by-artist"],
+                        default="by-source-artist",
+                        help="folder layout under --output-dir; "
+                             "by-source-artist (default) matches classic "
+                             "output, flat puts every .strm in one "
+                             "directory, by-source/by-artist group "
+                             "accordingly (default: %(default)s)")
+    p_strm.add_argument("--nfo", action="store_true",
+                        help="write a Kodi/Jellyfin .nfo sidecar next to "
+                             "each .strm with real title/artist/tags/"
+                             "artwork so Jellyfin doesn't have to guess "
+                             "from the filename")
     p_strm.set_defaults(func=cmd_strm_export)
 
     p_serve = sub.add_parser("serve", parents=[common],

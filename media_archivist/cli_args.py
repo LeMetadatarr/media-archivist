@@ -189,6 +189,8 @@ class StrmExportArgs(_BaseCliArgs):
     has_stream: Optional[bool] = None
     limit: int = 0
     dry_run: bool = False
+    layout: str = "by-source-artist"
+    nfo: bool = False
 
 
 class DedupeArgs(_BaseCliArgs):
