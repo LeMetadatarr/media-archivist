@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.9.0a1) (2026-08-04)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.8.0a1...0.9.0a1)
+
+**Merged pull requests:**
+
+- feat: tag existing local media libraries \(scan -\> metadatarr resolve -\> .nfo sidecars, non-destructive\) [\#42](https://github.com/LeMetadatarr/media-archivist/pull/42) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.8.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.8.0a1) (2026-08-04)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.7.0a1...0.8.0a1)
