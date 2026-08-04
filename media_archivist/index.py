@@ -177,8 +177,15 @@ class Index:
              has_stream: Optional[bool] = None,
              explicit: Optional[bool] = None,
              grep: Optional[str] = None,
-             limit: int = 0) -> Iterator[MediaEntry]:
-        """Yield :class:`MediaEntry` rows matching the given filters."""
+             limit: int = 0,
+             offset: int = 0) -> Iterator[MediaEntry]:
+        """Yield :class:`MediaEntry` rows matching the given filters.
+
+        ``offset`` skips the first ``offset`` matching rows (post-filter,
+        pre-limit) before yielding — the standard offset/limit pagination
+        contract. ``limit=0`` still means "no limit" (existing convention).
+        """
+        skipped = 0
         n = 0
         needle = grep.lower() if grep else None
         for raw in self._db.values():
@@ -201,6 +208,9 @@ class Index:
                 continue
             if where and not evaluate_where(where, entry):
                 continue
+            if skipped < offset:
+                skipped += 1
+                continue
             yield entry
             n += 1
             if limit and n >= limit:
@@ -208,6 +218,25 @@ class Index:
 
     def to_list(self, **filters) -> List[MediaEntry]:
         return list(self.view(**filters))
+
+    def count(self, *, where: Optional[str] = None,
+              source: Optional[str] = None,
+              has_stream: Optional[bool] = None,
+              explicit: Optional[bool] = None,
+              grep: Optional[str] = None) -> int:
+        """Count entries matching the given filters (no limit/offset).
+
+        Applies the same predicate as :meth:`view` so callers can compute
+        page totals, but skips MediaEntry construction is not possible in
+        general (filters like ``where`` need the full entry), so this
+        still builds each matching row -- it is a full scan, same cost
+        class as ``view()`` without a limit.
+        """
+        n = 0
+        for _ in self.view(where=where, source=source, has_stream=has_stream,
+                            explicit=explicit, grep=grep, limit=0, offset=0):
+            n += 1
+        return n
 
     def _build_id_index(self) -> dict[str, dict]:
         """Build (and cache) a stable_id -> raw lookup map.

@@ -140,12 +140,22 @@ def register_web(app, *, db_path: str, templates, scheduler) -> None:
     def entries_page(request: Request):
         return _render(request, "entries.html", active="entries")
 
-    def _query_entries(source, where, grep, has_stream, explicit, limit):
+    def _query_entries(source, where, grep, has_stream, explicit, limit, offset):
         idx = Index(db_path)
-        return idx.to_list(
+        entries = idx.to_list(
             source=source or None, where=where or None, grep=grep or None,
-            has_stream=has_stream, explicit=explicit, limit=limit,
+            has_stream=has_stream, explicit=explicit, limit=limit, offset=offset,
         )
+        total = idx.count(
+            source=source or None, where=where or None, grep=grep or None,
+            has_stream=has_stream, explicit=explicit,
+        )
+        return entries, total
+
+    # Default page size for the WebUI table -- deliberately smaller than the
+    # API default (100) so 10k+ libraries are actually paged in the browser
+    # instead of rendering one giant table.
+    _UI_PAGE_SIZE = 50
 
     @app.get("/ui/entries/table", response_class=HTMLResponse)
     def entries_table(
@@ -155,17 +165,37 @@ def register_web(app, *, db_path: str, templates, scheduler) -> None:
         grep: Optional[str] = None,
         has_stream: Optional[bool] = None,
         explicit: Optional[bool] = None,
-        limit: int = Query(default=100, ge=1, le=10_000),
+        limit: int = Query(default=_UI_PAGE_SIZE, ge=1, le=10_000),
+        offset: int = Query(default=0, ge=0),
     ):
         try:
-            entries = _query_entries(source, where, grep, has_stream, explicit, limit)
+            entries, total = _query_entries(
+                source, where, grep, has_stream, explicit, limit, offset,
+            )
         except WhereError as e:
             # 200, not 400: htmx does not swap 4xx bodies by default, so a
             # non-2xx response here would leave the table silently stale
             # instead of showing the user their DSL mistake.
             return _render(request, "fragments/entries_table.html",
                            error=f"where: {e}")
-        return _render(request, "fragments/entries_table.html", entries=entries)
+        # Clamp offset display math -- offset itself is already ge=0 via
+        # Query(), and an offset past total simply yields an empty page.
+        offset = max(0, offset)
+        showing_from = min(offset + 1, total) if total else 0
+        showing_to = min(offset + len(entries), total)
+        prev_offset = max(0, offset - limit)
+        next_offset = offset + limit
+        has_prev = offset > 0
+        has_next = next_offset < total
+        return _render(
+            request, "fragments/entries_table.html",
+            entries=entries, total=total, limit=limit, offset=offset,
+            showing_from=showing_from, showing_to=showing_to,
+            prev_offset=prev_offset, next_offset=next_offset,
+            has_prev=has_prev, has_next=has_next,
+            source=source, where=where, grep=grep,
+            has_stream=has_stream, explicit=explicit,
+        )
 
     @app.get("/ui/entries/{entry_id}", response_class=HTMLResponse)
     def entry_detail(request: Request, entry_id: str):
