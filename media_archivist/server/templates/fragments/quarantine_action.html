@@ -1,0 +1,12 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<tr id="q-row-{{ row_id }}" class="q-action q-action-{{ outcome }}">
+  <td colspan="4">
+    {% if outcome == "accepted" %}
+    <span class="badge badge-ok">✓ Accepted</span> {{ message }}
+    {% elif outcome == "rejected" %}
+    <span class="badge badge-err">✗ Rejected</span> {{ message }}
+    {% else %}
+    <span class="error" style="display:inline-block; padding:4px 10px;">{{ message }}</span>
+    {% endif %}
+  </td>
+</tr>

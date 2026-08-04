@@ -59,8 +59,11 @@ def test_entries_table_fragment_with_filter(client):
 
 
 def test_entries_table_bad_where_returns_inline_error_not_500(client):
+    # 200, not 400: htmx does not swap non-2xx response bodies by default,
+    # so a 400 here would leave the table silently showing stale results
+    # while the user's invalid DSL is quietly dropped on the floor.
     r = client.get("/ui/entries/table", params={"where": "import os"})
-    assert r.status_code == 400
+    assert r.status_code == 200
     assert "where" in r.text.lower()
 
 

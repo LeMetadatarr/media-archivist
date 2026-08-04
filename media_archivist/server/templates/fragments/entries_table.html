@@ -11,7 +11,9 @@
   </thead>
   <tbody>
     {% for e in entries %}
-    <tr hx-get="{{ root_path }}/ui/entries/{{ e.id }}" hx-target="#entry-detail" hx-swap="innerHTML">
+    <tr hx-get="{{ root_path }}/ui/entries/{{ e.id }}" hx-target="#entry-detail" hx-swap="innerHTML"
+        hx-trigger="click, keyup[key=='Enter']" tabindex="0" role="button"
+        aria-label="Open details for {{ e.title }}">
       <td>{{ e.title }}</td>
       <td>{{ e.source.value }}</td>
       <td>{{ e.artist or "" }}</td>

@@ -16,6 +16,14 @@
     <div class="field">
       <label for="f-where">Where (DSL)</label>
       <input id="f-where" name="where" placeholder="duration > 60 and source == 'youtube'">
+      <details class="dsl-help">
+        <summary>Filter syntax</summary>
+        <p>Fields: <code>title</code>, <code>source</code>, <code>duration</code>, <code>has_stream</code>,
+           <code>explicit</code>, <code>artist</code>, <code>album</code>, <code>published</code>.</p>
+        <p>Operators: <code>==</code> <code>!=</code> <code>&gt;</code> <code>&gt;=</code>
+           <code>&lt;</code> <code>&lt;=</code> <code>and</code> <code>or</code>.</p>
+        <p>Example: <code>duration &gt; 60 and source == 'youtube'</code></p>
+      </details>
     </div>
     <div class="field">
       <label for="f-limit">Limit</label>

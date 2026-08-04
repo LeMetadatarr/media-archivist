@@ -21,8 +21,9 @@ from media_archivist.index import Index, WhereError
 from media_archivist.models.api import ArchiveRequest, ProviderInfo, QuarantineConflict
 from media_archivist.providers import all_providers
 from media_archivist.version import __version__
+from mediavocab.models.signals import signal_hash
 
-from fastapi import Form, HTTPException, Request
+from fastapi import Form, Query, Request
 from fastapi.responses import HTMLResponse
 
 
@@ -102,13 +103,16 @@ def register_web(app, *, db_path: str, templates, scheduler) -> None:
         grep: Optional[str] = None,
         has_stream: Optional[bool] = None,
         explicit: Optional[bool] = None,
-        limit: int = 100,
+        limit: int = Query(default=100, ge=1, le=10_000),
     ):
         try:
             entries = _query_entries(source, where, grep, has_stream, explicit, limit)
         except WhereError as e:
+            # 200, not 400: htmx does not swap 4xx bodies by default, so a
+            # non-2xx response here would leave the table silently stale
+            # instead of showing the user their DSL mistake.
             return _render(request, "fragments/entries_table.html",
-                           error=f"where: {e}", status_code=400)
+                           error=f"where: {e}")
         return _render(request, "fragments/entries_table.html", entries=entries)
 
     @app.get("/ui/entries/{entry_id}", response_class=HTMLResponse)
@@ -177,17 +181,38 @@ def register_web(app, *, db_path: str, templates, scheduler) -> None:
 
     @app.post("/ui/quarantine/{row_id}/accept", response_class=HTMLResponse)
     def quarantine_accept_fragment(request: Request, row_id: str):
+        # Resolve the target canonical id *before* popping the row so the
+        # confirmation can tell the user what they just did.
+        qe = load_quarantine(db_path).entries.get(row_id)
+        target_id = None
+        if qe is not None:
+            target_id = qe.candidate_canonical_id
+            if not target_id and qe.proposed_signals:
+                target_id = signal_hash(qe.proposed_signals)
         ok = quarantine_resolve(db_path, row_id, canonical_id=None)
         if not ok:
-            raise HTTPException(status_code=404, detail="row not in quarantine")
-        return HTMLResponse("")
+            # Row already resolved/rejected by someone else — surface this
+            # visibly instead of a silent no-op (htmx swaps 200s, not 404s).
+            return _render(request, "fragments/quarantine_action.html",
+                           row_id=row_id, outcome="error",
+                           message="Not accepted — this row is no longer in quarantine "
+                                    "(already resolved elsewhere).")
+        return _render(request, "fragments/quarantine_action.html",
+                       row_id=row_id, outcome="accepted",
+                       message=f"Accepted as canon:{target_id or 'new record'}")
 
     @app.post("/ui/quarantine/{row_id}/reject", response_class=HTMLResponse)
     def quarantine_reject_fragment(request: Request, row_id: str):
         ok = quarantine_reject(db_path, row_id)
         if not ok:
-            raise HTTPException(status_code=404, detail="row not in quarantine")
-        return HTMLResponse("")
+            return _render(request, "fragments/quarantine_action.html",
+                           row_id=row_id, outcome="error",
+                           message="Not rejected — this row is no longer in quarantine "
+                                    "(already resolved elsewhere).")
+        return _render(request, "fragments/quarantine_action.html",
+                       row_id=row_id, outcome="rejected",
+                       message="Row dropped from canonicalization; a new distinct "
+                                "canonical id was assigned.")
 
     @app.get("/ui/providers", response_class=HTMLResponse)
     def providers_page(request: Request):

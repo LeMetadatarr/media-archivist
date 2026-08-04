@@ -28,13 +28,15 @@
   <h3 style="margin-top:0">Quick links</h3>
   <p><a href="{{ root_path }}/m3u">M3U playlist</a> ·
      <a href="{{ root_path }}/feed.rss">RSS feed</a> ·
-     <a href="{{ root_path }}/strm/&lt;entry-id&gt;">STRM base</a></p>
+     STRM: <code>{{ root_path }}/strm/&lt;entry-id&gt;</code> (open an entry's detail to get a real link)</p>
 </div>
 
 <div class="card" style="margin-top: var(--gap);">
   <h3 style="margin-top:0">Canonicalize</h3>
   <p class="label" style="color:var(--text-dim)">Re-run cross-source matching against providers.</p>
-  <button class="btn" hx-post="{{ root_path }}/ui/canonicalize" hx-target="#canon-result" hx-swap="innerHTML">Run canonicalize</button>
+  <button class="btn" hx-post="{{ root_path }}/ui/canonicalize" hx-target="#canon-result" hx-swap="innerHTML"
+          hx-indicator="#canon-spinner" hx-disabled-elt="this">Run canonicalize</button>
+  <span id="canon-spinner" class="htmx-indicator" aria-hidden="true"> ⏳ running…</span>
   <div id="canon-result" style="margin-top: var(--gap);"></div>
 </div>
 {% endblock %}

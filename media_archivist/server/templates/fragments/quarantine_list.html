@@ -13,11 +13,13 @@
       <td><code>{{ q.row_id }}</code></td>
       <td>{{ q.candidate_canonical_id or "—" }}</td>
       <td>{{ q.conflicts | join(", ") }}</td>
-      <td>
+      <td class="q-actions">
         <button class="btn btn-ok" hx-post="{{ root_path }}/ui/quarantine/{{ q.row_id }}/accept"
-                hx-target="#q-row-{{ q.row_id }}" hx-swap="outerHTML">Accept</button>
-        <button class="btn btn-err" hx-post="{{ root_path }}/ui/quarantine/{{ q.row_id }}/reject"
-                hx-target="#q-row-{{ q.row_id }}" hx-swap="outerHTML">Reject</button>
+                hx-target="#q-row-{{ q.row_id }}" hx-swap="outerHTML"
+                hx-confirm="Accept this match? The row will be linked to {{ q.candidate_canonical_id or 'a new canonical record' }}.">Accept</button>
+        <button class="btn btn-ghost btn-err-outline" hx-post="{{ root_path }}/ui/quarantine/{{ q.row_id }}/reject"
+                hx-target="#q-row-{{ q.row_id }}" hx-swap="outerHTML"
+                hx-confirm="Reject this match? The row will be dropped from canonicalization.">Reject</button>
       </td>
     </tr>
     {% endfor %}
