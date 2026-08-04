@@ -53,7 +53,9 @@ docker compose -f deploy/docker-compose.yml up
 A quick tour of the pages:
 
 - **Library** — filter by source, free-text grep, or the `where` DSL, with
-  yes/no stream badges at a glance.
+  yes/no stream badges at a glance. The `where` filter is sandboxed: it
+  parses your expression with `ast` and walks a small allow-list of
+  comparisons/booleans, it never calls Python's `eval`.
   ![Library](docs/img/library.png)
 - **Archive** — kick off a new archive job and watch it progress live, no
   page refresh.
