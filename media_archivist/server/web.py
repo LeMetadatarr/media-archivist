@@ -8,6 +8,7 @@ All pages extend ``base.html``; htmx swaps are served by dedicated
 from __future__ import annotations
 
 import asyncio
+import re
 from typing import List, Optional
 
 from media_archivist.canonicalize import (
@@ -25,6 +26,42 @@ from mediavocab.models.signals import signal_hash
 
 from fastapi import Form, Query, Request
 from fastapi.responses import HTMLResponse
+
+
+# Video containers commonly served straight from Internet Archive items —
+# anything else falls back to an <audio> element.
+_IA_VIDEO_EXTS = {"mp4", "webm", "ogv", "ogg", "mov", "m4v"}
+
+_YOUTUBE_ID_RE = re.compile(
+    r"(?:youtu\.be/|youtube(?:-nocookie)?\.com/(?:watch\?v=|embed/)"
+    r"|music\.youtube\.com/watch\?v=)([A-Za-z0-9_-]{11})"
+)
+_BARE_YOUTUBE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
+
+
+def _stream_kind(entry) -> Optional[str]:
+    """"audio"/"video"/None — how to render ``entry.stream`` inline."""
+    if not entry.stream:
+        return None
+    source = getattr(entry.source, "value", entry.source)
+    if source in ("bandcamp", "soundcloud"):
+        return "audio"
+    if source == "internet_archive":
+        path = entry.stream.split("?", 1)[0].split("#", 1)[0]
+        name = path.rsplit("/", 1)[-1]
+        ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+        return "video" if (not ext or ext in _IA_VIDEO_EXTS) else "audio"
+    return None
+
+
+def _youtube_id(entry) -> Optional[str]:
+    """Derive the 11-char YouTube video id, or ``None`` if it can't be found."""
+    raw = entry.raw if isinstance(entry.raw, dict) else {}
+    vid = raw.get("videoId")
+    if isinstance(vid, str) and _BARE_YOUTUBE_ID_RE.match(vid):
+        return vid
+    m = _YOUTUBE_ID_RE.search(entry.url or "")
+    return m.group(1) if m else None
 
 
 def _providers_payload():
@@ -120,8 +157,19 @@ def register_web(app, *, db_path: str, templates, scheduler) -> None:
         idx = Index(db_path)
         for e in idx.view():
             if e.id == entry_id:
-                return _render(request, "fragments/entry_detail.html", entry=e)
+                return _render(request, "fragments/entry_detail.html", entry=e,
+                               stream_kind=_stream_kind(e), yt_id=_youtube_id(e))
         return _render(request, "fragments/entry_detail.html",
+                       error="entry not found", status_code=404)
+
+    @app.get("/ui/entries/{entry_id}/player", response_class=HTMLResponse)
+    def entry_player(request: Request, entry_id: str):
+        idx = Index(db_path)
+        for e in idx.view():
+            if e.id == entry_id:
+                return _render(request, "fragments/player_iframe.html",
+                               entry=e, yt_id=_youtube_id(e))
+        return _render(request, "fragments/player_iframe.html",
                        error="entry not found", status_code=404)
 
     @app.get("/ui/archive", response_class=HTMLResponse)

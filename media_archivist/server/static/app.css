@@ -143,3 +143,9 @@ a { color: var(--accent); }
   .sidebar nav { flex-direction: column; flex-wrap: nowrap; width: 100%; }
   .sidebar .health { margin-top: 8px; }
 }
+
+.player { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; max-width: 100%; }
+.player audio { width: 100%; }
+.player .player-video { width: 100%; max-width: 100%; border-radius: var(--radius); background: #000; }
+.player .player-embed iframe { display: block; width: 100%; aspect-ratio: 16/9; border-radius: var(--radius); background: #000; }
+.player-fallback { font-size: 0.85rem; }
