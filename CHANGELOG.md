@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.14.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.14.0a1) (2026-08-04)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.13.0a1...0.14.0a1)
+
+**Merged pull requests:**
+
+- feat: source-aware stream resolution \(bandcamp/soundcloud via native libs, yt-dlp for youtube\) [\#48](https://github.com/LeMetadatarr/media-archivist/pull/48) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.13.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.13.0a1) (2026-08-04)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.12.0a1...0.13.0a1)
