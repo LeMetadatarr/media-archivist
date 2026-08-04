@@ -239,6 +239,19 @@ class BootstrapArgs(_BaseCliArgs):
     url: str
 
 
+class TagLibraryArgs(BaseModel):
+    """tag-library — scans a local folder; no DB target required."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    path: str
+    media: Literal["both", "video", "music"] = "both"
+    nfo: bool = True
+    dry_run: bool = False
+    index: Optional[str] = None
+    min_confidence: float = 0.5
+
+
 class MonitorArgs(_BaseCliArgs):
     urls: List[str]
     interval: int = 120
