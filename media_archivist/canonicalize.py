@@ -46,6 +46,24 @@ LOG = logging.getLogger("media_archivist.canonicalize")
 # Sidecar I/O
 # ---------------------------------------------------------------------------
 
+def render_conflict(conflict) -> str:
+    """Render a quarantine ``conflict`` as a human-readable one-liner.
+
+    ``QuarantineEntry.conflicts`` holds :class:`SignalConflict` objects (produced
+    by canonicalization), but the HTTP/UI layers surface conflicts as plain
+    strings. Accepts either a ``SignalConflict`` or an already-formatted string
+    so callers never have to care which they hold.
+    """
+    if isinstance(conflict, str):
+        return conflict
+    signal = getattr(conflict, "signal", None)
+    ours = getattr(conflict, "ours", None)
+    theirs = getattr(conflict, "theirs", None)
+    if signal is None:
+        return str(conflict)
+    return f"{signal}: {ours!r} ≠ {theirs!r}"
+
+
 def _canonical_path(db_path: str) -> Path:
     return Path(db_path).with_suffix(".canonical.json")
 

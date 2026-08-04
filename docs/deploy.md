@@ -4,6 +4,10 @@
 ([reference](./reference/cli.md#serve)). For long-lived deployments the
 repository ships two ready-to-use templates under `deploy/`.
 
+The same process also serves the build-free Web UI at `/`, alongside the
+JSON API and the Swagger docs at `/docs`. See [`webui.md`](./webui.md) for a
+page-by-page tour.
+
 > **Security note:** The service has no built-in authentication. It is designed
 > for single-tenant, LAN use. Do not expose port 8000 directly to the internet
 >, put it behind your existing reverse proxy (Caddy, Traefik, nginx) and

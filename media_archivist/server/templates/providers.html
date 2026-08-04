@@ -1,0 +1,21 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+{% extends "base.html" %}
+{% block title %}Providers — media_archivist{% endblock %}
+{% block page_title %}Providers{% endblock %}
+{% block content %}
+<div class="card" style="margin-bottom: var(--gap);">
+  <button class="btn" hx-post="{{ root_path }}/ui/canonicalize" hx-target="#canon-result" hx-swap="innerHTML">Run canonicalize</button>
+  <div id="canon-result" style="margin-top: var(--gap);"></div>
+</div>
+<div class="grid">
+  {% for p in providers %}
+  <div class="card">
+    <h3 style="margin-top:0">{{ p.name }}</h3>
+    {% if p.available %}<span class="badge badge-ok">available</span>{% else %}<span class="badge badge-err">unavailable</span>{% endif %}
+    <p style="font-size:0.85rem; color:var(--text-dim)">media: {{ p.media | join(", ") or "—" }}</p>
+    <p style="font-size:0.85rem; color:var(--text-dim)">modality: {{ p.modality | join(", ") or "—" }}</p>
+    <p style="font-size:0.85rem; color:var(--text-dim)">genres: {{ p.genre_filter | join(", ") or "—" }}</p>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

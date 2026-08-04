@@ -1,0 +1,26 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+{% if error %}
+<div class="error">{{ error }}</div>
+{% elif not entries %}
+<p class="empty">No entries match this filter.</p>
+{% else %}
+<div class="scroll-x">
+<table class="table">
+  <thead>
+    <tr><th>Title</th><th>Source</th><th>Artist</th><th>Duration</th><th>Stream</th></tr>
+  </thead>
+  <tbody>
+    {% for e in entries %}
+    <tr hx-get="{{ root_path }}/ui/entries/{{ e.id }}" hx-target="#entry-detail" hx-swap="innerHTML">
+      <td>{{ e.title }}</td>
+      <td>{{ e.source.value }}</td>
+      <td>{{ e.artist or "" }}</td>
+      <td>{{ (e.duration | int) if e.duration else "" }}</td>
+      <td>{% if e.stream %}<span class="badge badge-ok">yes</span>{% else %}<span class="badge badge-dim">no</span>{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="label" style="color:var(--text-dim); margin-top:8px">{{ entries|length }} shown</p>
+{% endif %}

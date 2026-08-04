@@ -1,0 +1,27 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+{% if not entries %}
+<p class="empty">No quarantined rows — nothing to review.</p>
+{% else %}
+<div class="scroll-x">
+<table class="table">
+  <thead>
+    <tr><th>Row</th><th>Candidate canonical id</th><th>Conflicts</th><th></th></tr>
+  </thead>
+  <tbody id="quarantine-rows">
+    {% for q in entries %}
+    <tr id="q-row-{{ q.row_id }}">
+      <td><code>{{ q.row_id }}</code></td>
+      <td>{{ q.candidate_canonical_id or "—" }}</td>
+      <td>{{ q.conflicts | join(", ") }}</td>
+      <td>
+        <button class="btn btn-ok" hx-post="{{ root_path }}/ui/quarantine/{{ q.row_id }}/accept"
+                hx-target="#q-row-{{ q.row_id }}" hx-swap="outerHTML">Accept</button>
+        <button class="btn btn-err" hx-post="{{ root_path }}/ui/quarantine/{{ q.row_id }}/reject"
+                hx-target="#q-row-{{ q.row_id }}" hx-swap="outerHTML">Reject</button>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}

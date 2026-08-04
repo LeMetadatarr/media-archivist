@@ -1,0 +1,9 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+{% extends "base.html" %}
+{% block title %}Quarantine — media_archivist{% endblock %}
+{% block page_title %}Quarantine{% endblock %}
+{% block content %}
+<div id="quarantine-list" hx-get="{{ root_path }}/ui/quarantine/list" hx-trigger="load" hx-swap="innerHTML">
+  <p class="empty">Loading…</p>
+</div>
+{% endblock %}
