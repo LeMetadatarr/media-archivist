@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.10.0a1) (2026-08-04)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.9.0a1...0.10.0a1)
+
+**Merged pull requests:**
+
+- feat: Library pagination \(offset/limit + prev/next controls, filtered totals\) [\#43](https://github.com/LeMetadatarr/media-archivist/pull/43) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.9.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.9.0a1) (2026-08-04)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.8.0a1...0.9.0a1)
