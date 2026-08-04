@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.11.0a1) (2026-08-04)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.10.0a1...0.11.0a1)
+
+**Merged pull requests:**
+
+- feat: tagger uses embedded {tmdb-}/{imdb-} ids from Radarr/Sonarr names + skips trailers/extras [\#44](https://github.com/LeMetadatarr/media-archivist/pull/44) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.10.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.10.0a1) (2026-08-04)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.9.0a1...0.10.0a1)
