@@ -49,28 +49,90 @@ Output layout:
 Each `.strm` body is `http://nas.local:8000/strm/<entry_id>`, Jellyfin calls into the server when the user hits play, and the
 server returns the resolved URL with `text/plain` content type.
 
-## Keeping expired streams playable with yt-dlp
+## Recommended: play-time yt-dlp resolution with `?resolve=1`
 
 Source URLs (YouTube especially) expire; the raw watch/listing URL still
 resolves as an *entry*, but stops pointing at a directly playable file.
 When `yt-dlp` is installed (either the `yt_dlp` Python package or the
-`yt-dlp` binary on `PATH`), `/strm/{id}` can resolve a **fresh** direct
-media URL on demand instead of returning the stored `stream`/`url`
-verbatim:
+`yt-dlp` binary on `PATH`), `/strm/{id}?resolve=1` turns the endpoint
+into a play-time yt-dlp hook instead of a static URL lookup.
+
+`strm-export --base-url` writes each `.strm` body as
+`<base_url>/strm/<entry_id>` (no query string). To get resolve-on-play
+behaviour, set `MEDIA_ARCHIVIST_STRM_RESOLVE=1` on the server so every
+`/strm/{id}` request resolves, regardless of the `.strm` body's query
+string:
 
 ```bash
-curl "http://nas.local:8000/strm/<entry_id>?resolve=1"
+media-archivist strm-export \
+    --db-file /srv/media-archivist/index.json \
+    --output-dir /var/lib/jellyfin/media/archivist \
+    --base-url "http://nas.local:8000"
+
+# on the server:
+MEDIA_ARCHIVIST_STRM_RESOLVE=1 media-archivist serve \
+    --db-file /srv/media-archivist/index.json --host 0.0.0.0 --port 8000
 ```
 
-To make this the default for every `.strm` request — useful when
-Jellyfin has no yt-dlp plugin of its own and you want the server to do
-the resolving — set `MEDIA_ARCHIVIST_STRM_RESOLVE=1` in the server's
-environment; `?resolve=0` still overrides it off per-request.
+(If you'd rather opt in per-entry instead of server-wide, hand-edit
+the exported `.strm` files to append `?resolve=1` to each body — there
+is currently no `strm-export` flag that does this for you.)
+
+Jellyfin only *reads* the `.strm` body at library-scan time — it hands
+that URL to ffmpeg at **play** time. Since the body is our endpoint,
+ffmpeg opens `/strm/<id>?resolve=1` itself when the user hits play, and
+the server resolves a fresh direct URL via yt-dlp right then and
+**302-redirects** ffmpeg to it. ffmpeg follows redirects natively, so
+this "just works" — no Jellyfin plugin, no baked-in URL to go stale,
+and no downloading or transcoding on the media-archivist side. Every
+playback re-resolves, so expired YouTube CDN URLs are a non-issue: the
+`.strm` file never needs to be regenerated.
+
+```bash
+curl -I "http://nas.local:8000/strm/<entry_id>?resolve=1"
+# HTTP/1.1 302 Found
+# location: https://rr---sn-....googlevideo.com/videoplayback?...
+```
+
+`HEAD` is supported too (some players probe with `HEAD` before
+`GET`), and returns the same redirect.
+
+To make resolution the default for every `.strm` request without
+`?resolve=1` on each `.strm` body — useful when you don't control how
+the `.strm` files were exported — set
+`MEDIA_ARCHIVIST_STRM_RESOLVE=1` in the server's environment;
+`?resolve=0` still overrides it off per-request.
 
 Resolution never breaks the `.strm` contract: if yt-dlp is unavailable
 or fails to resolve (private/deleted video, network hiccup, ...), the
-endpoint falls back to the stored `stream`/`url` and logs a warning —
-it never returns an error status, since Jellyfin/Kodi need a body back.
+endpoint still returns a redirect — to the stored `stream`/`url`
+instead of the freshly resolved one — and logs a warning. It never
+returns an error status, since Jellyfin/Kodi need a usable response or
+the item breaks in the library. Without `resolve` at all, `/strm/{id}`
+keeps returning the classic `text/plain` body unchanged.
+
+### Byte-proxy mode: `?mode=proxy`
+
+Some players don't follow redirects, or the host running the player
+can't reach the resolved CDN directly (e.g. it's on a network that
+only routes through the NAS). Add `mode=proxy` (or set
+`MEDIA_ARCHIVIST_STRM_PROXY=1` server-wide) and media-archivist fetches
+the resolved URL itself and streams the bytes back, instead of
+redirecting:
+
+```bash
+curl "http://nas.local:8000/strm/<entry_id>?resolve=1&mode=proxy" -o out.mp4
+```
+
+The client's `Range` header is forwarded upstream for seeking, and the
+upstream `Content-Type` / `Content-Range` / `Accept-Ranges` /
+`Content-Length` / status (`206` for a range request) are echoed back.
+This is the belt-and-suspenders path — every played byte flows through
+the media-archivist process, so prefer plain `?resolve=1` (redirect)
+where the player can reach the CDN directly; it's lighter and the CDN
+serves the bytes instead of your homelab box. Proxy mode also never
+hard-fails: if the upstream fetch errors, it falls back to a redirect
+and logs a warning.
 
 The same resolver powers a "▶ Play (yt-dlp)" button in the WebUI's
 entry detail drawer (and a "↻ refresh stream" affordance for entries
