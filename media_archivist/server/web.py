@@ -8,6 +8,7 @@ All pages extend ``base.html``; htmx swaps are served by dedicated
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
 from typing import List, Optional
 
@@ -26,6 +27,8 @@ from mediavocab.models.signals import signal_hash
 
 from fastapi import Form, Query, Request
 from fastapi.responses import HTMLResponse
+
+LOG = logging.getLogger("media_archivist.server.web")
 
 
 # Video containers commonly served straight from Internet Archive items —
@@ -52,6 +55,13 @@ def _stream_kind(entry) -> Optional[str]:
         ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
         return "video" if (not ext or ext in _IA_VIDEO_EXTS) else "audio"
     return None
+
+
+def _kind_for_ext(ext: Optional[str]) -> str:
+    """"audio"/"video" for a resolved-stream file extension (defaults video)."""
+    if ext and ext.lower() not in _IA_VIDEO_EXTS:
+        return "audio"
+    return "video"
 
 
 def _youtube_id(entry) -> Optional[str]:
@@ -154,11 +164,14 @@ def register_web(app, *, db_path: str, templates, scheduler) -> None:
 
     @app.get("/ui/entries/{entry_id}", response_class=HTMLResponse)
     def entry_detail(request: Request, entry_id: str):
+        from media_archivist.streams import ytdlp_available
+
         idx = Index(db_path)
         for e in idx.view():
             if e.id == entry_id:
                 return _render(request, "fragments/entry_detail.html", entry=e,
-                               stream_kind=_stream_kind(e), yt_id=_youtube_id(e))
+                               stream_kind=_stream_kind(e), yt_id=_youtube_id(e),
+                               ytdlp_available=ytdlp_available())
         return _render(request, "fragments/entry_detail.html",
                        error="entry not found", status_code=404)
 
@@ -171,6 +184,40 @@ def register_web(app, *, db_path: str, templates, scheduler) -> None:
                                entry=e, yt_id=_youtube_id(e))
         return _render(request, "fragments/player_iframe.html",
                        error="entry not found", status_code=404)
+
+    @app.get("/ui/entries/{entry_id}/resolve", response_class=HTMLResponse)
+    def entry_resolve(request: Request, entry_id: str):
+        """yt-dlp-resolved direct stream — lazy, on-demand (never bulk).
+
+        Used both by the "Play (yt-dlp)" affordance on YouTube-family
+        entries and the "refresh stream" affordance on entries whose
+        stored ``stream`` URL may have expired. Never raises — a
+        resolve failure renders an inline error fragment with the
+        Open-original link still available, matching the ``/strm``
+        fallback contract (never break the caller with a 500).
+        """
+        from media_archivist import streams
+
+        idx = Index(db_path)
+        entry = None
+        for e in idx.view():
+            if e.id == entry_id:
+                entry = e
+                break
+        if entry is None:
+            return _render(request, "fragments/entry_resolve.html",
+                           error="entry not found", status_code=404)
+
+        target = entry.stream or entry.url
+        try:
+            resolved = streams.resolve_stream(target)
+        except streams.StreamResolveError as exc:
+            LOG.warning("resolve failed for entry %s (%s): %s", entry_id, target, exc)
+            return _render(request, "fragments/entry_resolve.html",
+                           entry=entry, resolve_error=str(exc))
+        return _render(request, "fragments/entry_resolve.html",
+                       entry=entry, resolved=resolved,
+                       resolved_kind=_kind_for_ext(resolved.ext))
 
     @app.get("/ui/archive", response_class=HTMLResponse)
     def archive_page(request: Request):

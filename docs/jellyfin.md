@@ -49,6 +49,34 @@ Output layout:
 Each `.strm` body is `http://nas.local:8000/strm/<entry_id>`, Jellyfin calls into the server when the user hits play, and the
 server returns the resolved URL with `text/plain` content type.
 
+## Keeping expired streams playable with yt-dlp
+
+Source URLs (YouTube especially) expire; the raw watch/listing URL still
+resolves as an *entry*, but stops pointing at a directly playable file.
+When `yt-dlp` is installed (either the `yt_dlp` Python package or the
+`yt-dlp` binary on `PATH`), `/strm/{id}` can resolve a **fresh** direct
+media URL on demand instead of returning the stored `stream`/`url`
+verbatim:
+
+```bash
+curl "http://nas.local:8000/strm/<entry_id>?resolve=1"
+```
+
+To make this the default for every `.strm` request — useful when
+Jellyfin has no yt-dlp plugin of its own and you want the server to do
+the resolving — set `MEDIA_ARCHIVIST_STRM_RESOLVE=1` in the server's
+environment; `?resolve=0` still overrides it off per-request.
+
+Resolution never breaks the `.strm` contract: if yt-dlp is unavailable
+or fails to resolve (private/deleted video, network hiccup, ...), the
+endpoint falls back to the stored `stream`/`url` and logs a warning —
+it never returns an error status, since Jellyfin/Kodi need a body back.
+
+The same resolver powers a "▶ Play (yt-dlp)" button in the WebUI's
+entry detail drawer (and a "↻ refresh stream" affordance for entries
+whose stored `stream` URL may have gone stale), shown whenever yt-dlp
+is available.
+
 ## Without a running server
 
 Skip `--base-url` to bake the resolved stream / watch URL straight

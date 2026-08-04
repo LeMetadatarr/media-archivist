@@ -7,8 +7,26 @@ All bodies / responses use pydantic models from
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from typing import List, Optional
+
+LOG = logging.getLogger("media_archivist.server.routes")
+
+# Truthy env var strings, matching the shell/CI convention used elsewhere
+# in the codebase (1/true/yes/on, case-insensitive).
+_TRUTHY = {"1", "true", "yes", "on"}
+
+
+def _env_strm_resolve_default() -> bool:
+    """Default for the ``resolve`` query param on ``/strm/{id}``.
+
+    ``MEDIA_ARCHIVIST_STRM_RESOLVE`` lets an operator turn on yt-dlp
+    resolution for every ``.strm`` request (e.g. a Jellyfin library that
+    has no yt-dlp plugin of its own) without every caller having to pass
+    ``?resolve=1``.
+    """
+    return os.environ.get("MEDIA_ARCHIVIST_STRM_RESOLVE", "").strip().lower() in _TRUTHY
 
 from media_archivist.canonicalize import (
     canonicalize as run_canonicalize,
@@ -142,21 +160,45 @@ def register_routes(app, *, db_path: str) -> Scheduler:
         return task
 
     @app.get("/strm/{entry_id}", response_class=PlainTextResponse)
-    def strm(entry_id: str):
+    def strm(entry_id: str, resolve: Optional[bool] = None):
         """Return the playable URL for an entry as plain text.
 
         ``.strm`` files are one-line text files whose body is a URL —
-        Jellyfin / Kodi follow it to the actual stream. We return the
-        already-resolved ``stream`` field when present (Bandcamp,
-        SoundCloud, IA), otherwise the canonical watch URL so the
-        client's resolver (yt-dlp / Jellyfin plugin) handles it.
+        Jellyfin / Kodi follow it to the actual stream. By default we
+        return the already-resolved ``stream`` field when present
+        (Bandcamp, SoundCloud, IA), otherwise the canonical watch URL so
+        the client's resolver (yt-dlp / Jellyfin plugin) handles it.
+
+        When ``resolve=1`` (or the ``MEDIA_ARCHIVIST_STRM_RESOLVE`` env
+        var is truthy), we instead resolve a *fresh* direct media URL
+        ourselves via yt-dlp — so Jellyfin/Kodi can play the file
+        directly without needing their own yt-dlp plugin, and stored
+        stream URLs that have expired get refreshed on demand.
+
+        This must never 500: Jellyfin needs a body back or the item
+        breaks in the library. Any resolution failure falls back to the
+        unresolved behavior with a logged warning.
         """
         idx = Index(db_path)
         entry = idx.get(entry_id)
-        if entry is not None:
-            return PlainTextResponse(entry.stream or entry.url,
-                                     media_type="text/plain")
-        raise HTTPException(status_code=404, detail="entry not found")
+        if entry is None:
+            raise HTTPException(status_code=404, detail="entry not found")
+        fallback = entry.stream or entry.url
+        do_resolve = resolve if resolve is not None else _env_strm_resolve_default()
+        if do_resolve:
+            from media_archivist import streams
+
+            target = entry.stream or entry.url
+            try:
+                resolved = streams.resolve_stream(target)
+                return PlainTextResponse(resolved.url, media_type="text/plain")
+            except streams.StreamResolveError as e:
+                LOG.warning("strm resolve failed for %s (%s) — falling back to "
+                            "unresolved url: %s", entry_id, target, e)
+            except Exception as e:  # pragma: no cover — defensive, never 500 a .strm
+                LOG.warning("strm resolve raised unexpectedly for %s (%s) — "
+                            "falling back to unresolved url: %s", entry_id, target, e)
+        return PlainTextResponse(fallback, media_type="text/plain")
 
     @app.get("/feed.rss", response_class=Response)
     def feed_rss(limit: int = Query(default=50, ge=1, le=500)):
