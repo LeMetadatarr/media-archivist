@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.3.0a1) (2026-08-04)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.2.2a1...0.3.0a1)
+
+**Merged pull requests:**
+
+- feat: WebUI UX + a11y polish \(safe quarantine actions, keyboard nav, visible DSL errors, honest health dot\) [\#36](https://github.com/LeMetadatarr/media-archivist/pull/36) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.2.2a1](https://github.com/LeMetadatarr/media-archivist/tree/0.2.2a1) (2026-08-04)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.2.1a1...0.2.2a1)
