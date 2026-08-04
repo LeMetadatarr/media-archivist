@@ -7,6 +7,25 @@
     {% if entry.thumbnail %}<img src="{{ entry.thumbnail|safe_url }}" alt="">{% endif %}
     <div style="flex:1; min-width:220px">
       <h3 style="margin-top:0">{{ entry.title }}</h3>
+      {% set safe_stream = entry.stream|safe_url %}
+      <div class="player">
+        {% if safe_stream and stream_kind == "audio" %}
+          <audio controls preload="none" src="{{ safe_stream }}"></audio>
+        {% elif safe_stream and stream_kind == "video" %}
+          <video controls preload="none" playsinline class="player-video" src="{{ safe_stream }}"></video>
+        {% elif yt_id %}
+          <span class="player-embed">
+            <button type="button" class="btn btn-ghost"
+                    hx-get="{{ root_path }}/ui/entries/{{ entry.id }}/player"
+                    hx-target="closest .player-embed" hx-swap="innerHTML">
+              &#9654; Play
+            </button>
+          </span>
+        {% endif %}
+        <div class="player-fallback">
+          <a href="{{ entry.url|safe_url }}" target="_blank" rel="noopener">Open original &#8599;</a>
+        </div>
+      </div>
       <dl class="kv">
         <dt>id</dt><dd><code>{{ entry.id }}</code></dd>
         <dt>source</dt><dd>{{ entry.source.value }}</dd>
