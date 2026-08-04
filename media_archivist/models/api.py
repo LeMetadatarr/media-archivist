@@ -49,7 +49,7 @@ class EntryListResponse(BaseModel):
 class HealthResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    status: Literal["ok"] = "ok"
+    status: Literal["ok", "unhealthy"] = "ok"
     version: str
     db_path: str
 

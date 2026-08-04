@@ -31,6 +31,11 @@ _ALLOWED_CMPOPS = (ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE,
                    ast.In, ast.NotIn)
 _ALLOWED_FUNCS = {"len": len, "lower": str.lower, "upper": str.upper}
 
+# Upper bound on the number of AST nodes a --where expression may contain.
+# Guards against pathologically deep/wide expressions (parsed once per
+# request, but evaluated once per row -- an expensive tree amplifies fast).
+_MAX_DSL_NODES = 200
+
 
 class WhereError(ValueError):
     """Raised when a ``--where`` expression is invalid or uses denied syntax."""
@@ -55,6 +60,13 @@ def _eval_node(node: ast.AST, ctx: dict) -> Any:
         return all(vals) if isinstance(node.op, ast.And) else any(vals)
     if isinstance(node, ast.BinOp) and isinstance(node.op, _ALLOWED_BINOPS):
         a, b = _eval_node(node.left, ctx), _eval_node(node.right, ctx)
+        if isinstance(node.op, ast.Mult):
+            # String/bytes/list repetition (e.g. "a" * 10**9) has no
+            # legitimate use in a filter predicate and lets a single
+            # request force a giant allocation -- reject it outright.
+            # Only plain numeric multiplication is allowed.
+            if isinstance(a, (str, bytes, list)) or isinstance(b, (str, bytes, list)):
+                raise WhereError("string/sequence repetition not allowed in --where")
         ops = {ast.Add: "+", ast.Sub: "-", ast.Mult: "*", ast.Div: "/",
                ast.Mod: "%", ast.FloorDiv: "//"}
         return eval(f"a {ops[type(node.op)]} b", {"a": a, "b": b})
@@ -113,6 +125,11 @@ def evaluate_where(expr: str, entry: MediaEntry) -> bool:
         tree = ast.parse(expr, mode="eval")
     except SyntaxError as e:
         raise WhereError(f"invalid expression: {e.msg}") from e
+    node_count = sum(1 for _ in ast.walk(tree))
+    if node_count > _MAX_DSL_NODES:
+        raise WhereError(
+            f"expression too complex ({node_count} nodes > {_MAX_DSL_NODES} max)"
+        )
     ctx = entry.model_dump(mode="python")
     return bool(_eval_node(tree.body, ctx))
 
@@ -125,6 +142,7 @@ class Index:
         self._db = EnvelopeJsonStorage(self.path)
         self._canonical_index = self._load_canonical_index()
         self._entity_index = self._load_entity_index()
+        self._id_index: Optional[dict[str, dict]] = None
 
     def _load_canonical_index(self):
         """Read ``<db>.canonical.json`` if present and build a lookup map."""
@@ -190,6 +208,41 @@ class Index:
 
     def to_list(self, **filters) -> List[MediaEntry]:
         return list(self.view(**filters))
+
+    def _build_id_index(self) -> dict[str, dict]:
+        """Build (and cache) a stable_id -> raw lookup map.
+
+        The on-disk storage is keyed by URL, not by the derived entry id,
+        so a keyed lookup still needs an id -> raw map. Computing that map
+        only needs ``source``/``url`` (cheap), not a full MediaEntry
+        conversion of every row, and is built once per Index instance
+        rather than re-scanned per lookup.
+        """
+        from media_archivist.models.canonical import stable_id
+        from media_archivist.models.raw import Source
+
+        index: dict[str, dict] = {}
+        for raw in self._db.values():
+            try:
+                sid = stable_id(Source(raw["source"]), raw["url"])
+            except Exception:
+                continue
+            index[sid] = raw
+        return index
+
+    def get(self, entry_id: str) -> Optional[MediaEntry]:
+        """Look up a single entry by id without a per-call full-table scan."""
+        if self._id_index is None:
+            self._id_index = self._build_id_index()
+        raw = self._id_index.get(entry_id)
+        if raw is None:
+            return None
+        try:
+            entry = to_media_entry(raw)
+        except Exception:
+            return None
+        self._stamp_canonical(entry, raw)
+        return entry
 
     def _stamp_canonical(self, entry: MediaEntry, raw: dict) -> None:
         """Attach canonical_id / canonical_status / external_ids / relations from sidecars."""
