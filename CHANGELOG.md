@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.12.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.12.0a1) (2026-08-04)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.11.0a1...0.12.0a1)
+
+**Merged pull requests:**
+
+- feat: bulk accept/reject in Quarantine \(multi-select + select-all\) [\#45](https://github.com/LeMetadatarr/media-archivist/pull/45) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.11.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.11.0a1) (2026-08-04)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.10.0a1...0.11.0a1)
