@@ -1,3 +1,5 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
-<span id="health-dot" class="health-dot {{ 'ok' if healthy else '' }}"
+{% set state_label = "Server reachable" if healthy else "Server unreachable" %}
+<span id="health-dot" class="health-dot {{ 'ok' if healthy else 'err' }}"
+      title="{{ state_label }}" aria-label="{{ state_label }}"
       hx-get="{{ root_path }}/ui/health-dot" hx-trigger="load, every 30s" hx-swap="outerHTML"></span>

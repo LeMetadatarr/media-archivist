@@ -20,7 +20,8 @@
         <a href="{{ request.scope.get('root_path', '') }}/ui/providers" class="{{ 'active' if active == 'providers' else '' }}">Providers</a>
       </nav>
       <div class="health">
-        <span id="health-dot" class="health-dot" hx-get="{{ request.scope.get('root_path', '') }}/ui/health-dot" hx-trigger="load, every 30s" hx-swap="outerHTML"></span>
+        <span id="health-dot" class="health-dot checking" title="Checking server status…" aria-label="Checking server status"
+              hx-get="{{ request.scope.get('root_path', '') }}/ui/health-dot" hx-trigger="load, every 30s" hx-swap="outerHTML"></span>
         <span>status</span>
       </div>
       <div class="version">v{{ version }}</div>

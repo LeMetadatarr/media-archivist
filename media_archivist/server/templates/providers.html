@@ -4,7 +4,9 @@
 {% block page_title %}Providers{% endblock %}
 {% block content %}
 <div class="card" style="margin-bottom: var(--gap);">
-  <button class="btn" hx-post="{{ root_path }}/ui/canonicalize" hx-target="#canon-result" hx-swap="innerHTML">Run canonicalize</button>
+  <button class="btn" hx-post="{{ root_path }}/ui/canonicalize" hx-target="#canon-result" hx-swap="innerHTML"
+          hx-indicator="#canon-spinner-p" hx-disabled-elt="this">Run canonicalize</button>
+  <span id="canon-spinner-p" class="htmx-indicator" aria-hidden="true"> ⏳ running…</span>
   <div id="canon-result" style="margin-top: var(--gap);"></div>
 </div>
 <div class="grid">

@@ -218,14 +218,18 @@ def test_quarantine_reject_removes_row(tmp_path):
         assert rid not in post.text
 
 
-def test_quarantine_accept_unknown_row_id_404(client):
+def test_quarantine_accept_unknown_row_id_visible_error(client):
+    # 200, not 404: htmx does not swap 4xx bodies by default, so a 404 here
+    # would leave the row silently un-updated. The user must see the error.
     r = client.post("/ui/quarantine/does-not-exist/accept")
-    assert r.status_code == 404
+    assert r.status_code == 200
+    assert "not accepted" in r.text.lower() or "no longer in quarantine" in r.text.lower()
 
 
-def test_quarantine_reject_unknown_row_id_404(client):
+def test_quarantine_reject_unknown_row_id_visible_error(client):
     r = client.post("/ui/quarantine/does-not-exist/reject")
-    assert r.status_code == 404
+    assert r.status_code == 200
+    assert "not rejected" in r.text.lower() or "no longer in quarantine" in r.text.lower()
 
 
 # --- health dot ---------------------------------------------------------
@@ -247,7 +251,10 @@ def test_health_dot_unhealthy_does_not_500(client, monkeypatch):
     r = client.get("/ui/health-dot")
     assert r.status_code == 200
     assert 'class="health-dot ok"' not in r.text
-    assert 'class="health-dot "' in r.text or 'class="health-dot"' in r.text
+    # Unhealthy is its own explicit class (not color-only, has a title too)
+    # so it's distinguishable from the neutral pre-poll "checking" state.
+    assert 'class="health-dot err"' in r.text
+    assert "unreachable" in r.text.lower()
 
 
 # --- dashboard ------------------------------------------------------------
