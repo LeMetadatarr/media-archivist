@@ -49,13 +49,21 @@ Output layout:
 Each `.strm` body is `http://nas.local:8000/strm/<entry_id>`, Jellyfin calls into the server when the user hits play, and the
 server returns the resolved URL with `text/plain` content type.
 
-## Recommended: play-time yt-dlp resolution with `?resolve=1`
+## Recommended: play-time resolution with `?resolve=1`
 
 Source URLs (YouTube especially) expire; the raw watch/listing URL still
 resolves as an *entry*, but stops pointing at a directly playable file.
-When `yt-dlp` is installed (either the `yt_dlp` Python package or the
-`yt-dlp` binary on `PATH`), `/strm/{id}?resolve=1` turns the endpoint
-into a play-time yt-dlp hook instead of a static URL lookup.
+`/strm/{id}?resolve=1` turns the endpoint into a play-time resolution hook
+instead of a static URL lookup.
+
+Resolution is source-aware: Bandcamp and SoundCloud entries resolve via
+their own archivist libs (`py_bandcamp` / `nuvem_de_som` — the same ones
+that index them), so playback works for those even without `yt-dlp`
+installed. Internet Archive entries are already direct download URLs, so
+resolution is a no-op. YouTube and anything else fall back to `yt-dlp`
+(either the `yt_dlp` Python package or the `yt-dlp` binary on `PATH`). If
+a native lib is missing or fails, resolution falls back to yt-dlp rather
+than failing outright.
 
 `strm-export --base-url` writes each `.strm` body as
 `<base_url>/strm/<entry_id>` (no query string). To get resolve-on-play

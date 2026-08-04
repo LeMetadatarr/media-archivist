@@ -352,7 +352,9 @@ def register_routes(app, *, db_path: str) -> Scheduler:
         target = entry.stream or entry.url
         resolved_url: Optional[str] = None
         try:
-            resolved = streams.resolve_stream(target)
+            resolved = streams.resolve_stream(
+                target, source=entry.source.value if entry.source else None
+            )
             resolved_url = resolved.url
         except streams.StreamResolveError as e:
             LOG.warning("strm resolve failed for %s (%s) — falling back to "
