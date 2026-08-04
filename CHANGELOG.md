@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.8.0a1) (2026-08-04)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.7.0a1...0.8.0a1)
+
+**Merged pull requests:**
+
+- feat: optional download-to-library action \(scheduler-backed, progress-tracked\) [\#41](https://github.com/LeMetadatarr/media-archivist/pull/41) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.7.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.7.0a1) (2026-08-04)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.6.0a1...0.7.0a1)
