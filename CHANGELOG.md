@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.2.0a1) (2026-08-04)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.1.3a3...0.2.0a1)
+
+**Merged pull requests:**
+
+- feat: build-free htmx WebUI [\#32](https://github.com/LeMetadatarr/media-archivist/pull/32) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.1.3a3](https://github.com/LeMetadatarr/media-archivist/tree/0.1.3a3) (2026-08-03)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.1.3a2...0.1.3a3)
