@@ -102,29 +102,12 @@ def _ia(raw: Dict[str, Any]) -> MediaEntry:
     )
 
 
-def _local(raw: Dict[str, Any]) -> MediaEntry:
-    return MediaEntry.build(
-        source=Source.LOCAL,
-        url=raw["url"],
-        title=raw.get("title"),
-        raw=raw,
-        artist=raw.get("artist"),
-        album=raw.get("album") or None,
-        duration=raw.get("duration"),
-        published=raw.get("published") or None,
-        thumbnail=raw.get("thumbnail"),
-        stream=raw.get("path"),
-        tags=list(raw.get("tags") or []),
-    )
-
-
 _ADAPTERS: Dict[Source, Callable[[Dict[str, Any]], MediaEntry]] = {
     Source.YOUTUBE: _youtube,
     Source.YOUTUBE_MUSIC: _youtube_music,
     Source.BANDCAMP: _bandcamp,
     Source.SOUNDCLOUD: _soundcloud,
     Source.INTERNET_ARCHIVE: _ia,
-    Source.LOCAL: _local,
 }
 
 

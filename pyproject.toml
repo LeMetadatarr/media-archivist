@@ -25,8 +25,7 @@ test = ["pytest", "httpx", "fastapi", "uvicorn[standard]", "jinja2", "python-mul
 hub = ["huggingface_hub"]
 server = ["fastapi", "uvicorn[standard]", "jinja2", "python-multipart"]
 ytdlp = ["yt-dlp>=2024.1.0"]
-tag = ["guessit>=3", "mutagen>=1.45"]
-all = ["huggingface_hub", "fastapi", "uvicorn[standard]", "jinja2", "python-multipart", "yt-dlp>=2024.1.0", "guessit>=3", "mutagen>=1.45"]
+all = ["huggingface_hub", "fastapi", "uvicorn[standard]", "jinja2", "python-multipart", "yt-dlp>=2024.1.0"]
 
 [project.scripts]
 media-archivist = "media_archivist.cli:main"
