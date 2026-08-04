@@ -31,6 +31,7 @@ def cmd_tag_library(args) -> int:
     if validated.dry_run:
         print("DRY RUN — no files will be written", file=sys.stderr)
 
+    scan_stats: dict = {}
     results = tag_library(
         validated.path,
         media=validated.media,
@@ -38,8 +39,10 @@ def cmd_tag_library(args) -> int:
         dry_run=validated.dry_run,
         index_db=validated.index,
         min_confidence=validated.min_confidence,
+        stats=scan_stats,
     )
 
+    n_extras = scan_stats.get("skipped_extras", 0)
     n_scanned = len(results)
     n_matched = sum(1 for r in results if r.matched)
     n_wrote = sum(1 for r in results if r.action == "wrote")
@@ -56,7 +59,8 @@ def cmd_tag_library(args) -> int:
     print(
         f"scanned {n_scanned}, matched {n_matched}, "
         f"nfo written {n_wrote}, would-write {n_would}, "
-        f"skipped {n_skipped}, errors {n_error}",
+        f"skipped {n_skipped}, errors {n_error}, "
+        f"skipped {n_extras} extras",
         file=sys.stderr,
     )
     return 0
