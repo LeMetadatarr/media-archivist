@@ -20,7 +20,12 @@ from media_archivist.canonicalize import (
     render_conflict,
 )
 from media_archivist.index import Index, WhereError
-from media_archivist.models.api import ArchiveRequest, ProviderInfo, QuarantineConflict
+from media_archivist.models.api import (
+    ArchiveRequest,
+    DownloadRequest,
+    ProviderInfo,
+    QuarantineConflict,
+)
 from media_archivist.providers import all_providers
 from media_archivist.version import __version__
 from mediavocab.models.signals import signal_hash
@@ -174,6 +179,25 @@ def register_web(app, *, db_path: str, templates, scheduler) -> None:
                                ytdlp_available=ytdlp_available())
         return _render(request, "fragments/entry_detail.html",
                        error="entry not found", status_code=404)
+
+    @app.post("/ui/entries/{entry_id}/download", response_class=HTMLResponse)
+    def entry_download(request: Request, entry_id: str):
+        from media_archivist import streams
+
+        if not streams.ytdlp_available():
+            return _render(request, "fragments/task_status.html",
+                           error="yt-dlp is not available on this server "
+                                 "— download is disabled", status_code=503)
+        idx = Index(db_path)
+        if idx.get(entry_id) is None:
+            return _render(request, "fragments/task_status.html",
+                           error="entry not found", status_code=404)
+        try:
+            task = scheduler.submit(DownloadRequest(entry_id=entry_id))
+        except asyncio.QueueFull:
+            return _render(request, "fragments/task_status.html",
+                           error="download queue full", status_code=429)
+        return _render(request, "fragments/task_status.html", task=task)
 
     @app.get("/ui/entries/{entry_id}/player", response_class=HTMLResponse)
     def entry_player(request: Request, entry_id: str):

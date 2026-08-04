@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Dict, List, Literal, Optional
+from typing import Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -19,6 +19,7 @@ TaskStatus = Literal["queued", "running", "ok", "error"]
 class ArchiveRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    kind: Literal["archive"] = "archive"
     url: str
     backend: Optional[Literal["youtube", "ia", "music", "bandcamp", "soundcloud"]] = None
     require: List[str] = Field(default_factory=list)
@@ -26,17 +27,41 @@ class ArchiveRequest(BaseModel):
     min_duration: int = -1
 
 
+class DownloadRequest(BaseModel):
+    """Request to download a copy of an already-indexed entry to disk.
+
+    Secondary to :class:`ArchiveRequest` — this never accepts a
+    client-supplied destination path; the download directory is always
+    server-configured (see ``media_archivist.streams.default_download_dir``
+    / ``MEDIA_ARCHIVIST_DOWNLOAD_DIR``), so there is no path-traversal
+    surface here.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["download"] = "download"
+    entry_id: str
+    format: str = "best"
+
+
 class Task(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: str
     status: TaskStatus = "queued"
-    request: ArchiveRequest
+    request: Union[ArchiveRequest, DownloadRequest] = Field(discriminator="kind")
     created: str = Field(default_factory=_utcnow)
     started: Optional[str] = None
     finished: Optional[str] = None
     error: Optional[str] = None
     rows_added: int = 0
+    # download-only fields; unused (stay None/0) for kind="archive" tasks.
+    progress: Optional[int] = None
+    filepath: Optional[str] = None
+
+    @property
+    def kind(self) -> str:
+        return self.request.kind
 
 
 class EntryListResponse(BaseModel):

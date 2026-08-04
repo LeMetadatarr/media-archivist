@@ -15,9 +15,11 @@ import threading
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Awaitable, Callable, Dict, List, Optional
+from typing import Awaitable, Callable, Dict, List, Optional, Union
 
-from media_archivist.models.api import ArchiveRequest, Task
+from media_archivist.models.api import ArchiveRequest, DownloadRequest, Task
+
+TaskRequest = Union[ArchiveRequest, DownloadRequest]
 
 LOG = logging.getLogger("media_archivist.server.scheduler")
 
@@ -101,7 +103,27 @@ class TaskStore:
                     LOG.exception("failed to back up %s before replace", self.path)
             os.replace(tmp_path, self.path)
 
-    def add(self, request: ArchiveRequest) -> Task:
+    def update_progress(self, task_id: str, progress: int) -> None:
+        """Thread-safe, in-memory-only progress update.
+
+        Called from arbitrary worker threads (e.g. a yt-dlp
+        ``progress_hook`` running inside ``asyncio.to_thread``), so it
+        must not race the other mutators of ``self.tasks``. It
+        deliberately does *not* call :meth:`save` — a download can fire
+        this many times a second, and persisting the full O(n) task
+        ledger to disk on every tick would defeat the point of the
+        lock-protected, atomic ``save()`` (needless disk I/O + lock
+        contention). The final status transition (``ok``/``error``) is
+        still persisted via :meth:`update`, same as today; a mid-flight
+        crash just means the resumed progress% is stale, which is
+        cosmetic — the task itself is correctly re-queued either way.
+        """
+        with self._lock:
+            task = self.tasks.get(task_id)
+            if task is not None:
+                task.progress = max(0, min(100, progress))
+
+    def add(self, request: TaskRequest) -> Task:
         task = Task(id=uuid.uuid4().hex, request=request)
         with self._lock:
             self.tasks[task.id] = task
@@ -138,7 +160,7 @@ class Scheduler:
             self.store.update(t)
             self._queue.put_nowait(t)
 
-    def submit(self, request: ArchiveRequest) -> Task:
+    def submit(self, request: TaskRequest) -> Task:
         # Bound the backlog: an unbounded queue lets a runaway/abusive
         # caller grow memory (and the O(n) JSON rewrite on every
         # TaskStore.save()) without limit. Check-then-enqueue is advisory

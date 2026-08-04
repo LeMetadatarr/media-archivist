@@ -41,6 +41,7 @@ from media_archivist.models.api import (
     ArchiveRequest,
     CanonicalizeRequest,
     CanonicalizeResponse,
+    DownloadRequest,
     EntryListResponse,
     HealthResponse,
     ProviderInfo,
@@ -65,6 +66,10 @@ from media_archivist.version import __version__
 # background), but wait_for() still frees the scheduler loop to move on to
 # the next queued task — that's the intended mitigation, not a true kill.
 ARCHIVE_TIMEOUT_S = 3600
+
+# Same rationale as ARCHIVE_TIMEOUT_S: a stalled download must not
+# head-of-line-block the sequential scheduler forever.
+DOWNLOAD_TIMEOUT_S = 3600
 
 
 def register_routes(app, *, db_path: str) -> Scheduler:
@@ -106,7 +111,64 @@ def register_routes(app, *, db_path: str) -> Scheduler:
         after = len(archivist.video_urls) if hasattr(archivist, "video_urls") else 0
         task.rows_added = max(0, after - before)
 
-    scheduler = Scheduler(db_path, _archive_worker)
+    def _make_progress_hook(task_id: str):
+        def _hook(d: dict) -> None:
+            # Runs on the asyncio.to_thread() worker thread, i.e. off the
+            # event loop — TaskStore.update_progress() is the
+            # lock-protected, in-memory-only mutator built for exactly
+            # this (see its docstring for why it doesn't also save()).
+            try:
+                status = d.get("status")
+                if status == "downloading":
+                    total = d.get("total_bytes") or d.get("total_bytes_estimate")
+                    downloaded = d.get("downloaded_bytes")
+                    if total and downloaded is not None:
+                        pct = int(downloaded * 100 / total)
+                        scheduler.store.update_progress(task_id, min(99, max(0, pct)))
+                elif status == "finished":
+                    scheduler.store.update_progress(task_id, 100)
+            except Exception:
+                LOG.exception("progress hook failed for task %s", task_id)
+        return _hook
+
+    async def _download_worker(task: Task) -> None:
+        from media_archivist import streams
+
+        request: DownloadRequest = task.request  # type: ignore[assignment]
+        idx = Index(db_path)
+        entry = idx.get(request.entry_id)
+        if entry is None:
+            raise ValueError(f"entry not found: {request.entry_id}")
+        url = entry.stream or entry.url
+        dest_dir = streams.default_download_dir()
+        hook = _make_progress_hook(task.id)
+        # Same bounded-thread pattern as _archive_worker: run the blocking
+        # yt-dlp call in a worker thread, wrapped in wait_for() so a
+        # wedged download can't block the sequential scheduler forever.
+        # Any StreamDownloadError / asyncio.TimeoutError raised here
+        # propagates to Scheduler._run(), which already marks the task
+        # "error" and records repr(exc) — no separate try/except needed.
+        path = await asyncio.wait_for(
+            asyncio.to_thread(
+                streams.download,
+                url,
+                str(dest_dir),
+                format=request.format,
+                progress_hook=hook,
+                timeout=DOWNLOAD_TIMEOUT_S,
+            ),
+            timeout=DOWNLOAD_TIMEOUT_S,
+        )
+        task.filepath = str(path)
+        task.progress = 100
+
+    async def _dispatch_worker(task: Task) -> None:
+        if task.kind == "download":
+            await _download_worker(task)
+        else:
+            await _archive_worker(task)
+
+    scheduler = Scheduler(db_path, _dispatch_worker)
 
     @asynccontextmanager
     async def _lifespan(_app):
@@ -151,6 +213,23 @@ def register_routes(app, *, db_path: str) -> Scheduler:
             return scheduler.submit(request)
         except asyncio.QueueFull:
             raise HTTPException(status_code=429, detail="archive queue full") from None
+
+    @app.post("/entries/{entry_id}/download", response_model=Task)
+    def submit_download(entry_id: str) -> Task:
+        from media_archivist import streams
+
+        if not streams.ytdlp_available():
+            raise HTTPException(
+                status_code=503,
+                detail="yt-dlp is not available on this server; download is disabled",
+            )
+        idx = Index(db_path)
+        if idx.get(entry_id) is None:
+            raise HTTPException(status_code=404, detail="entry not found")
+        try:
+            return scheduler.submit(DownloadRequest(entry_id=entry_id))
+        except asyncio.QueueFull:
+            raise HTTPException(status_code=429, detail="download queue full") from None
 
     @app.get("/tasks/{task_id}", response_model=Task)
     def get_task(task_id: str) -> Task:
