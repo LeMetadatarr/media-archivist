@@ -104,3 +104,50 @@ def test_sync_subscriptions_runs_and_reports_rows(tmp_path, capsys):
     assert "4 new rows" in err
     subs = subs_mod.list_subscriptions(db_path)
     assert subs[0].last_rows_added == 4
+
+
+def test_subscribe_download_flag_sets_auto_download(tmp_path):
+    db_path = _seed(tmp_path / "db.json")
+    rc = main(["subscribe", "https://www.youtube.com/@chan", "--db-file", db_path,
+               "--download"])
+    assert rc == 0
+    subs = subs_mod.list_subscriptions(db_path)
+    assert subs[0].auto_download is True
+
+
+def test_subscribe_without_download_flag_defaults_false(tmp_path):
+    db_path = _seed(tmp_path / "db.json")
+    main(["subscribe", "https://www.youtube.com/@chan", "--db-file", db_path])
+    subs = subs_mod.list_subscriptions(db_path)
+    assert subs[0].auto_download is False
+
+
+def test_sync_subscriptions_download_flag_wired_to_sync_all(tmp_path):
+    db_path = _seed(tmp_path / "db.json")
+    main(["subscribe", "https://www.youtube.com/@chan", "--db-file", db_path])
+    with patch.object(subs_mod, "sync_all", return_value=[]) as m:
+        rc = main(["sync-subscriptions", "--db-file", db_path, "--download"])
+    assert rc == 0
+    _, kwargs = m.call_args
+    assert kwargs["download"] is True
+
+
+def test_sync_subscriptions_interval_calls_watch_not_sync_all(tmp_path):
+    db_path = _seed(tmp_path / "db.json")
+    main(["subscribe", "https://www.youtube.com/@chan", "--db-file", db_path])
+    with patch.object(subs_mod, "watch") as m_watch, \
+         patch.object(subs_mod, "sync_all") as m_sync_all:
+        rc = main(["sync-subscriptions", "--db-file", db_path, "--interval", "5"])
+    assert rc == 0
+    m_watch.assert_called_once()
+    m_sync_all.assert_not_called()
+    _, kwargs = m_watch.call_args
+    assert kwargs["interval"] == 5
+
+
+def test_sync_subscriptions_interval_and_dry_run_conflict(tmp_path, capsys):
+    db_path = _seed(tmp_path / "db.json")
+    rc = main(["sync-subscriptions", "--db-file", db_path, "--interval", "5",
+               "--dry-run"])
+    assert rc == 1
+    assert "mutually exclusive" in capsys.readouterr().err

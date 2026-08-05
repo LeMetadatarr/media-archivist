@@ -541,12 +541,14 @@ def register_web(app, *, db_path: str, templates, scheduler) -> None:
         url: str = Form(...),
         backend: Optional[str] = Form(None),
         label: Optional[str] = Form(None),
+        auto_download: Optional[str] = Form(None),
     ):
         from media_archivist import subscriptions as subs_mod
 
         try:
             subs_mod.add_subscription(
                 db_path, url, backend=backend or None, label=label or None,
+                auto_download=bool(auto_download),
             )
         except ValueError as e:
             return _render(request, "fragments/subscriptions_table.html",
@@ -564,16 +566,22 @@ def register_web(app, *, db_path: str, templates, scheduler) -> None:
                        **_subscriptions_payload(bulk_note=note))
 
     @app.post("/ui/subscriptions/sync", response_class=HTMLResponse)
-    async def subscriptions_sync_fragment(request: Request):
+    async def subscriptions_sync_fragment(request: Request,
+                                           download: Optional[str] = Form(None)):
         from media_archivist import subscriptions as subs_mod
 
         # Network-bound per subscription — offload to a worker thread so it
         # doesn't block the event loop (same pattern as /ui/canonicalize).
-        results = await asyncio.to_thread(subs_mod.sync_all, db_path, dry_run=False)
+        results = await asyncio.to_thread(
+            subs_mod.sync_all, db_path, dry_run=False, download=bool(download),
+        )
         ok = sum(1 for r in results if r.ok)
         failed = len(results) - ok
         added = sum(r.rows_added for r in results if r.ok)
+        downloaded = sum(len(r.downloaded) for r in results if r.ok)
         note = f"✓ Synced {ok}/{len(results)} subscriptions · +{added} new rows"
+        if downloaded:
+            note += f" · {downloaded} downloaded"
         if failed:
             note += f" · {failed} failed"
         return _render(request, "fragments/subscriptions_table.html",

@@ -605,6 +605,7 @@ def register_routes(app, *, db_path: str) -> Scheduler:
         try:
             sub = subs_mod.add_subscription(
                 db_path, request.url, backend=request.backend, label=request.label,
+                auto_download=request.auto_download,
             )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from None
@@ -624,13 +625,20 @@ def register_routes(app, *, db_path: str) -> Scheduler:
         )
 
     @app.post("/subscriptions/sync", response_model=SubscriptionSyncResponse)
-    async def subscriptions_sync(dry_run: bool = False) -> SubscriptionSyncResponse:
+    async def subscriptions_sync(dry_run: bool = False,
+                                  download: bool = False) -> SubscriptionSyncResponse:
         from media_archivist import subscriptions as subs_mod
 
-        # Network-bound (each subscription's archive() call) — offload to a
-        # worker thread so it doesn't block the event loop, same pattern as
-        # /canonicalize and _archive_worker above.
-        results = await asyncio.to_thread(subs_mod.sync_all, db_path, dry_run=dry_run)
+        # Network-bound (each subscription's archive() call, plus any
+        # downloads of newly-indexed items) — offload to a worker thread so
+        # it doesn't block the event loop, same pattern as /canonicalize and
+        # _archive_worker above. Downloads run synchronously inside that
+        # thread rather than being individually re-enqueued on the
+        # scheduler: they're a direct consequence of this one sync call, so
+        # this endpoint's own timeout/thread-offload is what bounds them.
+        results = await asyncio.to_thread(
+            subs_mod.sync_all, db_path, dry_run=dry_run, download=download,
+        )
         return SubscriptionSyncResponse(
             total=len(results),
             results=[SubscriptionSyncResult(**r.model_dump()) for r in results],

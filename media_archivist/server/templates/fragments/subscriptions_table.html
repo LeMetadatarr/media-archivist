@@ -11,7 +11,7 @@
 <div class="scroll-x">
 <table class="table">
   <thead>
-    <tr><th>URL</th><th>Backend</th><th>Label</th><th>Last synced</th><th>Last rows added</th><th></th></tr>
+    <tr><th>URL</th><th>Backend</th><th>Label</th><th>Last synced</th><th>Last rows added</th><th>Auto-download</th><th></th></tr>
   </thead>
   <tbody id="subs-rows">
     {% for s in subscriptions %}
@@ -21,6 +21,15 @@
       <td>{{ s.label or "" }}</td>
       <td>{{ s.last_synced_at or "never" }}{% if s.last_error %} <span class="badge badge-err" title="{{ s.last_error }}">error</span>{% endif %}</td>
       <td>{{ s.last_rows_added }}</td>
+      <td>
+        <label title="Always download newly-indexed items from this subscription on sync">
+          <input type="checkbox" {% if s.auto_download %}checked{% endif %}
+                 hx-post="{{ root_path }}/ui/subscriptions"
+                 hx-vals='{"url": "{{ s.url }}", "backend": "{{ s.backend }}", "label": "{{ s.label or "" }}", "auto_download": "1"}'
+                 hx-target="#subs-table" hx-swap="innerHTML"
+                 {% if s.auto_download %}disabled title="Already on — remove and re-add to turn off"{% endif %}>
+        </label>
+      </td>
       <td>
         <button class="btn btn-ghost btn-err-outline" hx-delete="{{ root_path }}/ui/subscriptions"
                 hx-vals='{"url": "{{ s.url }}"}' hx-target="#subs-table" hx-swap="innerHTML"

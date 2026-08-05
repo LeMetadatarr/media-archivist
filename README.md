@@ -164,13 +164,27 @@ media-archivist monitor --db-file talks.json --interval 600 \
     https://www.youtube.com/@SomeOtherChannel
 
 # Subscriptions: remember a channel/playlist/collection so new uploads keep
-# getting auto-indexed, without re-typing every URL each run (pairs with cron)
+# getting auto-indexed, without re-typing every URL each run
 media-archivist subscribe --db-file talks.json https://www.youtube.com/@LinusTechTips
 media-archivist subscribe --db-file talks.json --backend ia --label "Cartoons" \
     https://archive.org/details/classic_cartoons
+# --download flags a subscription to always download newly-indexed items
+media-archivist subscribe --db-file talks.json --download \
+    https://www.youtube.com/@SomeArtist
 media-archivist subscriptions --db-file talks.json
 media-archivist sync-subscriptions --db-file talks.json   # archive() dedupes; only new uploads land
 media-archivist unsubscribe --db-file talks.json https://www.youtube.com/@LinusTechTips
+
+# Periodic auto-sync: keep re-running sync-subscriptions forever, on an
+# interval, indexing (and optionally downloading) new uploads as they show
+# up. This is a foreground daemon (Ctrl-C to stop) — run it under
+# systemd/docker for unattended "curate once, keep growing" operation:
+#   systemd: ExecStart=media-archivist sync-subscriptions --db-file talks.json --interval 3600 --download
+#   docker:  CMD ["media-archivist", "sync-subscriptions", "--db-file", "/data/talks.json", "--interval", "3600"]
+media-archivist sync-subscriptions --db-file talks.json --interval 3600
+# --download (with --interval or alone) downloads every newly-indexed item
+# this run, in addition to any subscription's own --download flag
+media-archivist sync-subscriptions --db-file talks.json --download
 
 # Internet Archive
 media-archivist add --db-file ia_movies.json --ia classic_cartoons

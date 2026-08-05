@@ -142,3 +142,50 @@ def test_ui_subscriptions_sync_renders_summary(client):
         r = client.post("/ui/subscriptions/sync")
     assert r.status_code == 200
     assert "Synced" in r.text
+
+
+# ---------------------------------------------------------------------------
+# auto-download: JSON API + WebUI
+# ---------------------------------------------------------------------------
+
+def test_post_subscriptions_sync_download_flag_forwarded(client):
+    client.post("/subscriptions", json={"url": "https://www.youtube.com/@chan"})
+    with patch.object(subs_mod, "sync_all", return_value=[]) as m:
+        r = client.post("/subscriptions/sync", params={"download": "true"})
+    assert r.status_code == 200
+    _, kwargs = m.call_args
+    assert kwargs["download"] is True
+
+
+def test_post_subscriptions_auto_download_persisted(client):
+    r = client.post("/subscriptions", json={
+        "url": "https://www.youtube.com/@chan", "auto_download": True,
+    })
+    assert r.status_code == 200
+    assert r.json()["auto_download"] is True
+
+
+def test_ui_subscriptions_add_with_auto_download_checkbox(client, db_path):
+    r = client.post("/ui/subscriptions", data={
+        "url": "https://www.youtube.com/@chan", "auto_download": "1",
+    })
+    assert r.status_code == 200
+    subs = subs_mod.list_subscriptions(db_path)
+    assert subs[0].auto_download is True
+
+
+def test_ui_subscriptions_table_renders_download_toggle(client):
+    client.post("/ui/subscriptions", data={"url": "https://www.youtube.com/@chan"})
+    r = client.get("/ui/subscriptions/table")
+    assert r.status_code == 200
+    assert 'type="checkbox"' in r.text
+    assert "Auto-download" in r.text
+
+
+def test_ui_subscriptions_sync_download_checkbox_forwarded(client):
+    client.post("/ui/subscriptions", data={"url": "https://www.youtube.com/@chan"})
+    with patch.object(subs_mod, "sync_all", return_value=[]) as m:
+        r = client.post("/ui/subscriptions/sync", data={"download": "1"})
+    assert r.status_code == 200
+    _, kwargs = m.call_args
+    assert kwargs["download"] is True

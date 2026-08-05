@@ -30,17 +30,32 @@
       <label for="s-label">Label (optional)</label>
       <input id="s-label" name="label" placeholder="e.g. Weekly talks">
     </div>
+    <div class="field checkbox-field">
+      <label for="s-auto-download">
+        <input type="checkbox" id="s-auto-download" name="auto_download" value="1">
+        Always download new items
+      </label>
+    </div>
     <div class="field">
       <button class="btn" type="submit">Subscribe</button>
     </div>
   </form>
 </div>
-<div style="margin: var(--gap) 0;">
+<div class="card" style="margin: var(--gap) 0; display:flex; align-items:center; gap: var(--gap);">
   <button class="btn" hx-post="{{ root_path }}/ui/subscriptions/sync" hx-target="#subs-table" hx-swap="innerHTML"
-          hx-confirm="Sync every subscription now? This may take a while (network I/O per subscription).">
+          hx-include="#sync-download" hx-confirm="Sync every subscription now? This may take a while (network I/O per subscription).">
     Sync now
   </button>
+  <label>
+    <input type="checkbox" id="sync-download" name="download" value="1">
+    Download new items
+  </label>
 </div>
+<p class="label" style="color:var(--text-dim)">
+  For unattended periodic scanning (no browser needed), run
+  <code>media-archivist sync-subscriptions --interval 3600</code> under
+  systemd or docker — see the CLI docs.
+</p>
 <div id="subs-table" hx-get="{{ root_path }}/ui/subscriptions/table" hx-trigger="load" hx-swap="innerHTML">
   <p class="empty">Loading…</p>
 </div>
