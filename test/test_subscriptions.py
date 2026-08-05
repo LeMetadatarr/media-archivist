@@ -367,3 +367,48 @@ def test_watch_passes_download_flag_through_to_sync_all(db_path):
         subs_mod.watch(db_path, interval=0.01, download=True, stop_event=stop_event)
     _, kwargs = m.call_args
     assert kwargs["download"] is True
+
+
+# ---------------------------------------------------------------------------
+# notify firing on sync
+# ---------------------------------------------------------------------------
+
+def test_sync_subscription_notifies_on_new_rows(db_path):
+    sub = subs_mod.add_subscription(db_path, "https://www.youtube.com/@chan", label="Chan")
+    with patch.object(subs_mod, "_archivist_class",
+                       return_value=_fake_archivist_cls(rows_to_add=3)), \
+         patch("media_archivist.notify.notify") as m:
+        subs_mod.sync_subscription(db_path, sub, dry_run=False)
+    m.assert_called_once()
+    args, _ = m.call_args
+    assert args[0] == "subscription_sync"
+    assert "3" in args[1]
+
+
+def test_sync_subscription_no_notify_when_zero_rows(db_path):
+    sub = subs_mod.add_subscription(db_path, "https://www.youtube.com/@chan")
+    with patch.object(subs_mod, "_archivist_class",
+                       return_value=_fake_archivist_cls(rows_to_add=0)), \
+         patch("media_archivist.notify.notify") as m:
+        subs_mod.sync_subscription(db_path, sub, dry_run=False)
+    m.assert_not_called()
+
+
+def test_sync_subscription_no_notify_on_dry_run(db_path):
+    sub = subs_mod.add_subscription(db_path, "https://www.youtube.com/@chan")
+    with patch.object(subs_mod, "_archivist_class",
+                       return_value=_fake_archivist_cls(rows_to_add=3)), \
+         patch("media_archivist.notify.notify") as m:
+        subs_mod.sync_subscription(db_path, sub, dry_run=True)
+    m.assert_not_called()
+
+
+def test_sync_subscription_notify_failure_is_swallowed(db_path):
+    sub = subs_mod.add_subscription(db_path, "https://www.youtube.com/@chan")
+    with patch.object(subs_mod, "_archivist_class",
+                       return_value=_fake_archivist_cls(rows_to_add=1)), \
+         patch("media_archivist.notify.notify", side_effect=RuntimeError("boom")):
+        result = subs_mod.sync_subscription(db_path, sub, dry_run=False)
+    # notify() raising must never break the sync result itself.
+    assert result.ok is True
+    assert result.rows_added == 1

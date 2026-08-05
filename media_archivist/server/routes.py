@@ -171,6 +171,7 @@ def register_routes(app, *, db_path: str) -> Scheduler:
         return _hook
 
     async def _download_worker(task: Task) -> None:
+        from media_archivist import notify as notify_mod
         from media_archivist import streams
 
         request: DownloadRequest = task.request  # type: ignore[assignment]
@@ -186,20 +187,40 @@ def register_routes(app, *, db_path: str) -> Scheduler:
         # wedged download can't block the sequential scheduler forever.
         # Any StreamDownloadError / asyncio.TimeoutError raised here
         # propagates to Scheduler._run(), which already marks the task
-        # "error" and records repr(exc) — no separate try/except needed.
-        path = await asyncio.wait_for(
-            asyncio.to_thread(
-                streams.download,
-                url,
-                str(dest_dir),
-                format=request.format,
-                progress_hook=hook,
+        # "error" and records repr(exc) — no separate try/except needed
+        # (except firing the "download_failed" notification below).
+        try:
+            path = await asyncio.wait_for(
+                asyncio.to_thread(
+                    streams.download,
+                    url,
+                    str(dest_dir),
+                    format=request.format,
+                    progress_hook=hook,
+                    timeout=DOWNLOAD_TIMEOUT_S,
+                ),
                 timeout=DOWNLOAD_TIMEOUT_S,
-            ),
-            timeout=DOWNLOAD_TIMEOUT_S,
-        )
+            )
+        except Exception as e:
+            try:
+                notify_mod.notify(
+                    "download_failed",
+                    f"download failed for {request.entry_id}: {e}",
+                    {"entry_id": request.entry_id, "url": url, "error": str(e)},
+                )
+            except Exception:
+                LOG.exception("_download_worker: notify failed for %s", request.entry_id)
+            raise
         task.filepath = str(path)
         task.progress = 100
+        try:
+            notify_mod.notify(
+                "download_complete",
+                f"download complete: {entry.title or request.entry_id}",
+                {"entry_id": request.entry_id, "url": url, "filepath": str(path)},
+            )
+        except Exception:
+            LOG.exception("_download_worker: notify failed for %s", request.entry_id)
 
     async def _dispatch_worker(task: Task) -> None:
         if task.kind == "download":

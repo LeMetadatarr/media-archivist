@@ -70,6 +70,7 @@ EXPECTED_DISPATCH = {
     "collection-remove": "cmd_collection_remove",
     "collection-export": "cmd_collection_export",
     "collections": "cmd_collections",
+    "notify-test": "cmd_notify_test",
 }
 
 
