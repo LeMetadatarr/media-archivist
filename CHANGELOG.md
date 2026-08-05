@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.19.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.19.0a1) (2026-08-05)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.18.0a1...0.19.0a1)
+
+**Merged pull requests:**
+
+- feat: subtitle fetch \(.srt/.vtt sidecars for archived streams, via yt-dlp\) [\#55](https://github.com/LeMetadatarr/media-archivist/pull/55) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.18.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.18.0a1) (2026-08-05)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.17.0a1...0.18.0a1)
