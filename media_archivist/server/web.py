@@ -579,6 +579,79 @@ def register_web(app, *, db_path: str, templates, scheduler) -> None:
         return _render(request, "fragments/subscriptions_table.html",
                        **_subscriptions_payload(bulk_note=note))
 
+    @app.get("/ui/collections", response_class=HTMLResponse)
+    def collections_page(request: Request):
+        return _render(request, "collections.html", active="collections")
+
+    def _collections_payload(**extra):
+        from media_archivist import collections as coll_mod
+
+        rows = []
+        for c in coll_mod.list_collections(db_path):
+            try:
+                count = coll_mod.collection_count(db_path, c)
+                error = None
+            except WhereError as e:
+                count = 0
+                error = str(e)
+            rows.append({"coll": c, "count": count, "error": error})
+        return {"rows": rows, **extra}
+
+    @app.get("/ui/collections/table", response_class=HTMLResponse)
+    def collections_table(request: Request):
+        return _render(request, "fragments/collections_table.html",
+                       **_collections_payload())
+
+    @app.post("/ui/collections", response_class=HTMLResponse)
+    def collections_add_fragment(
+        request: Request,
+        name: str = Form(...),
+        source: Optional[str] = Form(None),
+        where: Optional[str] = Form(None),
+        grep: Optional[str] = Form(None),
+        has_stream: Optional[bool] = Form(None),
+        explicit: Optional[bool] = Form(None),
+        description: Optional[str] = Form(None),
+    ):
+        from media_archivist import collections as coll_mod
+
+        try:
+            coll_mod.add_collection(
+                db_path, name, source=source or None, where=where or None,
+                grep=grep or None, has_stream=has_stream, explicit=explicit,
+                description=description or None,
+            )
+        except (ValueError, WhereError) as e:
+            return _render(request, "fragments/collections_table.html",
+                           **_collections_payload(error=str(e)))
+        return _render(request, "fragments/collections_table.html",
+                       **_collections_payload())
+
+    @app.delete("/ui/collections", response_class=HTMLResponse)
+    def collections_remove_fragment(request: Request, name: str = Form(...)):
+        from media_archivist import collections as coll_mod
+
+        ok = coll_mod.remove_collection(db_path, name)
+        note = None if ok else f"No collection found named {name}"
+        return _render(request, "fragments/collections_table.html",
+                       **_collections_payload(bulk_note=note))
+
+    @app.get("/ui/collections/{name}/preview", response_class=HTMLResponse)
+    def collections_preview_fragment(request: Request, name: str):
+        from media_archivist import collections as coll_mod
+
+        coll = coll_mod.get_collection(db_path, name)
+        if coll is None:
+            return _render(request, "fragments/collection_preview.html",
+                           error="collection not found", status_code=404)
+        try:
+            entries = coll_mod.collection_entries(db_path, coll, limit=50)
+        except WhereError as e:
+            return _render(request, "fragments/collection_preview.html",
+                           error=f"where: {e}")
+        return _render(request, "fragments/collection_preview.html",
+                       collection_name=name, entries=entries)
+
     @app.post("/ui/canonicalize", response_class=HTMLResponse)
     async def canonicalize_fragment(request: Request):
         try:

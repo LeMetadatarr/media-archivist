@@ -231,3 +231,51 @@ class SubscriptionSyncResponse(BaseModel):
 
     total: int
     results: List[SubscriptionSyncResult]
+
+
+class CollectionInfo(BaseModel):
+    """A saved collection over the wire, plus its live match count."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    description: Optional[str] = None
+    source: Optional[str] = None
+    where: Optional[str] = None
+    grep: Optional[str] = None
+    has_stream: Optional[bool] = None
+    explicit: Optional[bool] = None
+    created_at: str
+    count: int = 0
+
+
+class CollectionListResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    total: int
+    collections: List[CollectionInfo]
+
+
+class CollectionCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    where: Optional[str] = None
+    source: Optional[str] = None
+    grep: Optional[str] = None
+    has_stream: Optional[bool] = None
+    explicit: Optional[bool] = None
+    description: Optional[str] = None
+
+
+class CollectionDeleteRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+
+
+class CollectionEntriesResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    total: int
+    entries: List[MediaEntry]

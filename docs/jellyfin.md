@@ -234,6 +234,42 @@ media-archivist strm-export --db-file songs.json \
     --nfo --layout by-artist --source bandcamp
 ```
 
+## Collections — one URL per smart playlist
+
+`strm-export`/`--where` filters an ad-hoc slice each time you run it. A
+**collection** remembers the filter under a name, so it becomes a
+browsable, always-live "smart playlist" — e.g. "Blender open movies" =
+`source == 'youtube' and grep == 'blender'`. Once saved, the collection
+gets a stable URL Jellyfin/Kodi/VLC can subscribe to directly:
+
+```bash
+media-archivist collection-add "Blender open movies" \
+    --db-file /srv/media-archivist/index.json \
+    --source youtube --grep blender \
+    --description "CC-BY-licensed Blender Foundation films"
+
+media-archivist collections --db-file /srv/media-archivist/index.json
+# Blender open movies — CC-BY-licensed Blender Foundation films   matches=6
+```
+
+With the server running, `GET /collections/<name>/m3u` streams the
+collection as an `#EXTM3U` playlist (`audio/x-mpegurl`) built from the
+saved filter re-run against the *current* DB — point a player at
+`http://nas.local:8000/collections/Blender%20open%20movies/m3u` and new
+matches show up automatically as the library grows. The `/ui/collections`
+page in the WebUI has an add-collection form and a "copy M3U link" button
+per row.
+
+To materialize a collection as `.strm` files (same layout/`--nfo` options
+as `strm-export`) plus an optional `.m3u` file on disk:
+
+```bash
+media-archivist collection-export "Blender open movies" \
+    --db-file /srv/media-archivist/index.json \
+    --output-dir /var/lib/jellyfin/media/archivist/collections \
+    --base-url http://nas.local:8000 --m3u
+```
+
 ## Caveats
 
 - **YouTube via the redirect endpoint** still requires a player that
