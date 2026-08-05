@@ -61,6 +61,10 @@ EXPECTED_DISPATCH = {
     "resolve": "cmd_resolve",
     "download": "cmd_download",
     "health": "cmd_health",
+    "subscribe": "cmd_subscribe",
+    "unsubscribe": "cmd_unsubscribe",
+    "subscriptions": "cmd_subscriptions",
+    "sync-subscriptions": "cmd_sync_subscriptions",
 }
 
 

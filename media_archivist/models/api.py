@@ -180,3 +180,54 @@ class ReResolveResponse(BaseModel):
     old_stream: Optional[str] = None
     new_stream: Optional[str] = None
     error: Optional[str] = None
+
+
+class SubscriptionInfo(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    url: str
+    backend: str
+    label: Optional[str] = None
+    added_at: str
+    last_synced_at: Optional[str] = None
+    last_rows_added: int = 0
+    last_error: Optional[str] = None
+
+
+class SubscriptionListResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    total: int
+    subscriptions: List[SubscriptionInfo]
+
+
+class SubscriptionCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    url: str
+    backend: Optional[Literal["youtube", "ia", "music", "bandcamp", "soundcloud"]] = None
+    label: Optional[str] = None
+
+
+class SubscriptionDeleteRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    url: str
+
+
+class SubscriptionSyncResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    url: str
+    backend: str
+    ok: bool
+    rows_added: int = 0
+    error: Optional[str] = None
+    dry_run: bool = False
+
+
+class SubscriptionSyncResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    total: int
+    results: List[SubscriptionSyncResult]

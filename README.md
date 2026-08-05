@@ -76,6 +76,9 @@ A quick tour of the pages:
   match. Select multiple rows and "Accept selected" / "Reject selected" in
   one action, or decide row by row.
   ![Quarantine](docs/img/quarantine.png)
+- **Subscriptions** — remember a channel/playlist/collection URL and "Sync
+  now" re-archives every one of them; the backend's `archive()` dedupes on
+  its own, so only genuinely new uploads land in the library.
 - **Providers** — see which metadatarr providers are active at a glance.
   ![Providers](docs/img/providers.png)
 
@@ -159,6 +162,15 @@ media-archivist prune --db-file talks.json --unavailable --blacklist sponsor
 media-archivist monitor --db-file talks.json --interval 600 \
     https://www.youtube.com/@LinusTechTips \
     https://www.youtube.com/@SomeOtherChannel
+
+# Subscriptions: remember a channel/playlist/collection so new uploads keep
+# getting auto-indexed, without re-typing every URL each run (pairs with cron)
+media-archivist subscribe --db-file talks.json https://www.youtube.com/@LinusTechTips
+media-archivist subscribe --db-file talks.json --backend ia --label "Cartoons" \
+    https://archive.org/details/classic_cartoons
+media-archivist subscriptions --db-file talks.json
+media-archivist sync-subscriptions --db-file talks.json   # archive() dedupes; only new uploads land
+media-archivist unsubscribe --db-file talks.json https://www.youtube.com/@LinusTechTips
 
 # Internet Archive
 media-archivist add --db-file ia_movies.json --ia classic_cartoons
