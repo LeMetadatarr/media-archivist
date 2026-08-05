@@ -87,6 +87,7 @@ from media_archivist.commands.collections import (
     cmd_collection_remove,
     cmd_collections,
 )
+from media_archivist.notify import cmd_notify_test
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -539,6 +540,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_colls.add_argument("--db", metavar="NAME")
     p_colls.add_argument("--db-file", metavar="PATH")
     p_colls.set_defaults(func=cmd_collections)
+
+    p_notify = sub.add_parser(
+        "notify-test",
+        help="send a test webhook notification (verify "
+             "MEDIA_ARCHIVIST_WEBHOOK_URL / MEDIA_ARCHIVIST_NTFY_TOPIC)",
+    )
+    p_notify.add_argument("--message", help="custom test message")
+    p_notify.set_defaults(func=cmd_notify_test)
 
     return parser
 

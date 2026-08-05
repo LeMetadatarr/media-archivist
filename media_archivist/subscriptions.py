@@ -255,6 +255,20 @@ def sync_subscription(db_path: str, sub: Subscription, *,
     result = SyncResult(url=sub.url, backend=sub.backend, ok=True,
                          rows_added=rows_added, new_urls=new_urls)
 
+    if rows_added > 0:
+        try:
+            from media_archivist import notify as notify_mod
+
+            label = sub.label or sub.url
+            notify_mod.notify(
+                "subscription_sync",
+                f"{label}: {rows_added} new item(s) archived",
+                {"url": sub.url, "backend": sub.backend, "rows_added": rows_added,
+                 "new_urls": new_urls},
+            )
+        except Exception:
+            LOG.exception("sync_subscription: notify failed for %s", sub.url)
+
     should_download = download or sub.auto_download
     if should_download and new_urls:
         from media_archivist import streams

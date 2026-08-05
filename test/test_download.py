@@ -151,6 +151,46 @@ def test_archive_task_still_works_unchanged(client, monkeypatch):
 # ytdlp unavailable -> clear error, not 500.
 # ---------------------------------------------------------------------
 
+# ---------------------------------------------------------------------
+# Webhook notification firing on download completion/failure.
+# ---------------------------------------------------------------------
+
+def test_download_complete_fires_notify(client, monkeypatch):
+    from media_archivist import notify as notify_mod
+
+    monkeypatch.setattr(streams, "ytdlp_available", lambda: True)
+    monkeypatch.setattr(streams, "download", _fake_download())
+    calls = []
+    monkeypatch.setattr(notify_mod, "notify",
+                         lambda event, message, data=None: calls.append((event, message, data)))
+
+    eid = _entry_id(client)
+    r = client.post(f"/entries/{eid}/download")
+    _wait_terminal(client, r.json()["id"])
+
+    assert any(c[0] == "download_complete" for c in calls), calls
+
+
+def test_download_failure_fires_notify(client, monkeypatch):
+    from media_archivist import notify as notify_mod
+
+    def _boom(url, dest_dir, *, format="best", progress_hook=None, timeout=None):
+        raise RuntimeError("network exploded")
+
+    monkeypatch.setattr(streams, "ytdlp_available", lambda: True)
+    monkeypatch.setattr(streams, "download", _boom)
+    calls = []
+    monkeypatch.setattr(notify_mod, "notify",
+                         lambda event, message, data=None: calls.append((event, message, data)))
+
+    eid = _entry_id(client)
+    r = client.post(f"/entries/{eid}/download")
+    final = _wait_terminal(client, r.json()["id"])
+
+    assert final["status"] == "error"
+    assert any(c[0] == "download_failed" for c in calls), calls
+
+
 def test_download_route_rejects_when_ytdlp_unavailable(client, monkeypatch):
     monkeypatch.setattr(streams, "ytdlp_available", lambda: False)
     eid = _entry_id(client)
