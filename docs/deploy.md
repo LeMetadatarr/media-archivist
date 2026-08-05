@@ -75,7 +75,7 @@ Once the service is up, three endpoints connect it to the rest of your stack:
 
 | Endpoint | Client |
 | -------- | ------ |
-| `GET /strm/{id}` | Jellyfin / Kodi `.strm` files, returns the playable URL as `text/plain`. See [Jellyfin docs](./jellyfin.md). |
+| `GET /strm/{id}` | Jellyfin / Kodi `.strm` files. Plain `text/plain` URL by default; `?resolve=1` turns it into a play-time yt-dlp hook that 302-redirects to a freshly resolved stream (`?mode=proxy` to stream bytes through instead). See [Jellyfin docs](./jellyfin.md). |
 | `GET /m3u` | Any M3U-capable client (VLC, Kodi, IPTV apps). Accepts `source`, `where`, `has_stream`, `limit` query params. |
 | `GET /feed.rss` | Podcast clients, Jellyfin RSS plugin, Freshrss. Accepts `limit`. |
 | `GET /healthz` | Uptime Kuma, Docker healthcheck, Compose healthcheck, k8s liveness probe. Returns `{status: "ok", version, db_path}`. |
@@ -87,6 +87,7 @@ Once the service is up, three endpoints connect it to the rest of your stack:
 | `GET`  | `/entries`           | Query the canonical view (filters: `source`, `where`, `grep`, `has_stream`, `explicit`, `limit`). |
 | `GET`  | `/entries/{id}`      | Fetch a single `MediaEntry` by id. |
 | `POST` | `/archive`           | Enqueue an archive task. Returns a `Task`. |
+| `POST` | `/entries/{id}/download` | Enqueue an optional download of one entry via `yt-dlp` to `MEDIA_ARCHIVIST_DOWNLOAD_DIR`. Returns a `Task`. `503` if `yt-dlp` isn't available. |
 | `GET`  | `/tasks/{id}`        | Task progress (`queued`, `running`, `ok`, `error`). |
 | `GET`  | `/feed.rss`          | RSS feed of recently-added entries. |
 | `GET`  | `/m3u`               | M3U playlist of stream URLs. |

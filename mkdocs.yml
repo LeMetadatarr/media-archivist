@@ -59,6 +59,8 @@ nav:
       - Disambiguation & external IDs: disambiguation.md
       - Datasets, enrichment & sharing: datasets.md
       - Running as a service: deploy.md
+      - Jellyfin / Kodi remote media: jellyfin.md
+      - Metadata providers (metadatarr): metadatarr.md
   - Recipes:
       - recipes/index.md
       - recipes/music-library-from-bandcamp-soundcloud-and-ytmusic.md

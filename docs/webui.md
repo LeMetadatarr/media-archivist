@@ -31,13 +31,30 @@ to re-run the resolver against the DB.
 
 Browse every entry in the DB. The filter form supports source, free-text
 grep, and the `where` DSL (the same query language the CLI and API use),
-plus a result limit. Each row shows a yes/no stream badge so you can spot
-entries missing a resolvable stream at a glance.
+plus a page-size limit. Each row shows a yes/no stream badge so you can spot
+entries missing a resolvable stream at a glance. Results are paginated —
+"Showing 1–50 of 60" with Prev/Next buttons that carry the current filter
+along (`hx-include`d from the filter form), so you can page through a large
+DB without re-typing the query.
 
 ![Library](img/library.png)
 
-Click into a row for the entry detail drawer: thumbnail, full metadata,
-external IDs, and a link to resolve the entry via `/strm/{id}`.
+Click into a row for the entry detail drawer: thumbnail and full metadata,
+external IDs, and an **inline player**:
+
+- if the entry already has a direct stream URL (Bandcamp, SoundCloud, IA),
+  it plays straight in a native `<audio>` or `<video>` element;
+- if it's a YouTube entry, a "▶ Play" button lazy-loads a
+  `youtube-nocookie.com` iframe embed on click (no autoplay, no tracking
+  before you press play);
+- when `yt-dlp` is available server-side, a "▶ Play (yt-dlp)" button
+  resolves and plays the direct media URL instead of embedding, and a
+  "↻ refresh stream" button lets you re-resolve an entry whose stored
+  `stream` URL may have gone stale;
+- "Open original ↗" always links back to the source page;
+- a "⬇ Download" button (shown whenever `yt-dlp` is available) kicks off a
+  background download job for that entry — see
+  [Optional download](#optional-download) below.
 
 ![Entry detail](img/entry-detail.png)
 
@@ -54,10 +71,30 @@ no page refresh needed.
 
 When the resolver can't confidently match an entry against the canonical
 index, it lands here instead of silently merging. Each conflict is shown
-with the competing candidates side by side, readable diffs, and
+with its candidate canonical id and the fields in conflict, and per-row
 Accept/Reject buttons, no need to hand-edit the quarantine JSON sidecar.
 
+Check the box on any number of rows and a bulk action bar appears: "Accept
+selected" / "Reject selected" apply the decision to every checked row in one
+call, with a confirmation prompt before either. A header checkbox selects or
+clears all rows at once. Useful once you've eyeballed a batch and just want
+to clear the queue.
+
 ![Quarantine](img/quarantine.png)
+
+## Optional download
+
+media-archivist's job is streaming, not downloading, but sometimes you want
+a specific entry on disk. The "⬇ Download" button posts to
+`/entries/{id}/download`, which is scheduler-backed exactly like an archive
+job: it queues, runs, and reports progress via `GET /tasks/{task_id}`. Files
+land under `MEDIA_ARCHIVIST_DOWNLOAD_DIR`. The button (and the endpoint) only
+appear/work when `yt-dlp` is available on the server — a 503 otherwise.
+
+For playback without downloading, see
+[`.strm` + play-time resolution in jellyfin.md](jellyfin.md#recommended-play-time-resolution-with-resolve1),
+which the "▶ Play (yt-dlp)" / "↻ refresh stream" buttons above use the same
+resolver as.
 
 ## Providers
 
