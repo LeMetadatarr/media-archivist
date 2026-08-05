@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.17.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.17.0a1) (2026-08-05)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.16.0a1...0.17.0a1)
+
+**Merged pull requests:**
+
+- feat: saved collections \(smart playlists\) — per-collection M3U URL + .strm export for Jellyfin/Kodi [\#53](https://github.com/LeMetadatarr/media-archivist/pull/53) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.16.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.16.0a1) (2026-08-05)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.15.0a1...0.16.0a1)
