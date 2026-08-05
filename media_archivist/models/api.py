@@ -147,3 +147,36 @@ class StatsResponse(BaseModel):
     quarantined: int = 0
     archivist_version: str
     db_path: str
+
+
+class StreamHealthEntry(BaseModel):
+    """One entry's stream-health probe result, over the wire."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    entry_id: str
+    url: str
+    source: str
+    title: str
+    status: Literal["ok", "dead", "expired", "no-stream", "gone"]
+    checked_url: Optional[str] = None
+    status_code: Optional[int] = None
+    reason: Optional[str] = None
+
+
+class StreamHealthResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    total: int
+    counts: Dict[str, int]
+    entries: List[StreamHealthEntry]
+
+
+class ReResolveResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    entry_id: str
+    ok: bool
+    old_stream: Optional[str] = None
+    new_stream: Optional[str] = None
+    error: Optional[str] = None

@@ -41,6 +41,7 @@ from media_archivist.commands.entities import (
     cmd_entities_show,
     cmd_entities_stats,
 )
+from media_archivist.commands.health import cmd_health
 from media_archivist.commands.entries import (
     cmd_add,
     cmd_bootstrap,
@@ -380,6 +381,26 @@ def build_parser() -> argparse.ArgumentParser:
     p_download.add_argument("--format", default="best",
                             help="format selector passed to yt-dlp (default: best)")
     p_download.set_defaults(func=cmd_download)
+
+    p_health = sub.add_parser("health", parents=[common],
+                              help="probe stored stream URLs; flag dead/expired "
+                                   "entries and optionally re-resolve them")
+    p_health.add_argument("--where", metavar="EXPR")
+    p_health.add_argument("--source", dest="source_filter", metavar="NAME",
+                          help="keep only entries from this source")
+    p_health.add_argument("--limit", type=int, default=0,
+                          help="cap the number of entries probed (0 = no cap)")
+    p_health.add_argument("--reresolve", action="store_true",
+                          help="attempt to refresh dead/expired stream URLs via "
+                               "yt-dlp / native resolvers")
+    p_health.add_argument("--dry-run", dest="dry_run", action="store_true",
+                          help="with --reresolve or --remove-gone, preview "
+                               "changes without writing them to the DB")
+    p_health.add_argument("--remove-gone", dest="remove_gone", action="store_true",
+                          help="drop entries whose source is confirmed deleted/"
+                               "unavailable (status=gone) from the DB — "
+                               "destructive, explicit opt-in only")
+    p_health.set_defaults(func=cmd_health)
 
     p_mon = sub.add_parser("monitor", parents=[common],
                            help="background-poll URLs and keep the DB in sync")

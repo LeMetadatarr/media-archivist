@@ -17,6 +17,7 @@
         <a href="{{ request.scope.get('root_path', '') }}/ui/entries" class="{{ 'active' if active == 'entries' else '' }}">Library</a>
         <a href="{{ request.scope.get('root_path', '') }}/ui/archive" class="{{ 'active' if active == 'archive' else '' }}">Archive</a>
         <a href="{{ request.scope.get('root_path', '') }}/ui/quarantine" class="{{ 'active' if active == 'quarantine' else '' }}">Quarantine</a>
+        <a href="{{ request.scope.get('root_path', '') }}/ui/health" class="{{ 'active' if active == 'health' else '' }}">Stream health</a>
         <a href="{{ request.scope.get('root_path', '') }}/ui/providers" class="{{ 'active' if active == 'providers' else '' }}">Providers</a>
       </nav>
       <div class="health">
