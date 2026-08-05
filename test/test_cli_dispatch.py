@@ -60,6 +60,7 @@ EXPECTED_DISPATCH = {
     "monitor": "cmd_monitor",
     "resolve": "cmd_resolve",
     "download": "cmd_download",
+    "health": "cmd_health",
 }
 
 

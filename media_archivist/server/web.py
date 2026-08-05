@@ -404,6 +404,117 @@ def register_web(app, *, db_path: str, templates, scheduler) -> None:
                        message="Row dropped from canonicalization; a new distinct "
                                 "canonical id was assigned.")
 
+    # Same rationale as the JSON /health/streams cap (see routes.py) — a
+    # scan must never block the UI on an unbounded library.
+    _HEALTH_SCAN_LIMIT = 200
+
+    def _stream_health_entries(source, where):
+        from media_archivist import health as health_mod
+
+        results = health_mod.check_library(
+            db_path, source=source or None, where=where or None,
+            limit=_HEALTH_SCAN_LIMIT,
+        )
+        counts = {"ok": 0, "dead": 0, "expired": 0, "no-stream": 0, "gone": 0}
+        for r in results:
+            counts[r.status] = counts.get(r.status, 0) + 1
+        return results, counts
+
+    @app.get("/ui/health", response_class=HTMLResponse)
+    def health_page(request: Request):
+        return _render(request, "health.html", active="health")
+
+    @app.get("/ui/health/table", response_class=HTMLResponse)
+    def health_table(request: Request, source: Optional[str] = None,
+                     where: Optional[str] = None):
+        from media_archivist.index import WhereError
+        from media_archivist.streams import ytdlp_available
+
+        try:
+            results, counts = _stream_health_entries(source, where)
+        except WhereError as e:
+            # 200, not 400 — matches the entries_table convention: htmx
+            # doesn't swap 4xx bodies, so a non-2xx here would leave the
+            # table silently stale instead of showing the DSL mistake.
+            return _render(request, "fragments/health_table.html",
+                           error=f"where: {e}")
+        unhealthy = [r for r in results if r.status in ("dead", "expired")]
+        gone = [r for r in results if r.status == "gone"]
+        return _render(
+            request, "fragments/health_table.html",
+            results=results, unhealthy=unhealthy, gone=gone, counts=counts,
+            total=len(results), scan_limit=_HEALTH_SCAN_LIMIT,
+            source=source, where=where, ytdlp_available=ytdlp_available(),
+        )
+
+    @app.post("/ui/health/{entry_id}/reresolve", response_class=HTMLResponse)
+    def health_reresolve_fragment(request: Request, entry_id: str):
+        from media_archivist import health as health_mod
+
+        idx = Index(db_path)
+        entry = idx.get(entry_id)
+        if entry is None:
+            return _render(request, "fragments/health_row_result.html",
+                           entry_id=entry_id, error="entry not found",
+                           status_code=404)
+        result = health_mod.reresolve_entry(db_path, entry, dry_run=False)
+        return _render(request, "fragments/health_row_result.html",
+                       entry_id=entry_id, result=result)
+
+    @app.post("/ui/health/reresolve-all", response_class=HTMLResponse)
+    def health_reresolve_all_fragment(request: Request, source: Optional[str] = Form(None),
+                                      where: Optional[str] = Form(None)):
+        from media_archivist import health as health_mod
+
+        results, _counts = _stream_health_entries(source, where)
+        unhealthy = [r for r in results if r.status in ("dead", "expired")]
+        idx = Index(db_path)
+        done = failed = 0
+        for r in unhealthy:
+            entry = idx.get(r.entry_id)
+            if entry is None:
+                failed += 1
+                continue
+            outcome = health_mod.reresolve_entry(db_path, entry, dry_run=False)
+            if outcome.ok:
+                done += 1
+            else:
+                failed += 1
+        bulk_note = f"✓ Re-resolved {done}"
+        if failed:
+            bulk_note += f" · {failed} failed"
+        results, counts = _stream_health_entries(source, where)
+        unhealthy = [r for r in results if r.status in ("dead", "expired")]
+        gone = [r for r in results if r.status == "gone"]
+        from media_archivist.streams import ytdlp_available
+        return _render(
+            request, "fragments/health_table.html",
+            results=results, unhealthy=unhealthy, gone=gone, counts=counts,
+            total=len(results), scan_limit=_HEALTH_SCAN_LIMIT,
+            source=source, where=where, ytdlp_available=ytdlp_available(),
+            bulk_note=bulk_note,
+        )
+
+    @app.post("/ui/health/{entry_id}/remove", response_class=HTMLResponse)
+    def health_remove_fragment(request: Request, entry_id: str):
+        """Explicit, opt-in row removal for a confirmed-``gone`` entry.
+
+        Never triggered automatically — only by the curator clicking
+        "Remove" next to a specific gone row in the health table.
+        """
+        from media_archivist import health as health_mod
+
+        idx = Index(db_path)
+        entry = idx.get(entry_id)
+        if entry is None:
+            return _render(request, "fragments/health_row_result.html",
+                           entry_id=entry_id, error="entry not found",
+                           status_code=404)
+        removed = health_mod.remove_entry(db_path, entry)
+        return _render(request, "fragments/health_row_result.html",
+                       entry_id=entry_id, removed=removed,
+                       removed_title=entry.title)
+
     @app.get("/ui/providers", response_class=HTMLResponse)
     def providers_page(request: Request):
         return _render(request, "providers.html", active="providers",

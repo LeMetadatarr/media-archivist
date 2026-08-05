@@ -67,7 +67,10 @@ from media_archivist.models.api import (
     QuarantineConflict,
     QuarantineDecisionResponse,
     QuarantineListResponse,
+    ReResolveResponse,
     StatsResponse,
+    StreamHealthEntry,
+    StreamHealthResponse,
     Task,
 )
 from media_archivist.providers import all_providers
@@ -441,6 +444,70 @@ def register_routes(app, *, db_path: str) -> Scheduler:
             )
             return JSONResponse(status_code=503, content=unhealthy.model_dump())
         return HealthResponse(version=__version__, db_path=os.path.basename(db_path))
+
+    # Bounds a single /health/streams scan so it can never wedge a request
+    # indefinitely against a huge library — same "explicit and limited"
+    # posture as the WebUI's page size. Callers that want to check more
+    # page through with ?limit=&offset= via --where narrowing, or use the
+    # CLI (`media-archivist health`) for a full, unbounded scan.
+    HEALTH_SCAN_DEFAULT_LIMIT = 200
+    HEALTH_SCAN_MAX_LIMIT = 1000
+
+    @app.get("/health/streams", response_model=StreamHealthResponse)
+    def health_streams(
+        source: Optional[str] = None,
+        where: Optional[str] = None,
+        limit: int = Query(default=HEALTH_SCAN_DEFAULT_LIMIT, ge=1,
+                           le=HEALTH_SCAN_MAX_LIMIT),
+    ) -> StreamHealthResponse:
+        from media_archivist import health as health_mod
+
+        try:
+            results = health_mod.check_library(
+                db_path, source=source, where=where, limit=limit,
+            )
+        except WhereError as e:
+            raise HTTPException(status_code=400, detail=f"--where: {e}") from None
+        entries = [StreamHealthEntry(**r.__dict__) for r in results]
+        counts = {"ok": 0, "dead": 0, "expired": 0, "no-stream": 0, "gone": 0}
+        for e in entries:
+            counts[e.status] = counts.get(e.status, 0) + 1
+        return StreamHealthResponse(total=len(entries), counts=counts, entries=entries)
+
+    @app.post("/entries/{entry_id}/health/reresolve", response_model=ReResolveResponse)
+    def health_reresolve(entry_id: str, dry_run: bool = False) -> ReResolveResponse:
+        from media_archivist import health as health_mod
+
+        idx = Index(db_path)
+        entry = idx.get(entry_id)
+        if entry is None:
+            raise HTTPException(status_code=404, detail="entry not found")
+        result = health_mod.reresolve_entry(db_path, entry, dry_run=dry_run)
+        return ReResolveResponse(
+            entry_id=result.entry_id, ok=result.ok,
+            old_stream=result.old_stream, new_stream=result.new_stream,
+            error=result.error,
+        )
+
+    @app.delete("/entries/{entry_id}/health", response_model=ReResolveResponse)
+    def health_remove_gone(entry_id: str) -> ReResolveResponse:
+        """Explicit, opt-in removal of an entry confirmed ``gone`` by a scan.
+
+        Destructive — never called by anything else in this module. The
+        caller (CLI ``--remove-gone`` / WebUI "Remove" button) is
+        responsible for having shown the user a ``status=gone`` result
+        first; this endpoint itself does not re-check status, it just
+        drops the row on request.
+        """
+        from media_archivist import health as health_mod
+
+        idx = Index(db_path)
+        entry = idx.get(entry_id)
+        if entry is None:
+            raise HTTPException(status_code=404, detail="entry not found")
+        removed = health_mod.remove_entry(db_path, entry)
+        return ReResolveResponse(entry_id=entry_id, ok=removed,
+                                 error=None if removed else "entry already removed")
 
     @app.get("/providers", response_model=ProvidersResponse)
     def providers() -> ProvidersResponse:
