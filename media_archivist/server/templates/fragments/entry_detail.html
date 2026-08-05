@@ -54,6 +54,14 @@
         </button>
         <div class="download-status"></div>
       </div>
+      <div class="subtitles-action" style="margin-top:8px">
+        <button type="button" class="btn btn-ghost"
+                hx-post="{{ root_path }}/ui/entries/{{ entry.id }}/subtitles"
+                hx-target="next .subtitles-status" hx-swap="innerHTML">
+          &#128172; Fetch subtitles
+        </button>
+        <div class="subtitles-status"></div>
+      </div>
       {% endif %}
       <dl class="kv">
         <dt>id</dt><dd><code>{{ entry.id }}</code></dd>

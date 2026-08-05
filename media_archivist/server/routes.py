@@ -76,6 +76,7 @@ from media_archivist.models.api import (
     StatsResponse,
     StreamHealthEntry,
     StreamHealthResponse,
+    SubtitlesResponse,
     SubscriptionCreateRequest,
     SubscriptionDeleteRequest,
     SubscriptionInfo,
@@ -274,6 +275,37 @@ def register_routes(app, *, db_path: str) -> Scheduler:
             return scheduler.submit(DownloadRequest(entry_id=entry_id))
         except asyncio.QueueFull:
             raise HTTPException(status_code=429, detail="download queue full") from None
+
+    @app.post("/entries/{entry_id}/subtitles", response_model=SubtitlesResponse)
+    async def fetch_entry_subtitles(entry_id: str, langs: str = "en",
+                                    auto: bool = True, sub_format: str = "vtt",
+                                    dry_run: bool = False) -> SubtitlesResponse:
+        """Fetch .srt/.vtt subtitle sidecars for one entry, on demand.
+
+        Writes next to the server's download dir (same place a played-back
+        entry would end up), synchronously off the event loop.
+        """
+        from media_archivist import streams
+        from media_archivist.subtitles import fetch_subtitles
+
+        idx = Index(db_path)
+        entry = idx.get(entry_id)
+        if entry is None:
+            raise HTTPException(status_code=404, detail="entry not found")
+        if not streams.ytdlp_available():
+            raise HTTPException(
+                status_code=503,
+                detail="yt-dlp is not available on this server; subtitles are disabled",
+            )
+        lang_list = [lang.strip() for lang in langs.split(",") if lang.strip()] or ["en"]
+        result = await asyncio.to_thread(
+            fetch_subtitles, entry, streams.default_download_dir(),
+            langs=lang_list, auto=auto, sub_format=sub_format, dry_run=dry_run,
+        )
+        return SubtitlesResponse(
+            entry_id=result.entry_id, status=result.status,
+            langs=result.langs, files=result.files, error=result.error,
+        )
 
     @app.get("/tasks/{task_id}", response_model=Task)
     def get_task(task_id: str) -> Task:

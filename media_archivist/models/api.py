@@ -182,6 +182,16 @@ class ReResolveResponse(BaseModel):
     error: Optional[str] = None
 
 
+class SubtitlesResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    entry_id: str
+    status: str  # "written" | "none" | "skipped" | "error" | "dry-run"
+    langs: List[str] = Field(default_factory=list)
+    files: List[str] = Field(default_factory=list)
+    error: Optional[str] = None
+
+
 class SubscriptionInfo(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

@@ -270,6 +270,44 @@ media-archivist collection-export "Blender open movies" \
     --base-url http://nas.local:8000 --m3u
 ```
 
+## Subtitles
+
+`media-archivist` already pulls YouTube subtitle text into the DB via
+`enrich --transcripts` (see [datasets.md](datasets.md)). `subtitles` turns
+the same `yt-dlp` machinery into on-disk `.srt`/`.vtt` sidecar files,
+so Jellyfin and Kodi show captions during playback:
+
+```bash
+media-archivist subtitles \
+    --db-file ./talks.json \
+    --output-dir ./jellyfin-library \
+    --lang en,es
+```
+
+Sidecars use the same `--layout` and filename logic as `strm-export`
+(default `by-source-artist`), so a subtitle file lands right next to
+its matching `.strm`:
+
+```
+jellyfin-library/youtube/Some Channel/
+├── A Talk.strm
+├── A Talk.en.srt
+└── A Talk.es.srt
+```
+
+`--lang` accepts a comma-separated list (default `en`); `--no-auto`
+skips YouTube's auto-generated captions and only fetches manually
+authored subtitle tracks; `--format srt` writes `.srt` instead of the
+default `.vtt`. `--where`/`--source`/`--limit`/`--dry-run` behave like
+every other subcommand. A video with no subtitles is reported as
+`none`, not an error; if `yt-dlp` isn't installed the whole run is
+reported as `skipped` rather than failing.
+
+The WebUI's entry detail drawer also has a "💬 Fetch subtitles" button
+(and a matching `POST /entries/{id}/subtitles` API endpoint) that
+fetches on demand for a single entry, writing into the server's
+download directory, whenever `yt-dlp` is available.
+
 ## Caveats
 
 - **YouTube via the redirect endpoint** still requires a player that
