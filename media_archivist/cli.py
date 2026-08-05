@@ -80,6 +80,12 @@ from media_archivist.commands.subscriptions import (
     cmd_sync_subscriptions,
     cmd_unsubscribe,
 )
+from media_archivist.commands.collections import (
+    cmd_collection_add,
+    cmd_collection_export,
+    cmd_collection_remove,
+    cmd_collections,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -447,6 +453,50 @@ def build_parser() -> argparse.ArgumentParser:
     p_syncsub.add_argument("--dry-run", dest="dry_run", action="store_true",
                            help="report what would sync without archiving anything")
     p_syncsub.set_defaults(func=cmd_sync_subscriptions)
+
+    p_ca = sub.add_parser("collection-add", help="save a named filter as a collection "
+                                                  "(updates it in place if the name exists)")
+    p_ca.add_argument("name")
+    p_ca.add_argument("--db", metavar="NAME")
+    p_ca.add_argument("--db-file", metavar="PATH")
+    p_ca.add_argument("--where", metavar="EXPR")
+    p_ca.add_argument("--source", dest="source_filter", metavar="NAME")
+    p_ca.add_argument("--grep", help="filter by substring in title")
+    p_ca.add_argument("--has-stream", dest="has_stream", action="store_true", default=None)
+    p_ca.add_argument("--no-stream", dest="has_stream", action="store_false")
+    p_ca.add_argument("--explicit", dest="explicit_filter", action="store_true", default=None)
+    p_ca.add_argument("--no-explicit", dest="explicit_filter", action="store_false")
+    p_ca.add_argument("--description", help="optional human-readable description")
+    p_ca.set_defaults(func=cmd_collection_add)
+
+    p_cr = sub.add_parser("collection-remove", help="remove a saved collection by name")
+    p_cr.add_argument("name")
+    p_cr.add_argument("--db", metavar="NAME")
+    p_cr.add_argument("--db-file", metavar="PATH")
+    p_cr.set_defaults(func=cmd_collection_remove)
+
+    p_ce = sub.add_parser("collection-export", help="materialize a collection: .strm files "
+                                                     "(and optionally an .m3u playlist)")
+    p_ce.add_argument("name")
+    p_ce.add_argument("--db", metavar="NAME")
+    p_ce.add_argument("--db-file", metavar="PATH")
+    p_ce.add_argument("--output-dir", dest="output_dir", required=True)
+    p_ce.add_argument("--base-url", dest="base_url",
+                      help="point .strm files at <base_url>/strm/<id>")
+    p_ce.add_argument("--m3u", action="store_true",
+                      help="also write <output-dir>/<name>.m3u")
+    p_ce.add_argument("--no-strm", dest="no_strm", action="store_true",
+                      help="skip .strm export (use with --m3u for playlist-only)")
+    p_ce.add_argument("--layout", choices=["by-source-artist", "flat",
+                                           "by-source", "by-artist"],
+                      default="by-source-artist")
+    p_ce.add_argument("--nfo", action="store_true")
+    p_ce.set_defaults(func=cmd_collection_export)
+
+    p_colls = sub.add_parser("collections", help="list saved collections with match counts")
+    p_colls.add_argument("--db", metavar="NAME")
+    p_colls.add_argument("--db-file", metavar="PATH")
+    p_colls.set_defaults(func=cmd_collections)
 
     return parser
 

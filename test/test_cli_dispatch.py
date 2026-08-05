@@ -65,6 +65,10 @@ EXPECTED_DISPATCH = {
     "unsubscribe": "cmd_unsubscribe",
     "subscriptions": "cmd_subscriptions",
     "sync-subscriptions": "cmd_sync_subscriptions",
+    "collection-add": "cmd_collection_add",
+    "collection-remove": "cmd_collection_remove",
+    "collection-export": "cmd_collection_export",
+    "collections": "cmd_collections",
 }
 
 

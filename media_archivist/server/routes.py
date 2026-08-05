@@ -59,6 +59,11 @@ from media_archivist.models.api import (
     ArchiveRequest,
     CanonicalizeRequest,
     CanonicalizeResponse,
+    CollectionCreateRequest,
+    CollectionDeleteRequest,
+    CollectionEntriesResponse,
+    CollectionInfo,
+    CollectionListResponse,
     DownloadRequest,
     EntryListResponse,
     HealthResponse,
@@ -630,6 +635,92 @@ def register_routes(app, *, db_path: str) -> Scheduler:
             total=len(results),
             results=[SubscriptionSyncResult(**r.model_dump()) for r in results],
         )
+
+    @app.get("/collections", response_model=CollectionListResponse)
+    def collections_list() -> CollectionListResponse:
+        from media_archivist import collections as coll_mod
+
+        colls = coll_mod.list_collections(db_path)
+        infos = []
+        for c in colls:
+            try:
+                n = coll_mod.collection_count(db_path, c)
+            except WhereError:
+                n = 0
+            infos.append(CollectionInfo(**c.model_dump(), count=n))
+        return CollectionListResponse(total=len(infos), collections=infos)
+
+    @app.post("/collections", response_model=CollectionInfo)
+    def collections_add(request: CollectionCreateRequest) -> CollectionInfo:
+        from media_archivist import collections as coll_mod
+
+        try:
+            coll = coll_mod.add_collection(
+                db_path, request.name, where=request.where, source=request.source,
+                grep=request.grep, has_stream=request.has_stream,
+                explicit=request.explicit, description=request.description,
+            )
+        except (ValueError, WhereError) as e:
+            raise HTTPException(status_code=400, detail=str(e)) from None
+        try:
+            n = coll_mod.collection_count(db_path, coll)
+        except WhereError:
+            n = 0
+        return CollectionInfo(**coll.model_dump(), count=n)
+
+    @app.delete("/collections", response_model=CollectionListResponse)
+    def collections_remove(request: CollectionDeleteRequest) -> CollectionListResponse:
+        from media_archivist import collections as coll_mod
+
+        ok = coll_mod.remove_collection(db_path, request.name)
+        if not ok:
+            raise HTTPException(status_code=404, detail="collection not found")
+        colls = coll_mod.list_collections(db_path)
+        infos = []
+        for c in colls:
+            try:
+                n = coll_mod.collection_count(db_path, c)
+            except WhereError:
+                n = 0
+            infos.append(CollectionInfo(**c.model_dump(), count=n))
+        return CollectionListResponse(total=len(infos), collections=infos)
+
+    @app.get("/collections/{name}", response_model=CollectionEntriesResponse)
+    def collections_entries(name: str,
+                            limit: int = Query(default=0, ge=0, le=10_000),
+                            offset: int = Query(default=0, ge=0)) -> CollectionEntriesResponse:
+        from media_archivist import collections as coll_mod
+
+        coll = coll_mod.get_collection(db_path, name)
+        if coll is None:
+            raise HTTPException(status_code=404, detail="collection not found")
+        try:
+            entries = coll_mod.collection_entries(db_path, coll, limit=limit, offset=offset)
+            total = coll_mod.collection_count(db_path, coll)
+        except WhereError as e:
+            raise HTTPException(status_code=400, detail=f"--where: {e}") from None
+        return CollectionEntriesResponse(total=total, entries=entries)
+
+    @app.get("/collections/{name}/m3u", response_class=PlainTextResponse)
+    def collections_m3u(name: str):
+        """Stable per-collection M3U URL — point Jellyfin/Kodi/VLC at this directly.
+
+        Reuses the same rendering as :func:`m3u` above (via
+        :func:`media_archivist.collections.build_m3u`) so a collection's
+        playlist and the ad-hoc ``/m3u?...`` endpoint look identical to a
+        player, but this URL is stable and doesn't require the caller to
+        know/repeat the filter.
+        """
+        from media_archivist import collections as coll_mod
+
+        coll = coll_mod.get_collection(db_path, name)
+        if coll is None:
+            raise HTTPException(status_code=404, detail="collection not found")
+        try:
+            entries = coll_mod.collection_entries(db_path, coll)
+        except WhereError as e:
+            raise HTTPException(status_code=400, detail=f"--where: {e}") from None
+        return PlainTextResponse(coll_mod.build_m3u(entries), media_type="audio/x-mpegurl")
 
     @app.get("/stats", response_model=StatsResponse)
     def stats() -> StatsResponse:
