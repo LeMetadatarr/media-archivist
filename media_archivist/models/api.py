@@ -192,6 +192,7 @@ class SubscriptionInfo(BaseModel):
     last_synced_at: Optional[str] = None
     last_rows_added: int = 0
     last_error: Optional[str] = None
+    auto_download: bool = False
 
 
 class SubscriptionListResponse(BaseModel):
@@ -207,6 +208,7 @@ class SubscriptionCreateRequest(BaseModel):
     url: str
     backend: Optional[Literal["youtube", "ia", "music", "bandcamp", "soundcloud"]] = None
     label: Optional[str] = None
+    auto_download: bool = False
 
 
 class SubscriptionDeleteRequest(BaseModel):
@@ -224,6 +226,9 @@ class SubscriptionSyncResult(BaseModel):
     rows_added: int = 0
     error: Optional[str] = None
     dry_run: bool = False
+    new_urls: List[str] = Field(default_factory=list)
+    downloaded: List[str] = Field(default_factory=list)
+    download_errors: Dict[str, str] = Field(default_factory=dict)
 
 
 class SubscriptionSyncResponse(BaseModel):

@@ -415,7 +415,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_health.set_defaults(func=cmd_health)
 
     p_mon = sub.add_parser("monitor", parents=[common],
-                           help="background-poll URLs and keep the DB in sync")
+                           help="background-poll one-off YouTube URLs given on the "
+                                "command line (not the subscriptions store — for "
+                                "that, periodic re-syncing of everything you've "
+                                "`subscribe`d to, use `sync-subscriptions --interval`)")
     p_mon.add_argument("urls", nargs="+")
     p_mon.add_argument("--interval", type=int, default=120,
                        help="seconds between syncs (default: 120)")
@@ -432,6 +435,9 @@ def build_parser() -> argparse.ArgumentParser:
                        choices=["youtube", "ia", "music", "bandcamp", "soundcloud"],
                        help="explicit backend; inferred from the url when omitted")
     p_sub.add_argument("--label", help="optional human-readable label")
+    p_sub.add_argument("--download", action="store_true",
+                       help="flag this subscription to always download "
+                            "newly-indexed items on sync (auto_download=true)")
     p_sub.set_defaults(func=cmd_subscribe)
 
     p_unsub = sub.add_parser("unsubscribe", help="remove a subscription by URL")
@@ -447,11 +453,20 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_syncsub = sub.add_parser("sync-subscriptions",
                                help="archive() every subscribed channel/playlist; "
-                                    "the archivist dedupes so only new uploads are added")
+                                    "the archivist dedupes so only new uploads are added. "
+                                    "With --interval, runs forever as a periodic scan "
+                                    "(foreground daemon — Ctrl-C to stop; run it under "
+                                    "systemd/docker for unattended operation)")
     p_syncsub.add_argument("--db", metavar="NAME")
     p_syncsub.add_argument("--db-file", metavar="PATH")
     p_syncsub.add_argument("--dry-run", dest="dry_run", action="store_true",
                            help="report what would sync without archiving anything")
+    p_syncsub.add_argument("--interval", type=int, metavar="SECONDS",
+                           help="repeat the sync every SECONDS, forever, until "
+                                "stopped (Ctrl-C); omit for a single-shot run")
+    p_syncsub.add_argument("--download", action="store_true",
+                           help="download newly-indexed items this run, on top "
+                                "of any subscription's own auto_download flag")
     p_syncsub.set_defaults(func=cmd_sync_subscriptions)
 
     p_ca = sub.add_parser("collection-add", help="save a named filter as a collection "

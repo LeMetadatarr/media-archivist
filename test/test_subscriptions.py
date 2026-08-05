@@ -6,7 +6,9 @@ No network: sync_subscription/sync_all patch _archivist_class so
 """
 from __future__ import annotations
 
-from unittest.mock import patch
+import threading
+import time
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -188,3 +190,180 @@ def test_sync_all_dry_run_leaves_sidecar_untouched(db_path):
     reloaded = subs_mod.list_subscriptions(db_path)
     assert reloaded[0].last_synced_at is None
     m.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# optional auto-download of newly-indexed items
+# ---------------------------------------------------------------------------
+
+def _fake_archivist_cls_with_urls(existing, new):
+    """A fake archivist whose db pre-holds `existing` urls; archive() adds `new`."""
+
+    class _Fake:
+        def __init__(self, db_path):
+            self._db = EnvelopeJsonStorage(db_path)
+            for u in existing:
+                self._db[u] = {"url": u}
+            self._db.store()
+
+        @property
+        def video_urls(self):
+            return list(self._db.keys())
+
+        def archive(self, url):
+            for u in new:
+                self._db[u] = {"url": u}
+            self._db.store()
+
+    return _Fake
+
+
+def test_sync_download_only_calls_downloader_for_new_entries(db_path):
+    sub = subs_mod.add_subscription(db_path, "https://www.youtube.com/@chan")
+    existing = ["https://www.youtube.com/watch?v=old1"]
+    new = ["https://www.youtube.com/watch?v=new1", "https://www.youtube.com/watch?v=new2"]
+    downloader = MagicMock()
+
+    with patch.object(subs_mod, "_archivist_class",
+                       return_value=_fake_archivist_cls_with_urls(existing, new)), \
+         patch("media_archivist.streams.ytdlp_available", return_value=True):
+        result = subs_mod.sync_subscription(
+            db_path, sub, download=True, download_dir="/tmp/dl", downloader=downloader,
+        )
+
+    assert result.ok is True
+    assert sorted(result.new_urls) == sorted(new)
+    called_urls = {c.args[0] for c in downloader.call_args_list}
+    assert called_urls == set(new)
+    assert "https://www.youtube.com/watch?v=old1" not in called_urls
+    assert sorted(result.downloaded) == sorted(new)
+
+
+def test_sync_dry_run_never_downloads(db_path):
+    sub = subs_mod.add_subscription(db_path, "https://www.youtube.com/@chan")
+    downloader = MagicMock()
+    with patch.object(subs_mod, "_archivist_class",
+                       return_value=_fake_archivist_cls_with_urls([], ["https://x/new"])), \
+         patch("media_archivist.streams.ytdlp_available", return_value=True):
+        result = subs_mod.sync_subscription(
+            db_path, sub, dry_run=True, download=True, downloader=downloader,
+        )
+    assert result.dry_run is True
+    downloader.assert_not_called()
+
+
+def test_sync_download_skipped_when_ytdlp_unavailable_but_still_indexes(db_path):
+    sub = subs_mod.add_subscription(db_path, "https://www.youtube.com/@chan")
+    downloader = MagicMock()
+    with patch.object(subs_mod, "_archivist_class",
+                       return_value=_fake_archivist_cls_with_urls([], ["https://x/new"])), \
+         patch("media_archivist.streams.ytdlp_available", return_value=False):
+        result = subs_mod.sync_subscription(
+            db_path, sub, download=True, downloader=downloader,
+        )
+    assert result.ok is True
+    assert result.rows_added == 1
+    assert result.new_urls == ["https://x/new"]
+    downloader.assert_not_called()
+    assert result.downloaded == []
+
+
+def test_sync_download_failure_per_entry_does_not_abort_sync(db_path):
+    sub = subs_mod.add_subscription(db_path, "https://www.youtube.com/@chan")
+    new = ["https://x/ok", "https://x/bad"]
+
+    def _downloader(url, dest):
+        if url.endswith("/bad"):
+            raise RuntimeError("boom")
+
+    with patch.object(subs_mod, "_archivist_class",
+                       return_value=_fake_archivist_cls_with_urls([], new)), \
+         patch("media_archivist.streams.ytdlp_available", return_value=True):
+        result = subs_mod.sync_subscription(
+            db_path, sub, download=True, downloader=_downloader,
+        )
+    assert result.ok is True
+    assert result.downloaded == ["https://x/ok"]
+    assert "https://x/bad" in result.download_errors
+    assert "boom" in result.download_errors["https://x/bad"]
+
+
+def test_sync_subscription_auto_download_flag_forces_download(db_path):
+    sub = subs_mod.add_subscription(
+        db_path, "https://www.youtube.com/@chan", auto_download=True,
+    )
+    downloader = MagicMock()
+    with patch.object(subs_mod, "_archivist_class",
+                       return_value=_fake_archivist_cls_with_urls([], ["https://x/new"])), \
+         patch("media_archivist.streams.ytdlp_available", return_value=True):
+        # download=False on the call — sub.auto_download alone should trigger it.
+        subs_mod.sync_subscription(db_path, sub, download=False, downloader=downloader)
+    downloader.assert_called_once()
+
+
+def test_auto_download_persisted_in_sidecar(db_path):
+    subs_mod.add_subscription(db_path, "https://www.youtube.com/@chan", auto_download=True)
+    reloaded = subs_mod.list_subscriptions(db_path)
+    assert reloaded[0].auto_download is True
+
+
+def test_auto_download_defaults_false_back_compat(db_path):
+    sub = subs_mod.add_subscription(db_path, "https://www.youtube.com/@chan")
+    assert sub.auto_download is False
+
+
+# ---------------------------------------------------------------------------
+# watch() — periodic auto-sync loop
+# ---------------------------------------------------------------------------
+
+def test_watch_runs_cycles_and_stops_via_event(db_path):
+    calls = []
+
+    def _fake_sync_all(path, **kwargs):
+        calls.append(kwargs)
+        return []
+
+    stop_event = threading.Event()
+    cycles_seen = []
+
+    def _on_cycle(results):
+        cycles_seen.append(results)
+        if len(cycles_seen) >= 2:
+            stop_event.set()
+
+    with patch.object(subs_mod, "sync_all", side_effect=_fake_sync_all):
+        subs_mod.watch(db_path, interval=0.01, stop_event=stop_event, on_cycle=_on_cycle)
+
+    assert len(calls) >= 2
+    assert len(cycles_seen) >= 2
+
+
+def test_watch_stops_promptly_when_event_preset(db_path):
+    stop_event = threading.Event()
+    stop_event.set()  # already stopped before the loop starts
+    with patch.object(subs_mod, "sync_all") as m:
+        m.return_value = []
+        start = time.time()
+        subs_mod.watch(db_path, interval=5, stop_event=stop_event)
+        elapsed = time.time() - start
+    # Loop body's `while not event.is_set()` never runs.
+    m.assert_not_called()
+    assert elapsed < 1
+
+
+def test_watch_rejects_nonpositive_interval(db_path):
+    with pytest.raises(ValueError):
+        subs_mod.watch(db_path, interval=0)
+
+
+def test_watch_passes_download_flag_through_to_sync_all(db_path):
+    stop_event = threading.Event()
+
+    def _once(*args, **kwargs):
+        stop_event.set()
+        return []
+
+    with patch.object(subs_mod, "sync_all", side_effect=_once) as m:
+        subs_mod.watch(db_path, interval=0.01, download=True, stop_event=stop_event)
+    _, kwargs = m.call_args
+    assert kwargs["download"] is True
