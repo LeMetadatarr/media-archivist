@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.15.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.15.0a1) (2026-08-05)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.14.0a3...0.15.0a1)
+
+**Merged pull requests:**
+
+- feat: stream-health check + re-resolve \(flag dead/expired .strm, refresh via yt-dlp\) [\#51](https://github.com/LeMetadatarr/media-archivist/pull/51) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.14.0a3](https://github.com/LeMetadatarr/media-archivist/tree/0.14.0a3) (2026-08-05)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.14.0a2...0.14.0a3)
