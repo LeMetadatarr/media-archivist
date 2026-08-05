@@ -520,6 +520,65 @@ def register_web(app, *, db_path: str, templates, scheduler) -> None:
         return _render(request, "providers.html", active="providers",
                        providers=_providers_payload())
 
+    @app.get("/ui/subscriptions", response_class=HTMLResponse)
+    def subscriptions_page(request: Request):
+        return _render(request, "subscriptions.html", active="subscriptions")
+
+    def _subscriptions_payload(**extra):
+        from media_archivist import subscriptions as subs_mod
+
+        subs = subs_mod.list_subscriptions(db_path)
+        return {"subscriptions": subs, **extra}
+
+    @app.get("/ui/subscriptions/table", response_class=HTMLResponse)
+    def subscriptions_table(request: Request):
+        return _render(request, "fragments/subscriptions_table.html",
+                       **_subscriptions_payload())
+
+    @app.post("/ui/subscriptions", response_class=HTMLResponse)
+    def subscriptions_add_fragment(
+        request: Request,
+        url: str = Form(...),
+        backend: Optional[str] = Form(None),
+        label: Optional[str] = Form(None),
+    ):
+        from media_archivist import subscriptions as subs_mod
+
+        try:
+            subs_mod.add_subscription(
+                db_path, url, backend=backend or None, label=label or None,
+            )
+        except ValueError as e:
+            return _render(request, "fragments/subscriptions_table.html",
+                           **_subscriptions_payload(error=str(e)))
+        return _render(request, "fragments/subscriptions_table.html",
+                       **_subscriptions_payload())
+
+    @app.delete("/ui/subscriptions", response_class=HTMLResponse)
+    def subscriptions_remove_fragment(request: Request, url: str = Form(...)):
+        from media_archivist import subscriptions as subs_mod
+
+        ok = subs_mod.remove_subscription(db_path, url)
+        note = None if ok else f"No subscription found for {url}"
+        return _render(request, "fragments/subscriptions_table.html",
+                       **_subscriptions_payload(bulk_note=note))
+
+    @app.post("/ui/subscriptions/sync", response_class=HTMLResponse)
+    async def subscriptions_sync_fragment(request: Request):
+        from media_archivist import subscriptions as subs_mod
+
+        # Network-bound per subscription — offload to a worker thread so it
+        # doesn't block the event loop (same pattern as /ui/canonicalize).
+        results = await asyncio.to_thread(subs_mod.sync_all, db_path, dry_run=False)
+        ok = sum(1 for r in results if r.ok)
+        failed = len(results) - ok
+        added = sum(r.rows_added for r in results if r.ok)
+        note = f"✓ Synced {ok}/{len(results)} subscriptions · +{added} new rows"
+        if failed:
+            note += f" · {failed} failed"
+        return _render(request, "fragments/subscriptions_table.html",
+                       **_subscriptions_payload(bulk_note=note))
+
     @app.post("/ui/canonicalize", response_class=HTMLResponse)
     async def canonicalize_fragment(request: Request):
         try:

@@ -74,6 +74,12 @@ from media_archivist.commands.streams import (
     cmd_download,
     cmd_resolve,
 )
+from media_archivist.commands.subscriptions import (
+    cmd_subscribe,
+    cmd_subscriptions,
+    cmd_sync_subscriptions,
+    cmd_unsubscribe,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -408,6 +414,39 @@ def build_parser() -> argparse.ArgumentParser:
     p_mon.add_argument("--interval", type=int, default=120,
                        help="seconds between syncs (default: 120)")
     p_mon.set_defaults(func=cmd_monitor)
+
+    p_sub = sub.add_parser("subscribe",
+                           help="remember a channel/playlist/collection URL "
+                                "so sync-subscriptions keeps auto-indexing "
+                                "new uploads")
+    p_sub.add_argument("url")
+    p_sub.add_argument("--db", metavar="NAME")
+    p_sub.add_argument("--db-file", metavar="PATH")
+    p_sub.add_argument("--backend",
+                       choices=["youtube", "ia", "music", "bandcamp", "soundcloud"],
+                       help="explicit backend; inferred from the url when omitted")
+    p_sub.add_argument("--label", help="optional human-readable label")
+    p_sub.set_defaults(func=cmd_subscribe)
+
+    p_unsub = sub.add_parser("unsubscribe", help="remove a subscription by URL")
+    p_unsub.add_argument("url")
+    p_unsub.add_argument("--db", metavar="NAME")
+    p_unsub.add_argument("--db-file", metavar="PATH")
+    p_unsub.set_defaults(func=cmd_unsubscribe)
+
+    p_subs = sub.add_parser("subscriptions", help="list stored subscriptions")
+    p_subs.add_argument("--db", metavar="NAME")
+    p_subs.add_argument("--db-file", metavar="PATH")
+    p_subs.set_defaults(func=cmd_subscriptions)
+
+    p_syncsub = sub.add_parser("sync-subscriptions",
+                               help="archive() every subscribed channel/playlist; "
+                                    "the archivist dedupes so only new uploads are added")
+    p_syncsub.add_argument("--db", metavar="NAME")
+    p_syncsub.add_argument("--db-file", metavar="PATH")
+    p_syncsub.add_argument("--dry-run", dest="dry_run", action="store_true",
+                           help="report what would sync without archiving anything")
+    p_syncsub.set_defaults(func=cmd_sync_subscriptions)
 
     return parser
 

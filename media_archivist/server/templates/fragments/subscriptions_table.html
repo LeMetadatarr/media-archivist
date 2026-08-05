@@ -1,0 +1,35 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+{% if error %}
+<div class="error">{{ error }}</div>
+{% else %}
+{% if bulk_note %}
+<p class="q-bulk-note">{{ bulk_note }}</p>
+{% endif %}
+{% if not subscriptions %}
+<p class="empty">No subscriptions yet — add a channel/playlist URL above.</p>
+{% else %}
+<div class="scroll-x">
+<table class="table">
+  <thead>
+    <tr><th>URL</th><th>Backend</th><th>Label</th><th>Last synced</th><th>Last rows added</th><th></th></tr>
+  </thead>
+  <tbody id="subs-rows">
+    {% for s in subscriptions %}
+    <tr id="sub-row-{{ loop.index }}">
+      <td><code>{{ s.url }}</code></td>
+      <td>{{ s.backend }}</td>
+      <td>{{ s.label or "" }}</td>
+      <td>{{ s.last_synced_at or "never" }}{% if s.last_error %} <span class="badge badge-err" title="{{ s.last_error }}">error</span>{% endif %}</td>
+      <td>{{ s.last_rows_added }}</td>
+      <td>
+        <button class="btn btn-ghost btn-err-outline" hx-delete="{{ root_path }}/ui/subscriptions"
+                hx-vals='{"url": "{{ s.url }}"}' hx-target="#subs-table" hx-swap="innerHTML"
+                hx-confirm="Unsubscribe from {{ s.label or s.url }}?">Remove</button>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+{% endif %}

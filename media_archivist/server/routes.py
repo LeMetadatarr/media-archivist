@@ -71,6 +71,12 @@ from media_archivist.models.api import (
     StatsResponse,
     StreamHealthEntry,
     StreamHealthResponse,
+    SubscriptionCreateRequest,
+    SubscriptionDeleteRequest,
+    SubscriptionInfo,
+    SubscriptionListResponse,
+    SubscriptionSyncResponse,
+    SubscriptionSyncResult,
     Task,
 )
 from media_archivist.providers import all_providers
@@ -576,6 +582,54 @@ def register_routes(app, *, db_path: str) -> Scheduler:
         if not ok:
             raise HTTPException(status_code=404, detail="row not in quarantine")
         return QuarantineDecisionResponse(row_id=row_id, decision="reject", ok=True)
+
+    @app.get("/subscriptions", response_model=SubscriptionListResponse)
+    def subscriptions_list() -> SubscriptionListResponse:
+        from media_archivist import subscriptions as subs_mod
+
+        subs = subs_mod.list_subscriptions(db_path)
+        return SubscriptionListResponse(
+            total=len(subs),
+            subscriptions=[SubscriptionInfo(**s.model_dump()) for s in subs],
+        )
+
+    @app.post("/subscriptions", response_model=SubscriptionInfo)
+    def subscriptions_add(request: SubscriptionCreateRequest) -> SubscriptionInfo:
+        from media_archivist import subscriptions as subs_mod
+
+        try:
+            sub = subs_mod.add_subscription(
+                db_path, request.url, backend=request.backend, label=request.label,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from None
+        return SubscriptionInfo(**sub.model_dump())
+
+    @app.delete("/subscriptions", response_model=SubscriptionListResponse)
+    def subscriptions_remove(request: SubscriptionDeleteRequest) -> SubscriptionListResponse:
+        from media_archivist import subscriptions as subs_mod
+
+        ok = subs_mod.remove_subscription(db_path, request.url)
+        if not ok:
+            raise HTTPException(status_code=404, detail="subscription not found")
+        subs = subs_mod.list_subscriptions(db_path)
+        return SubscriptionListResponse(
+            total=len(subs),
+            subscriptions=[SubscriptionInfo(**s.model_dump()) for s in subs],
+        )
+
+    @app.post("/subscriptions/sync", response_model=SubscriptionSyncResponse)
+    async def subscriptions_sync(dry_run: bool = False) -> SubscriptionSyncResponse:
+        from media_archivist import subscriptions as subs_mod
+
+        # Network-bound (each subscription's archive() call) — offload to a
+        # worker thread so it doesn't block the event loop, same pattern as
+        # /canonicalize and _archive_worker above.
+        results = await asyncio.to_thread(subs_mod.sync_all, db_path, dry_run=dry_run)
+        return SubscriptionSyncResponse(
+            total=len(results),
+            results=[SubscriptionSyncResult(**r.model_dump()) for r in results],
+        )
 
     @app.get("/stats", response_model=StatsResponse)
     def stats() -> StatsResponse:
