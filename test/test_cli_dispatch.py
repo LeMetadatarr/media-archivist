@@ -40,6 +40,7 @@ EXPECTED_DISPATCH = {
     "prune": "cmd_prune",
     "bootstrap": "cmd_bootstrap",
     "strm-export": "cmd_strm_export",
+    "subtitles": "cmd_subtitles",
     "serve": "cmd_serve",
     "discover": "cmd_discover",
     "sync": "cmd_sync",

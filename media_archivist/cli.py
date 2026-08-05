@@ -74,6 +74,7 @@ from media_archivist.commands.streams import (
     cmd_download,
     cmd_resolve,
 )
+from media_archivist.commands.subtitles import cmd_subtitles
 from media_archivist.commands.subscriptions import (
     cmd_subscribe,
     cmd_subscriptions,
@@ -240,6 +241,32 @@ def build_parser() -> argparse.ArgumentParser:
                              "artwork so Jellyfin doesn't have to guess "
                              "from the filename")
     p_strm.set_defaults(func=cmd_strm_export)
+
+    p_subs = sub.add_parser("subtitles", parents=[common],
+                            help="fetch .srt/.vtt subtitle sidecars for "
+                                 "archived streams (via yt-dlp)")
+    p_subs.add_argument("--output-dir", dest="output_dir", required=True,
+                        help="directory to write sidecars into (same "
+                             "layout as strm-export, so files land next "
+                             "to the matching .strm)")
+    p_subs.add_argument("--source", dest="source_filter")
+    p_subs.add_argument("--where")
+    p_subs.add_argument("--lang", "--langs", dest="langs", default="en",
+                        help="comma-separated language codes (default: en)")
+    p_subs.add_argument("--no-auto", dest="auto", action="store_false",
+                        default=True,
+                        help="only fetch manual (non-auto-generated) subs")
+    p_subs.add_argument("--format", dest="sub_format", choices=["vtt", "srt"],
+                        default="vtt", help="subtitle sidecar format (default: %(default)s)")
+    p_subs.add_argument("--layout", choices=["by-source-artist", "flat",
+                                             "by-source", "by-artist"],
+                        default="by-source-artist",
+                        help="folder layout under --output-dir, matching "
+                             "strm-export (default: %(default)s)")
+    p_subs.add_argument("--limit", type=int, default=0)
+    p_subs.add_argument("--dry-run", dest="dry_run", action="store_true")
+    p_subs.add_argument("--max-workers", dest="max_workers", type=int, default=4)
+    p_subs.set_defaults(func=cmd_subtitles)
 
     p_serve = sub.add_parser("serve", parents=[common],
                              help="run the HTTP server (FastAPI) over the DB")

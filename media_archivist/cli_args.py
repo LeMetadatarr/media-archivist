@@ -193,6 +193,19 @@ class StrmExportArgs(_BaseCliArgs):
     nfo: bool = False
 
 
+class SubtitlesArgs(_BaseCliArgs):
+    output_dir: str
+    where: Optional[str] = None
+    source_filter: Optional[str] = None
+    langs: str = "en"
+    auto: bool = True
+    sub_format: str = "vtt"
+    layout: str = "by-source-artist"
+    limit: int = 0
+    dry_run: bool = False
+    max_workers: int = 4
+
+
 class DedupeArgs(_BaseCliArgs):
     output: str
     prefer: str = "bandcamp,internet_archive,youtube_music,soundcloud,youtube"

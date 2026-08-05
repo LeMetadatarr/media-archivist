@@ -229,6 +229,25 @@ def register_web(app, *, db_path: str, templates, scheduler) -> None:
                            error="download queue full", status_code=429)
         return _render(request, "fragments/task_status.html", task=task)
 
+    @app.post("/ui/entries/{entry_id}/subtitles", response_class=HTMLResponse)
+    async def entry_subtitles(request: Request, entry_id: str):
+        from media_archivist import streams
+        from media_archivist.subtitles import fetch_subtitles
+
+        if not streams.ytdlp_available():
+            return _render(request, "fragments/subtitles_status.html",
+                           error="yt-dlp is not available on this server "
+                                 "— subtitles are disabled", status_code=503)
+        idx = Index(db_path)
+        entry = idx.get(entry_id)
+        if entry is None:
+            return _render(request, "fragments/subtitles_status.html",
+                           error="entry not found", status_code=404)
+        result = await asyncio.to_thread(
+            fetch_subtitles, entry, streams.default_download_dir(),
+        )
+        return _render(request, "fragments/subtitles_status.html", result=result)
+
     @app.get("/ui/entries/{entry_id}/player", response_class=HTMLResponse)
     def entry_player(request: Request, entry_id: str):
         idx = Index(db_path)
