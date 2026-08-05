@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.14.0a2](https://github.com/LeMetadatarr/media-archivist/tree/0.14.0a2) (2026-08-05)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.14.0a1...0.14.0a2)
+
+**Merged pull requests:**
+
+- chore: remove library tagger \(relocated to metadatarr\) — media-archivist = streams, one job [\#49](https://github.com/LeMetadatarr/media-archivist/pull/49) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.14.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.14.0a1) (2026-08-04)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.13.0a1...0.14.0a1)
