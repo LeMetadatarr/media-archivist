@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.20.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.20.0a1) (2026-08-05)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.19.0a1...0.20.0a1)
+
+**Merged pull requests:**
+
+- feat: webhook notifications \(Discord/ntfy/generic\) on archive/download/subscription events [\#56](https://github.com/LeMetadatarr/media-archivist/pull/56) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.19.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.19.0a1) (2026-08-05)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.18.0a1...0.19.0a1)
