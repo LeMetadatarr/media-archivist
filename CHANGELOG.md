@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.14.0a3](https://github.com/LeMetadatarr/media-archivist/tree/0.14.0a3) (2026-08-05)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.14.0a2...0.14.0a3)
+
+**Merged pull requests:**
+
+- docs: refresh README + docs around the streams job \(player, pagination, bulk quarantine, Jellyfin play-time hook\) [\#50](https://github.com/LeMetadatarr/media-archivist/pull/50) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.14.0a2](https://github.com/LeMetadatarr/media-archivist/tree/0.14.0a2) (2026-08-05)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.14.0a1...0.14.0a2)
@@ -239,6 +247,18 @@
 **Merged pull requests:**
 
 - chore\(deps\): update actions/checkout action to v6 [\#4](https://github.com/LeMetadatarr/media-archivist/pull/4) ([renovate[bot]](https://github.com/apps/renovate))
+
+## [0.1.0](https://github.com/LeMetadatarr/media-archivist/tree/0.1.0) (2026-05-07)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.1.0a2...0.1.0)
+
+## [0.1.0a2](https://github.com/LeMetadatarr/media-archivist/tree/0.1.0a2) (2026-05-07)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/a642b6baf3a810e0b51932c563324fc2f5a9ea9c...0.1.0a2)
+
+**Merged pull requests:**
+
+- Configure Renovate [\#1](https://github.com/LeMetadatarr/media-archivist/pull/1) ([renovate[bot]](https://github.com/apps/renovate))
 
 
 
