@@ -1,7 +1,11 @@
 # media_archivist
 
-Cross-source media indexer. Builds a local JSON database of stream metadata
-from YouTube, YouTube Music, Internet Archive, Bandcamp and SoundCloud.
+media_archivist adds remote media as **streams** to your library. It indexes
+YouTube, YouTube Music, Internet Archive, Bandcamp and SoundCloud into a local
+JSON database, exports that index as `.strm` / M3U / RSS for Jellyfin and
+Kodi, and resolves a fresh playable URL for any entry on demand — all
+**without downloading anything**. Downloading is optional and secondary: a
+one-click/one-command action for the rows you actually want on disk.
 
 | Backend | Library | What you can index |
 | --- | --- | --- |
@@ -11,11 +15,11 @@ from YouTube, YouTube Music, Internet Archive, Bandcamp and SoundCloud.
 | **Bandcamp** | [`py_bandcamp`](https://github.com/LeMetadatarr/py_bandcamp) | tracks, albums, artists, tag/search |
 | **SoundCloud** | [`nuvem_de_som`](https://github.com/LeMetadatarr/nuvem_de_som) | tracks, sets, profiles, search |
 
-`media_archivist` is **metadata-only**: it indexes streams. It does not
-download them. Pair it with [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) (or
-SoundCloud's `resolve_stream`, Bandcamp's `track.stream`) for on-demand
-extraction, or use the JSON DB to drive dataset-collection scripts, recommender
-experiments, OVOS skills, etc.
+`media_archivist` does the **streams** job only — index, resolve, play,
+optionally download. It does **not** tag an existing media library; that's
+[`metadatarr`](https://github.com/LeMetadatarr/metadatarr)'s job
+(`metadatarr tag-library`), the cross-source metadata resolver media_archivist
+itself calls into for `canonicalize`.
 
 Ships as a Python library, a `media-archivist` CLI, a JSON HTTP API, and a
 build-free Web UI on top of that API.
@@ -32,8 +36,9 @@ pip install media_archivist[all]         # + huggingface_hub, fastapi, uvicorn (
 ## Web UI
 
 A build-free [htmx](https://htmx.org) Web UI ships with the server, no
-Node, no JS build step. It gives you a dashboard, a library browser, one-click
-archiving with live progress, and a dedup quarantine review queue, all served
+Node, no JS build step. It gives you a dashboard, a paginated library browser
+with an inline player, one-click archiving and downloading with live
+progress, and a dedup quarantine queue with bulk accept/reject, all served
 alongside the existing JSON API.
 
 ![Dashboard](docs/img/dashboard.png)
@@ -53,15 +58,23 @@ docker compose -f deploy/docker-compose.yml up
 A quick tour of the pages:
 
 - **Library** — filter by source, free-text grep, or the `where` DSL, with
-  yes/no stream badges at a glance. The `where` filter is sandboxed: it
-  parses your expression with `ast` and walks a small allow-list of
-  comparisons/booleans, it never calls Python's `eval`.
+  yes/no stream badges at a glance and paginated results ("Showing 1–50 of
+  60" + Prev/Next). The `where` filter is sandboxed: it parses your
+  expression with `ast` and walks a small allow-list of comparisons/booleans,
+  it never calls Python's `eval`.
   ![Library](docs/img/library.png)
+- **Entry detail** — click a row to open the detail drawer: an inline player
+  (native `<audio>`/`<video>` when a direct stream URL is known, a lazy
+  `youtube-nocookie` embed or a "▶ Play (yt-dlp)" button otherwise), an
+  "↻ refresh stream" action for stale URLs, "Open original", full metadata,
+  and, when `yt-dlp` is available, a "⬇ Download" button.
+  ![Entry detail](docs/img/entry-detail.png)
 - **Archive** — kick off a new archive job and watch it progress live, no
   page refresh.
   ![Archive](docs/img/archive.png)
 - **Quarantine** — review dedup conflicts the resolver couldn't confidently
-  match, accept or reject each one.
+  match. Select multiple rows and "Accept selected" / "Reject selected" in
+  one action, or decide row by row.
   ![Quarantine](docs/img/quarantine.png)
 - **Providers** — see which metadatarr providers are active at a glance.
   ![Providers](docs/img/providers.png)
@@ -76,6 +89,46 @@ authentication**. It's single-tenant, LAN-only by design, put it behind a
 reverse proxy if you expose it beyond your local network, see
 [`docs/deploy.md`](docs/deploy.md). Full page-by-page tour:
 [`docs/webui.md`](docs/webui.md).
+
+## Playback: `.strm` + a play-time yt-dlp hook
+
+The point of streaming instead of downloading is that `media-archivist serve`
+can hand Jellyfin/Kodi a URL that **resolves at play time**, not at
+export time — so it survives YouTube CDN URLs expiring. Export `.strm` files
+whose body is `<base_url>/strm/<id>?resolve=1` (or set
+`MEDIA_ARCHIVIST_STRM_RESOLVE=1` on the server so plain `<base_url>/strm/<id>`
+bodies resolve too):
+
+```bash
+media-archivist strm-export --db-file talks.json \
+    --output-dir /var/lib/jellyfin/media/archivist \
+    --base-url http://nas.local:8000
+```
+
+When Jellyfin/ffmpeg opens that URL at playback time, media-archivist
+re-resolves a fresh direct media URL via yt-dlp and replies with a **302
+redirect** to it, no downloading, no Jellyfin plugin needed. Add
+`?mode=proxy` (or `MEDIA_ARCHIVIST_STRM_PROXY=1`) to have media-archivist
+stream the bytes through itself instead of redirecting, for players that
+can't follow redirects or reach the CDN directly. Resolution is
+**source-aware**: Bandcamp and SoundCloud resolve via their own archivist
+libs (no `yt-dlp` needed for those), YouTube (and anything else) goes through
+`yt-dlp`. Full recipe, `.nfo` sidecars, and library layouts:
+[`docs/jellyfin.md`](docs/jellyfin.md).
+
+## Optional download
+
+Streaming is the default; downloading a specific entry to disk is one
+scheduler-backed action away — the "⬇ Download" button in the entry detail
+drawer, or:
+
+```bash
+curl -X POST http://localhost:8000/entries/<id>/download
+```
+
+Files land under `MEDIA_ARCHIVIST_DOWNLOAD_DIR`, progress is tracked the same
+way as archive jobs (poll `GET /tasks/{task_id}`), and the button/endpoint is
+only offered when `yt-dlp` is actually available on the server.
 
 ## CLI
 
@@ -154,7 +207,7 @@ Do not expose port 8000 directly to the internet.
 
 | Endpoint | Purpose |
 | -------- | ------- |
-| `GET /strm/{id}` | Returns playable URL as `text/plain`, drop into `.strm` files for Jellyfin / Kodi. |
+| `GET /strm/{id}` | Playable URL for `.strm` files. Plain `text/plain` by default; `?resolve=1` 302-redirects to a freshly yt-dlp-resolved stream at play time (`?mode=proxy` to proxy the bytes instead). |
 | `GET /m3u` | M3U playlist of stream URLs. Accepts `source`, `where`, `has_stream`, `limit`. |
 | `GET /feed.rss` | RSS feed for podcast clients or Freshrss. Accepts `limit`. |
 | `GET /healthz` | Liveness check for Uptime Kuma, Docker, k8s. Returns `{status, version, db_path}`. |
@@ -163,6 +216,7 @@ Do not expose port 8000 directly to the internet.
 | `GET /quarantine` | List entries the resolver could not confidently match. |
 | `POST /quarantine/{id}/accept` | Accept a quarantined row (optional `?canonical_id=` to link). |
 | `POST /quarantine/{id}/reject` | Reject and force a fresh canonical_id. |
+| `POST /entries/{id}/download` | Optional: enqueue a `yt-dlp` download of one entry to `MEDIA_ARCHIVIST_DOWNLOAD_DIR`. `503` if `yt-dlp` isn't available. |
 | `GET /docs` | Auto-generated OpenAPI / Swagger UI. |
 
 See [`docs/deploy.md`](docs/deploy.md) for the full route table, Systemd
