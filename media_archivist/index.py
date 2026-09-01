@@ -17,6 +17,7 @@ Example::
 from __future__ import annotations
 
 import ast
+import operator
 from pathlib import Path
 from typing import Any, Iterator, List, Optional
 
@@ -30,6 +31,9 @@ _ALLOWED_BOOLOPS = (ast.And, ast.Or)
 _ALLOWED_CMPOPS = (ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE,
                    ast.In, ast.NotIn)
 _ALLOWED_FUNCS = {"len": len, "lower": str.lower, "upper": str.upper}
+_BINOP_FUNCS = {ast.Add: operator.add, ast.Sub: operator.sub,
+                 ast.Mult: operator.mul, ast.Div: operator.truediv,
+                 ast.Mod: operator.mod, ast.FloorDiv: operator.floordiv}
 
 # Upper bound on the number of AST nodes a --where expression may contain.
 # Guards against pathologically deep/wide expressions (parsed once per
@@ -67,9 +71,7 @@ def _eval_node(node: ast.AST, ctx: dict) -> Any:
             # Only plain numeric multiplication is allowed.
             if isinstance(a, (str, bytes, list)) or isinstance(b, (str, bytes, list)):
                 raise WhereError("string/sequence repetition not allowed in --where")
-        ops = {ast.Add: "+", ast.Sub: "-", ast.Mult: "*", ast.Div: "/",
-               ast.Mod: "%", ast.FloorDiv: "//"}
-        return eval(f"a {ops[type(node.op)]} b", {"a": a, "b": b})
+        return _BINOP_FUNCS[type(node.op)](a, b)
     if isinstance(node, ast.Compare):
         left = _eval_node(node.left, ctx)
         for op, comparator in zip(node.ops, node.comparators):
