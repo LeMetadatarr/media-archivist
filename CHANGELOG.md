@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.20.1a1](https://github.com/LeMetadatarr/media-archivist/tree/0.20.1a1) (2026-09-01)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.20.0a1...0.20.1a1)
+
+**Merged pull requests:**
+
+- fix: make database and sidecar writes atomic [\#20](https://github.com/LeMetadatarr/media-archivist/pull/20) ([JarbasAl](https://github.com/JarbasAl))
+- fix: declare httpx in the test extra [\#19](https://github.com/LeMetadatarr/media-archivist/pull/19) ([JarbasAl](https://github.com/JarbasAl))
+- docs: accurate module and CLI inventory in AGENTS.md, guarded by tests [\#18](https://github.com/LeMetadatarr/media-archivist/pull/18) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.20.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.20.0a1) (2026-08-05)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.19.0a1...0.20.0a1)
