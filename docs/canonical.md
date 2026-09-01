@@ -129,5 +129,15 @@ audio track).
   `dedupe` per-source (`--source youtube_music` etc.) instead of
   globally.
 
+## Sidecar consistency
+
+`canonicalize` writes the entity, canonical, and quarantine sidecars and the
+envelope through atomic replaces, in a fixed sidecars-first / envelope-last
+order (see [Crash safety](storage.md#crash-safety)). The envelope is stored
+exactly once per run, after all three sidecars are on disk, so the
+`_meta.canonical_id` stamps — the commit point — can never reference sidecar
+records that failed to persist. A crash mid-run leaves at worst richer sidecars
+than the envelope stamps, which the next run overwrites.
+
 ---
 [← Storage Format](storage.md) · [Home](index.md) · [Disambiguation & External IDs →](disambiguation.md)

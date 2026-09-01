@@ -52,6 +52,33 @@ YoutubeArchivist(db_name="talks")                     # EnvelopeJsonStorageXDG
 The on-disk format is sorted-key indented JSON. Source-faithful raw rows
 mean a `git diff` shows exactly what changed in the upstream metadata, no schema gymnastics.
 
+## Crash safety
+
+Every write of the envelope or a sidecar is atomic. The content is serialised
+into a temporary file in the same directory, flushed to disk, and then
+`os.replace`d onto the destination. Because `os.replace` is atomic on a single
+filesystem, a crash at any instant leaves each file either old-complete or
+new-complete — never truncated or half-written. Serialisation happens before
+the destination is touched, so a payload that fails to serialise raises without
+disturbing the existing file, and the temporary file is always removed on
+failure. The same-directory temp file is required: `os.replace` must not cross
+filesystem boundaries.
+
+Canonicalization writes several files per run — the entity, canonical, and
+quarantine sidecars plus the envelope. It commits them in a fixed order:
+sidecars first, envelope last.
+
+1. `.entities.json`
+2. `.canonical.json`
+3. `.quarantine.json`
+4. the envelope (`_meta.canonical_id` / `_meta.canonical_status` stamps)
+
+The sidecars are derivable annotations keyed by entry id; the envelope stamps
+are the commit point. A crash before the envelope is stored leaves
+stamped-but-richer sidecars that the next run simply overwrites. Because the
+stamps land last, a crash can never leave envelope stamps pointing at sidecar
+records that were never persisted.
+
 ## Concurrency
 
 `json_database` provides per-file locking (`ComboLock`) on the
