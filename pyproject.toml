@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest", "httpx", "fastapi", "uvicorn[standard]", "jinja2", "python-multipart"]
+test = ["pytest", "httpx>=0.28", "fastapi", "uvicorn[standard]", "jinja2", "python-multipart"]
 hub = ["huggingface_hub"]
 server = ["fastapi", "uvicorn[standard]", "jinja2", "python-multipart"]
 ytdlp = ["yt-dlp>=2024.1.0"]
