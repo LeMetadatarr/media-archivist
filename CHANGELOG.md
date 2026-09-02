@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.20.2a1](https://github.com/LeMetadatarr/media-archivist/tree/0.20.2a1) (2026-09-02)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.20.1a1...0.20.2a1)
+
+**Merged pull requests:**
+
+- fix: replace eval-based BinOp dispatch with operator functions [\#17](https://github.com/LeMetadatarr/media-archivist/pull/17) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.20.1a1](https://github.com/LeMetadatarr/media-archivist/tree/0.20.1a1) (2026-09-01)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.20.0a1...0.20.1a1)
