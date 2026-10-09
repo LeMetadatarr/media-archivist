@@ -64,6 +64,23 @@ def _is_music(entry: MediaEntry) -> bool:
     return entry.source in _MUSIC_SOURCES
 
 
+# mediavocab id field -> the scheme name Jellyfin / Kodi read.
+_SCHEME_NAMES = {"tmdb_movie": "tmdb"}
+
+
+def _unique_ids(entry: MediaEntry) -> list[tuple[str, str]]:
+    """``(scheme, value)`` pairs for a ``<movie>`` NFO: the YouTube video id
+    when the entry has one, then every scalar external id (imdb, tmdb, ...)."""
+    ids = []
+    video_id = entry.raw.get("videoId")
+    if entry.source is Source.YOUTUBE and video_id:
+        ids.append(("youtube", str(video_id)))
+    for scheme, value in entry.external_ids.model_dump().items():
+        if isinstance(value, (str, int)) and value != "":
+            ids.append((_SCHEME_NAMES.get(scheme, scheme), str(value)))
+    return ids
+
+
 def nfo_xml(entry: MediaEntry) -> str:
     """Build a well-formed Kodi/Jellyfin-compatible NFO XML string."""
     is_music = _is_music(entry)
@@ -100,12 +117,13 @@ def nfo_xml(entry: MediaEntry) -> str:
         lines.append(_tag("year", year))
 
     if not is_music:
-        for scheme, value in (entry.external_ids.model_dump() or {}).items():
-            if value:
-                lines.append(
-                    f'  <uniqueid type="{escape(str(scheme))}">'
-                    f'{escape(str(value))}</uniqueid>'
-                )
+        for scheme, value in _unique_ids(entry):
+            lines.append(
+                f'  <uniqueid type="{escape(scheme)}">{escape(value)}</uniqueid>'
+            )
+        lines.append(
+            f'  <uniqueid type="media-archivist">{escape(entry.id)}</uniqueid>'
+        )
 
     lines.append(f"</{root}>")
     return "\n".join(lines) + "\n"

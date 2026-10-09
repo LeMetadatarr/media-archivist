@@ -72,6 +72,8 @@ Module inventory below is generated from `git ls-files 'media_archivist/*.py'
 - `media_archivist/discover.py` — content discovery via tutubo's
   content-type-aware search factories.
 - `media_archivist/nfo.py` — Kodi/Jellyfin `.nfo` sidecar generation.
+- `media_archivist/movie_layout.py` — files a download as
+  `Title (Year)/Title (Year).ext` with `movie.nfo` and `poster.<ext>`.
 - `media_archivist/notify.py` — outbound webhook notifications (Discord /
   ntfy / generic JSON).
 - `media_archivist/progress.py` — progress-bar utility shared by every
