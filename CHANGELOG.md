@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.20.2a2](https://github.com/LeMetadatarr/media-archivist/tree/0.20.2a2) (2026-10-09)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.20.2a1...0.20.2a2)
+
+**Merged pull requests:**
+
+- ci: cap httpx below 1 and install the extras the suite needs [\#62](https://github.com/LeMetadatarr/media-archivist/pull/62) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.20.2a1](https://github.com/LeMetadatarr/media-archivist/tree/0.20.2a1) (2026-09-02)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.20.1a1...0.20.2a1)
