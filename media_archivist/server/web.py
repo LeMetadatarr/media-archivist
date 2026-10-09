@@ -211,7 +211,8 @@ def register_web(app, *, db_path: str, templates, scheduler) -> None:
                        error="entry not found", status_code=404)
 
     @app.post("/ui/entries/{entry_id}/download", response_class=HTMLResponse)
-    def entry_download(request: Request, entry_id: str):
+    def entry_download(request: Request, entry_id: str,
+                       format: str = Form("")):
         from media_archivist import streams
 
         if not streams.ytdlp_available():
@@ -223,7 +224,13 @@ def register_web(app, *, db_path: str, templates, scheduler) -> None:
             return _render(request, "fragments/task_status.html",
                            error="entry not found", status_code=404)
         try:
-            task = scheduler.submit(DownloadRequest(entry_id=entry_id))
+            task = scheduler.submit(DownloadRequest(
+                entry_id=entry_id,
+                **({"format": format.strip()} if format.strip() else {}),
+            ))
+        except ValueError as e:
+            return _render(request, "fragments/task_status.html",
+                           error=f"invalid format: {e}", status_code=422)
         except asyncio.QueueFull:
             return _render(request, "fragments/task_status.html",
                            error="download queue full", status_code=429)

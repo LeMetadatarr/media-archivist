@@ -37,6 +37,14 @@ LOG = logging.getLogger("media_archivist.streams")
 _DEFAULT_TIMEOUT = 30.0
 _ENV_DOWNLOAD_DIR = "MEDIA_ARCHIVIST_DOWNLOAD_DIR"
 
+# Best video plus best audio, merged by ffmpeg; the single best pre-merged
+# stream when the source offers no separate ones. YouTube offers only
+# separate streams, so yt-dlp's "best" selector matches nothing there.
+DEFAULT_DOWNLOAD_FORMAT = "bv*+ba/b"
+# Without ffmpeg yt-dlp rejects a merging selector before it reaches the
+# "/b" alternative, so such hosts get the single best stream.
+NO_FFMPEG_DOWNLOAD_FORMAT = "b"
+
 
 class StreamResolveError(MediaArchivistError):
     """Raised when a fresh direct stream URL could not be resolved."""
@@ -369,13 +377,32 @@ def list_playlist(url: str, *, timeout: float = 120.0) -> Dict[str, Any]:
         raise StreamResolveError(f"yt-dlp binary could not list {url}: {e}") from e
 
 
-def download(url: str, dest_dir: str, *, format: str = "best",
+
+def ffmpeg_available() -> bool:
+    """True when ffmpeg can merge streams (yt-dlp's own check, else ``PATH``)."""
+    yt_dlp = _import_yt_dlp()
+    if yt_dlp is not None:
+        try:
+            from yt_dlp.postprocessor import FFmpegMergerPP
+            return bool(FFmpegMergerPP().available)
+        except Exception:
+            pass
+    return shutil.which("ffmpeg") is not None
+
+
+def default_download_format() -> str:
+    """The selector used when the caller names none."""
+    return DEFAULT_DOWNLOAD_FORMAT if ffmpeg_available() else NO_FFMPEG_DOWNLOAD_FORMAT
+
+
+def download(url: str, dest_dir: str, *, format: Optional[str] = None,
              progress_hook: Optional[Callable[[dict], None]] = None,
              timeout: Optional[float] = None) -> Path:
     """Download ``url`` into ``dest_dir``; return the final file path.
 
     Prefers the ``yt_dlp`` Python API (so ``progress_hook`` gets live
-    ``%``); falls back to the ``yt-dlp`` binary on ``PATH``.
+    ``%``); falls back to the ``yt-dlp`` binary on ``PATH``. ``format`` is
+    passed to yt-dlp unchanged; ``None`` picks :func:`default_download_format`.
     """
     try:
         _require_http(url)
@@ -383,6 +410,8 @@ def download(url: str, dest_dir: str, *, format: str = "best",
         raise StreamDownloadError(str(e)) from e
     dest = Path(dest_dir).expanduser()
     dest.mkdir(parents=True, exist_ok=True)
+    if format is None:
+        format = default_download_format()
 
     yt_dlp = _import_yt_dlp()
     if yt_dlp is not None:
@@ -419,7 +448,11 @@ def _download_via_python(url: str, dest: Path, format: str,
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=True)
-            filepath = result_path["path"]
+            # A merged download fires "finished" once per stream, so the hook
+            # holds the last part file; yt-dlp records the merged file here.
+            requested = (info or {}).get("requested_downloads") or []
+            filepath = (requested[0].get("filepath") if requested else None) \
+                or result_path["path"]
             if not filepath:
                 filepath = ydl.prepare_filename(info)
     except Exception as e:

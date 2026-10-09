@@ -300,7 +300,7 @@ def test_cli_download_parses_and_calls_streams(tmp_path, capsys):
 
     out_dir = tmp_path / "dl"
 
-    def fake_download(url, dest_dir, *, format="best", progress_hook=None, timeout=None):
+    def fake_download(url, dest_dir, *, format=None, progress_hook=None, timeout=None):
         return tmp_path / "file.mp4"
 
     with patch("media_archivist.commands.streams._streams.download",
@@ -313,6 +313,6 @@ def test_cli_download_parses_and_calls_streams(tmp_path, capsys):
     assert rc == 0
     dl_mock.assert_called_once()
     call_kwargs = dl_mock.call_args.kwargs
-    assert call_kwargs["format"] == "best"
+    assert call_kwargs["format"] is None
     printed = capsys.readouterr().out
     assert "file.mp4" in printed

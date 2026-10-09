@@ -64,6 +64,7 @@ from media_archivist.models.api import (
     CollectionEntriesResponse,
     CollectionInfo,
     CollectionListResponse,
+    DownloadOptions,
     DownloadRequest,
     EntryListResponse,
     HealthResponse,
@@ -288,7 +289,8 @@ def register_routes(app, *, db_path: str) -> Scheduler:
             raise HTTPException(status_code=429, detail="archive queue full") from None
 
     @app.post("/entries/{entry_id}/download", response_model=Task)
-    def submit_download(entry_id: str) -> Task:
+    def submit_download(entry_id: str, options: Optional[DownloadOptions] = None) -> Task:
+        """Queue a download; the optional body picks the yt-dlp ``format``."""
         from media_archivist import streams
 
         if not streams.ytdlp_available():
@@ -300,7 +302,10 @@ def register_routes(app, *, db_path: str) -> Scheduler:
         if idx.get(entry_id) is None:
             raise HTTPException(status_code=404, detail="entry not found")
         try:
-            return scheduler.submit(DownloadRequest(entry_id=entry_id))
+            return scheduler.submit(DownloadRequest(
+                entry_id=entry_id,
+                **(options.model_dump() if options else {}),
+            ))
         except asyncio.QueueFull:
             raise HTTPException(status_code=429, detail="download queue full") from None
 
