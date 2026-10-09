@@ -90,6 +90,7 @@ Once the service is up, three endpoints connect it to the rest of your stack:
 | `POST` | `/archive`           | Enqueue an archive task. Returns a `Task`. |
 | `POST` | `/entries/{id}/download` | Enqueue an optional download of one entry via `yt-dlp` to `MEDIA_ARCHIVIST_DOWNLOAD_DIR`. Optional JSON body `{"format": "<yt-dlp selector>"}` (default `bv*+ba/b`, or `b` when ffmpeg is not installed). Returns a `Task`. `503` if `yt-dlp` isn't available. |
 | `GET`  | `/tasks/{id}`        | Task progress (`queued`, `running`, `ok`, `error`). |
+| `GET`  | `/tasks`             | Task counts per status: `{"queued": 0, "running": 1, "ok": 12, "error": 2, "total": 15}`. |
 | `GET`  | `/feed.rss`          | RSS feed of recently-added entries. |
 | `GET`  | `/m3u`               | M3U playlist of stream URLs. |
 | `GET`  | `/stats`             | Source mix, canonical / quarantined counts. |
