@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.21.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.21.0a1) (2026-10-09)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.20.4a1...0.21.0a1)
+
+**Merged pull requests:**
+
+- feat: add GET /tasks with task counts per status [\#61](https://github.com/LeMetadatarr/media-archivist/pull/61) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.20.4a1](https://github.com/LeMetadatarr/media-archivist/tree/0.20.4a1) (2026-10-09)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.20.3a1...0.20.4a1)
