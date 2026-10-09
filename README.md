@@ -1,40 +1,145 @@
 # media_archivist
 
-Cross-source media indexer. Builds a local JSON database of stream metadata
-from YouTube, YouTube Music, Internet Archive, Bandcamp and SoundCloud.
+media_archivist adds remote media as **streams** to your library. It indexes
+YouTube, YouTube Music, Internet Archive, Bandcamp and SoundCloud into a local
+JSON database, exports that index as `.strm` / M3U / RSS for Jellyfin and
+Kodi, and resolves a fresh playable URL for any entry on demand — all
+**without downloading anything**. Downloading is optional and secondary: a
+one-click/one-command action for the rows you actually want on disk.
 
 | Backend | Library | What you can index |
 | --- | --- | --- |
-| **YouTube** | [`tutubo`](https://github.com/OpenJarbas/tutubo) | channels, playlists, videos (no API key) |
+| **YouTube** | [`tutubo`](https://github.com/LeMetadatarr/tutubo) | channels, playlists, videos (no API key) |
 | **YouTube Music** | `tutubo.ytmus` (via `ytmusicapi`) | tracks, albums, artists, playlists |
 | **Internet Archive** | `internetarchive` | items, collections |
-| **Bandcamp** | [`py_bandcamp`](https://github.com/JarbasAl/py_bandcamp) | tracks, albums, artists, tag/search |
-| **SoundCloud** | [`nuvem_de_som`](https://github.com/JarbasAl/nuvem_de_som) | tracks, sets, profiles, search |
+| **Bandcamp** | [`py_bandcamp`](https://github.com/LeMetadatarr/py_bandcamp) | tracks, albums, artists, tag/search |
+| **SoundCloud** | [`nuvem_de_som`](https://github.com/LeMetadatarr/nuvem_de_som) | tracks, sets, profiles, search |
 
-`media_archivist` is **metadata-only**: it indexes streams; it does not
-download them. Pair it with [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) (or
-SoundCloud's `resolve_stream`, Bandcamp's `track.stream`) for on-demand
-extraction, or use the JSON DB to drive dataset-collection scripts, recommender
-experiments, OVOS skills, etc.
+`media_archivist` does the **streams** job only — index, resolve, play,
+optionally download. It does **not** tag an existing media library; that's
+[`metadatarr`](https://github.com/LeMetadatarr/metadatarr)'s job
+(`metadatarr tag-library`), the cross-source metadata resolver media_archivist
+itself calls into for `canonicalize`.
 
-Ships as both a Python library and a `media-archivist` CLI.
+Ships as a Python library, a `media-archivist` CLI, a JSON HTTP API, and a
+build-free Web UI on top of that API.
 
 ## Install
 
 ```bash
-pip install media_archivist                 # core (YouTube + IA + YT Music)
-pip install media_archivist[bandcamp]       # + py_bandcamp
-pip install media_archivist[soundcloud]     # + nuvem_de_som
-pip install media_archivist[all]            # everything
+pip install media_archivist              # core (YouTube + IA + YT Music)
+pip install media_archivist py_bandcamp  # + Bandcamp
+pip install media_archivist nuvem_de_som # + SoundCloud
+pip install media_archivist[all]         # + huggingface_hub, fastapi, uvicorn (hub publishing, HTTP service)
 ```
+
+## Web UI
+
+A build-free [htmx](https://htmx.org) Web UI ships with the server, no
+Node, no JS build step. It gives you a dashboard, a paginated library browser
+with an inline player, one-click archiving and downloading with live
+progress, and a dedup quarantine queue with bulk accept/reject, all served
+alongside the existing JSON API.
+
+![Dashboard](docs/img/dashboard.png)
+
+```bash
+pip install "media-archivist[server]"
+media-archivist serve --db-file talks.json
+# open http://localhost:8000/
+```
+
+Or via Docker (already documented in [`docs/deploy.md`](docs/deploy.md)):
+
+```bash
+docker compose -f deploy/docker-compose.yml up
+```
+
+A quick tour of the pages:
+
+- **Library** — filter by source, free-text grep, or the `where` DSL, with
+  yes/no stream badges at a glance and paginated results ("Showing 1–50 of
+  60" + Prev/Next). The `where` filter is sandboxed: it parses your
+  expression with `ast` and walks a small allow-list of comparisons/booleans,
+  it never calls Python's `eval`.
+  ![Library](docs/img/library.png)
+- **Entry detail** — click a row to open the detail drawer: an inline player
+  (native `<audio>`/`<video>` when a direct stream URL is known, a lazy
+  `youtube-nocookie` embed or a "▶ Play (yt-dlp)" button otherwise), an
+  "↻ refresh stream" action for stale URLs, "Open original", full metadata,
+  and, when `yt-dlp` is available, a "⬇ Download" button.
+  ![Entry detail](docs/img/entry-detail.png)
+- **Archive** — kick off a new archive job and watch it progress live, no
+  page refresh.
+  ![Archive](docs/img/archive.png)
+- **Quarantine** — review dedup conflicts the resolver couldn't confidently
+  match. Select multiple rows and "Accept selected" / "Reject selected" in
+  one action, or decide row by row.
+  ![Quarantine](docs/img/quarantine.png)
+- **Subscriptions** — remember a channel/playlist/collection URL and "Sync
+  now" re-archives every one of them; the backend's `archive()` dedupes on
+  its own, so only genuinely new uploads land in the library.
+- **Providers** — see which metadatarr providers are active at a glance.
+  ![Providers](docs/img/providers.png)
+
+It's responsive and themeable (dark/light), the same UI works fine on a
+phone from your homelab network:
+
+![Mobile](docs/img/mobile.png)
+
+Like the rest of the HTTP service, the Web UI ships with **no built-in
+authentication**. It's single-tenant, LAN-only by design, put it behind a
+reverse proxy if you expose it beyond your local network, see
+[`docs/deploy.md`](docs/deploy.md). Full page-by-page tour:
+[`docs/webui.md`](docs/webui.md).
+
+## Playback: `.strm` + a play-time yt-dlp hook
+
+The point of streaming instead of downloading is that `media-archivist serve`
+can hand Jellyfin/Kodi a URL that **resolves at play time**, not at
+export time — so it survives YouTube CDN URLs expiring. Export `.strm` files
+whose body is `<base_url>/strm/<id>?resolve=1` (or set
+`MEDIA_ARCHIVIST_STRM_RESOLVE=1` on the server so plain `<base_url>/strm/<id>`
+bodies resolve too):
+
+```bash
+media-archivist strm-export --db-file talks.json \
+    --output-dir /var/lib/jellyfin/media/archivist \
+    --base-url http://nas.local:8000
+```
+
+When Jellyfin/ffmpeg opens that URL at playback time, media-archivist
+re-resolves a fresh direct media URL via yt-dlp and replies with a **302
+redirect** to it, no downloading, no Jellyfin plugin needed. Add
+`?mode=proxy` (or `MEDIA_ARCHIVIST_STRM_PROXY=1`) to have media-archivist
+stream the bytes through itself instead of redirecting, for players that
+can't follow redirects or reach the CDN directly. Resolution is
+**source-aware**: Bandcamp and SoundCloud resolve via their own archivist
+libs (no `yt-dlp` needed for those), YouTube (and anything else) goes through
+`yt-dlp`. Full recipe, `.nfo` sidecars, and library layouts:
+[`docs/jellyfin.md`](docs/jellyfin.md).
+
+## Optional download
+
+Streaming is the default; downloading a specific entry to disk is one
+scheduler-backed action away — the "⬇ Download" button in the entry detail
+drawer, or:
+
+```bash
+curl -X POST http://localhost:8000/entries/<id>/download
+```
+
+Files land under `MEDIA_ARCHIVIST_DOWNLOAD_DIR`, progress is tracked the same
+way as archive jobs (poll `GET /tasks/{task_id}`), and the button/endpoint is
+only offered when `yt-dlp` is actually available on the server.
 
 ## CLI
 
 Every subcommand takes either:
 
-- `--db-file PATH` — explicit path to a `.json` file (recommended for datasets
+- `--db-file PATH`, explicit path to a `.json` file (recommended for datasets
   you want to commit alongside scripts), **or**
-- `--db NAME` — auto-place under XDG at `~/.local/share/media_archivist/<NAME>.json`.
+- `--db NAME`, auto-place under XDG at `~/.local/share/media_archivist/<NAME>.json`.
 
 ```bash
 # Index a channel, a playlist, or individual videos
@@ -47,7 +152,7 @@ media-archivist list  --db-file talks.json --limit 20
 media-archivist list  --db-file talks.json --grep "review" --json
 media-archivist stats --db-file talks.json
 
-# Pair with yt-dlp — index once, download on demand
+# Pair with yt-dlp, index once, download on demand
 media-archivist urls --db-file talks.json --grep "tutorial" | yt-dlp -a -
 
 # Drop dead videos / unwanted titles
@@ -58,21 +163,44 @@ media-archivist monitor --db-file talks.json --interval 600 \
     https://www.youtube.com/@LinusTechTips \
     https://www.youtube.com/@SomeOtherChannel
 
+# Subscriptions: remember a channel/playlist/collection so new uploads keep
+# getting auto-indexed, without re-typing every URL each run
+media-archivist subscribe --db-file talks.json https://www.youtube.com/@LinusTechTips
+media-archivist subscribe --db-file talks.json --backend ia --label "Cartoons" \
+    https://archive.org/details/classic_cartoons
+# --download flags a subscription to always download newly-indexed items
+media-archivist subscribe --db-file talks.json --download \
+    https://www.youtube.com/@SomeArtist
+media-archivist subscriptions --db-file talks.json
+media-archivist sync-subscriptions --db-file talks.json   # archive() dedupes; only new uploads land
+media-archivist unsubscribe --db-file talks.json https://www.youtube.com/@LinusTechTips
+
+# Periodic auto-sync: keep re-running sync-subscriptions forever, on an
+# interval, indexing (and optionally downloading) new uploads as they show
+# up. This is a foreground daemon (Ctrl-C to stop) — run it under
+# systemd/docker for unattended "curate once, keep growing" operation:
+#   systemd: ExecStart=media-archivist sync-subscriptions --db-file talks.json --interval 3600 --download
+#   docker:  CMD ["media-archivist", "sync-subscriptions", "--db-file", "/data/talks.json", "--interval", "3600"]
+media-archivist sync-subscriptions --db-file talks.json --interval 3600
+# --download (with --interval or alone) downloads every newly-indexed item
+# this run, in addition to any subscription's own --download flag
+media-archivist sync-subscriptions --db-file talks.json --download
+
 # Internet Archive
 media-archivist add --db-file ia_movies.json --ia classic_cartoons
 media-archivist urls --db-file ia_movies.json | xargs -n1 -P4 wget
 
-# YouTube Music — rich track metadata (artist, album, year, duration, explicit)
+# YouTube Music, rich track metadata (artist, album, year, duration, explicit)
 media-archivist add --db-file songs.json --music --skip-explicit "lo-fi beats"
 media-archivist add --db-file songs.json --music \
     "https://music.youtube.com/playlist?list=PL..."
 
-# Bandcamp — tracks have direct stream URLs in the entry
+# Bandcamp, tracks have direct stream URLs in the entry
 media-archivist add --db-file bandcamp.json --bandcamp \
     "https://artistname.bandcamp.com/album/some-album"
 media-archivist add --db-file bandcamp.json --bandcamp "ambient drone"
 
-# SoundCloud — search, profile, or set URLs
+# SoundCloud, search, profile, or set URLs
 media-archivist add --db-file sc.json --soundcloud \
     "https://soundcloud.com/some-artist"
 media-archivist add --db-file sc.json --soundcloud "footwork"
@@ -82,13 +210,74 @@ Pick the backend with `--ia`, `--music`, `--bandcamp`, or `--soundcloud`
 (default: YouTube). Every other subcommand (`list`, `export`, `urls`, `prune`,
 `merge`, `stats`, …) works the same way against any backend's DB.
 
-DBs are plain JSON — edit, back up, version-control, share. With `--db NAME` the
+DBs are plain JSON, edit, back up, version-control, share. With `--db NAME` the
 file is managed under XDG via
-[`json_database`](https://github.com/OpenJarbas/json_database).
+[`json_database`](https://github.com/TigreGotico/json_database).
+
+## Notifications
+
+Get pinged — Discord, [ntfy](https://ntfy.sh), [Apprise](https://github.com/caronc/apprise),
+or any generic webhook receiver — when new items get archived, a download
+completes or fails, or a subscription sync adds items.
+
+Set `MEDIA_ARCHIVIST_WEBHOOK_URL` to your webhook URL. The shape of the POST
+body is picked automatically from the URL:
+
+- a Discord webhook URL (`.../api/webhooks/...`) gets `{"content": "..."}`
+- an `ntfy.sh` URL (or setting `MEDIA_ARCHIVIST_NTFY_TOPIC`) gets ntfy's
+  `{"message": ..., "title": ..., "topic": ...}` shape
+- anything else gets a generic `{"event": ..., "message": ..., "data": {...}}`
+  JSON body — point Apprise, n8n, or your own receiver at it
+
+```shell
+export MEDIA_ARCHIVIST_WEBHOOK_URL="https://discord.com/api/webhooks/XXX/YYY"
+media-archivist notify-test   # send a test notification, verify delivery
+media-archivist notify-test --message "custom test message"
+```
+
+A webhook failure (unreachable host, non-2xx response, timeout) is logged as
+a warning and never breaks archiving, downloading, or syncing — notifications
+are a side channel, not a dependency. No webhook configured is a silent
+no-op.
+
+## Homelab / HTTP service
+
+`media-archivist serve` exposes a FastAPI HTTP API on port 8000. The Docker
+image includes `yt-dlp` and stores everything under `/data`.
+
+```bash
+# One command brings up the service with a persistent named volume,
+# automatic restart-on-reboot, and a /healthz healthcheck.
+docker compose -f deploy/docker-compose.yml up -d
+```
+
+The service is **single-tenant, no authentication**. It is designed to run
+on your LAN or behind your existing reverse proxy (Caddy, Traefik, nginx).
+Do not expose port 8000 directly to the internet.
+
+### Integration endpoints
+
+| Endpoint | Purpose |
+| -------- | ------- |
+| `GET /strm/{id}` | Playable URL for `.strm` files. Plain `text/plain` by default; `?resolve=1` 302-redirects to a freshly yt-dlp-resolved stream at play time (`?mode=proxy` to proxy the bytes instead). |
+| `GET /m3u` | M3U playlist of stream URLs. Accepts `source`, `where`, `has_stream`, `limit`. |
+| `GET /feed.rss` | RSS feed for podcast clients or Freshrss. Accepts `limit`. |
+| `GET /healthz` | Liveness check for Uptime Kuma, Docker, k8s. Returns `{status, version, db_path}`. |
+| `GET /providers` | Inspect which metadatarr providers are active (`available`, `media`, `modality`, `genre_filter`). |
+| `POST /canonicalize` | Run the resolver against the DB. Body: `{providers?, stamp_rows?, max_workers?}`. |
+| `GET /quarantine` | List entries the resolver could not confidently match. |
+| `POST /quarantine/{id}/accept` | Accept a quarantined row (optional `?canonical_id=` to link). |
+| `POST /quarantine/{id}/reject` | Reject and force a fresh canonical_id. |
+| `POST /entries/{id}/download` | Optional: enqueue a `yt-dlp` download of one entry to `MEDIA_ARCHIVIST_DOWNLOAD_DIR`. `503` if `yt-dlp` isn't available. |
+| `GET /docs` | Auto-generated OpenAPI / Swagger UI. |
+
+See [`docs/deploy.md`](docs/deploy.md) for the full route table, Systemd
+unit, and reverse-proxy tips. For Jellyfin `.strm` export see
+[`docs/jellyfin.md`](docs/jellyfin.md).
 
 ## Building datasets
 
-`media_archivist` is metadata-only: it indexes streams; downloads happen on
+`media_archivist` is metadata-only: it indexes streams. Downloads happen on
 demand via `yt-dlp` (or any other tool that reads URLs). The `export`,
 `import`, `merge`, and `stats` subcommands turn the JSON DB into a workable
 dataset.
@@ -130,7 +319,7 @@ media-archivist import --db-file talks.json talks.jsonl --overwrite
 | --- | --- |
 | `jsonl` *(default)* | streaming pipelines, HuggingFace `datasets`, `jq` |
 | `json` | small datasets, human inspection |
-| `csv` | pandas, spreadsheets — list/dict fields auto-serialized to JSON strings |
+| `csv` | pandas, spreadsheets, list/dict fields auto-serialized to JSON strings |
 | `txt` | flat URL list for `yt-dlp -a -` / `wget -i` / `xargs` |
 
 Combine with `--fields` to project only what you need, `--grep` to filter by
@@ -158,7 +347,7 @@ archivist = YoutubeArchivist(
     required_kwords=[],           # all must appear in the title
 )
 
-# Channel — handles /channel/, /c/, /@handle, /user/
+# Channel, handles /channel/, /c/, /@handle, /user/
 archivist.archive("https://www.youtube.com/@LinusTechTips")
 
 # Playlist
@@ -179,7 +368,7 @@ for entry in archivist.sorted_entries():
 
 > **Note on duration:** tutubo's bare `Channel.videos` / `Playlist.videos`
 > iterators don't expose track length, so `--min-duration` is a no-op for
-> plain channel scrapes. It **does** apply when length is available — i.e.
+> plain channel scrapes. It **does** apply when length is available, i.e.
 > with `--music` (YT Music tracks), `--bandcamp`, `--soundcloud`, `--ia`,
 > and YouTube search-result previews. `published` is a relative string
 > ("2 days ago") rather than a timestamp.
@@ -196,7 +385,7 @@ mon.sync("https://www.youtube.com/@SomeOtherChannel")  # one-shot
 ```
 
 `YoutubeMonitor.bootstrap_from_url(url)` seeds an empty database from a remote
-JSON dump — handy for distributing pre-built indexes.
+JSON dump, handy for distributing pre-built indexes.
 
 ## YouTube Music (library)
 
@@ -258,16 +447,16 @@ Stream URLs are filtered to formats in `IAArchivist.VALID_FORMATS`
 
 All archivists inherit from `JsonArchivist`:
 
-- `remove_keyword(kwords)` — drop entries whose title matches any keyword
-- `remove_missing(keys)` — drop entries missing any of the given fields
-- `remove_below_duration(minutes)` — drop entries shorter than N minutes
-- `sorted_entries()` — entries sorted by `upload_ts` (descending)
+- `remove_keyword(kwords)`, drop entries whose title matches any keyword
+- `remove_missing(keys)`, drop entries missing any of the given fields
+- `remove_below_duration(minutes)`, drop entries shorter than N minutes
+- `sorted_entries()`, entries sorted by `upload_ts` (descending)
 
 ## Metadata providers
 
 `media-archivist canonicalize` enriches indexed entries with external IDs
 and structured metadata via the cross-source resolver in
-[`metadatarr`](https://github.com/TigreGotico/metadatarr). The provider
+[`metadatarr`](https://github.com/LeMetadatarr/metadatarr). The provider
 registry, dispatcher, and ~24 built-in providers (MusicBrainz, Wikidata,
 TMDB, AniList, Jikan, Google Books, LibriVox, Apple Podcasts, *arr family,
 Discogs, Blu-ray.com, DVDCompare, OpenLibrary, Anna's Archive, Bandcamp,
@@ -275,14 +464,22 @@ SoundCloud, YouTube / YouTube Music, Metal Archives, …) all live in
 metadatarr and self-register on import. See
 [`docs/metadatarr.md`](docs/metadatarr.md) for the full table.
 
-All resolver providers — including `metal_archives` — live in metadatarr.
-There are no media-archivist-specific resolver providers.
-
 The resolver gates providers on three independent axes: `media` (MediaType),
-`modality` (PlaybackModality — AUDIO / VIDEO / TEXT / INTERACTIVE / UNKNOWN),
+`modality` (PlaybackModality, AUDIO / VIDEO / TEXT / INTERACTIVE / UNKNOWN),
 and `genre_filter` (genre tag set). Callers constructing `Signals` directly can
 pass `modality=PlaybackModality.AUDIO` to restrict resolution to audio-only
 providers. See [`docs/metadatarr.md`](docs/metadatarr.md#routing) for details.
+
+## Related projects
+
+- [`metadatarr`](https://github.com/LeMetadatarr/metadatarr), the cross-source
+  metadata resolver used by `canonicalize`
+- [`tutubo`](https://github.com/LeMetadatarr/tutubo), the YouTube / YouTube
+  Music client backing the YouTube backends
+- [`py_bandcamp`](https://github.com/LeMetadatarr/py_bandcamp), the Bandcamp
+  client backing the Bandcamp backend
+- [`nuvem_de_som`](https://github.com/LeMetadatarr/nuvem_de_som), the
+  SoundCloud client backing the SoundCloud backend
 
 ## License
 

@@ -1,0 +1,125 @@
+{
+ "id": "PLrEnWoR732-BHrPp_Pm8_VleD68f9s14-",
+ "title": "Popular Right Now",
+ "availability": "unlisted",
+ "channel_follower_count": null,
+ "description": "",
+ "tags": [],
+ "thumbnails": [
+  {
+   "url": "https://i.ytimg.com/vi/ftaXMKV3ffE/hqdefault.jpg?sqp=-oaymwEWCKgBEF5IWvKriqkDCQgBFQAAiEIYAQ==&rs=AOn4CLA4kyvr0irtrI1ovw9vHIeHpWNSAA",
+   "height": 94,
+   "width": 168,
+   "id": "0",
+   "resolution": "168x94"
+  }
+ ],
+ "modified_date": "20250805",
+ "view_count": 334402118,
+ "playlist_count": 198,
+ "channel": null,
+ "channel_id": null,
+ "uploader_id": null,
+ "uploader": null,
+ "channel_url": null,
+ "uploader_url": null,
+ "_type": "playlist",
+ "entries": [
+  {
+   "title": "\"BACKR00MS\" FT TRAVIS SCOTT SEXISDEATH INDIANA420BITCH",
+   "thumbnails": [
+    {
+     "url": "https://i.ytimg.com/vi/ftaXMKV3ffE/hqdefault.jpg?sqp=-oaymwEbCKgBEF5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLANhwO4WSnvlM044fTDqxWzO8b_Aw",
+     "height": 94,
+     "width": 168
+    }
+   ],
+   "duration": 161,
+   "view_count": 51000000,
+   "timestamp": null,
+   "live_status": null,
+   "availability": null,
+   "channel_url": "https://www.youtube.com/channel/UC652oRUvX1onwrrZ8ADJRPw",
+   "uploader_url": null,
+   "creators": null,
+   "channel": "Playboi Carti",
+   "channel_id": "UC652oRUvX1onwrrZ8ADJRPw",
+   "uploader": "Playboi Carti",
+   "ie_key": "Youtube",
+   "id": "ftaXMKV3ffE",
+   "_type": "url",
+   "url": "https://www.youtube.com/watch?v=ftaXMKV3ffE"
+  },
+  {
+   "title": "Rose Bowl: Alabama Crimson Tide vs. Michigan Wolverines | Full Game Highlights | CFB Semifinal",
+   "thumbnails": [
+    {
+     "url": "https://i.ytimg.com/vi/lO38tZoA0l8/hqdefault.jpg?sqp=-oaymwEbCKgBEF5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLCU7sQCBANP9S2mUBHpDrELlgi7fQ",
+     "height": 94,
+     "width": 168
+    }
+   ],
+   "duration": 1262,
+   "view_count": 5100000,
+   "timestamp": null,
+   "live_status": null,
+   "availability": null,
+   "channel_url": "https://www.youtube.com/channel/UCzRWWsFjqHk1an4OnVPsl9g",
+   "uploader_url": "https://www.youtube.com/@espncfb",
+   "creators": null,
+   "channel": "ESPN College Football",
+   "channel_id": "UCzRWWsFjqHk1an4OnVPsl9g",
+   "uploader": "ESPN College Football",
+   "uploader_id": "@espncfb",
+   "ie_key": "Youtube",
+   "id": "lO38tZoA0l8",
+   "_type": "url",
+   "url": "https://www.youtube.com/watch?v=lO38tZoA0l8"
+  },
+  {
+   "title": "New Year’s countdown 2024: Watch the New York ball drop",
+   "thumbnails": [
+    {
+     "url": "https://i.ytimg.com/vi/aSZt3WC1vB4/hqdefault.jpg?sqp=-oaymwEbCKgBEF5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLDrXZ6ZhzYbm8rfl380d3_m8cLq6g",
+     "height": 94,
+     "width": 168
+    }
+   ],
+   "duration": 843,
+   "view_count": 6100000,
+   "timestamp": null,
+   "live_status": "was_live",
+   "availability": null,
+   "channel_url": "https://www.youtube.com/channel/UC52X5wxOL_s5yw0dQk7NtgA",
+   "uploader_url": "https://www.youtube.com/@AssociatedPress",
+   "creators": null,
+   "channel": "Associated Press",
+   "channel_id": "UC52X5wxOL_s5yw0dQk7NtgA",
+   "uploader": "Associated Press",
+   "uploader_id": "@AssociatedPress",
+   "ie_key": "Youtube",
+   "id": "aSZt3WC1vB4",
+   "_type": "url",
+   "url": "https://www.youtube.com/watch?v=aSZt3WC1vB4"
+  }
+ ],
+ "extractor_key": "YoutubeTab",
+ "extractor": "youtube:tab",
+ "webpage_url": "https://www.youtube.com/playlist?list=PLrEnWoR732-BHrPp_Pm8_VleD68f9s14-",
+ "original_url": "https://www.youtube.com/playlist?list=PLrEnWoR732-BHrPp_Pm8_VleD68f9s14-",
+ "webpage_url_basename": "playlist",
+ "webpage_url_domain": "youtube.com",
+ "release_year": null,
+ "requested_entries": [
+  1,
+  2,
+  3
+ ],
+ "epoch": 1791519013,
+ "_version": {
+  "version": "2026.08.19",
+  "current_git_head": null,
+  "release_git_head": "594bd50c2c78ac432f81600d309fdc4e0a92d82c",
+  "repository": "yt-dlp/yt-dlp"
+ }
+}

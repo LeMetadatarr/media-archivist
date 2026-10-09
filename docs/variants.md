@@ -5,7 +5,7 @@ differs in content, mastering, regional licensing, or community modification.
 Examples: a director's cut, a deluxe album edition, a regional pressing, a
 fanedit, an upscaled remaster.
 
-`media_archivist` models variants as first-class `EntityKind.RELEASE` entities
+`media_archivist` models variants as separately tracked `EntityKind.RELEASE` entities
 and exposes the disambiguation signals needed to tell them apart.
 
 ## `VariantKind` enum
@@ -40,10 +40,10 @@ Values are grouped by the medium they typically apply to:
 | Value       | Meaning                                                |
 | ----------- | ------------------------------------------------------ |
 | `regional`  | Region-specific release (different track list or cut). |
-| `remastered`| Remastered audio or video; same content, new transfer. |
+| `remastered`| Remastered audio or video. Same content, new transfer. |
 | `other`     | Any variant not covered above.                         |
 
-## New `Signals` fields
+## `Signals` fields
 
 `mediavocab.Signals`
 
@@ -53,27 +53,27 @@ Values are grouped by the medium they typically apply to:
 | `edition`          | `Optional[str]`           | `None`   | Free-text edition name, e.g. `"Criterion Collection"`.                   |
 | `region`           | `Optional[str]`           | `None`   | ISO 3166-1 alpha-2 release region (not origin country).                  |
 | `source_format`    | `Optional[str]`           | `None`   | Physical or digital format: `"4K"`, `"Blu-ray"`, `"Vinyl"`, `"SACD"`. |
-| `include_variants` | `bool`                    | `False`  | Fan-out flag — when `True`, variant-aware providers call `list_variants()`. |
+| `include_variants` | `bool`                    | `False`  | Fan-out flag, when `True`, variant-aware providers call `list_variants()`. |
 
 ### Comparison behaviour
 
-`compare()` — treats all four
+`compare()`, treats all four
 descriptive fields as exact matches (case-insensitive). An absent value on
-either side is not a disagreement; two present values that differ produce a
+either side is not a disagreement. Two present values that differ produce a
 `SignalConflict`.
 
-`signal_hash()` — includes all four
+`signal_hash()`, includes all four
 fields so different variants of the same work get different canonical IDs.
 
-`merged()` — first non-`None` value
+`merged()`, first non-`None` value
 wins per field. `include_variants` is ORed across all bags.
 
-`include_variants` does **not** participate in comparison or hashing; it is a
+`include_variants` does **not** participate in comparison or hashing. It is a
 fan-out control flag, not a disambiguating signal.
 
 ## `EntityKind.RELEASE`
 
-`metadatarr.resolve.entities.EntityKind.RELEASE` — `metadatarr/resolve/entities.py`
+`metadatarr.resolve.entities.EntityKind.RELEASE`, `metadatarr/resolve/entities.py`
 
 A `RELEASE` entity represents a specific physical or digital release of a work:
 a particular MusicBrainz release (not just the release group), a Discogs
@@ -81,12 +81,12 @@ pressing, or a fanedit registered on IFDB. It differs from `ALBUM`, which maps
 to a *release group* (the abstract work), not any single pressing.
 
 The dominant external id for `RELEASE` is resolved in
-`_dominant_external_id()` — `metadatarr/resolve/entities.py`:
+`_dominant_external_id()`, `metadatarr/resolve/entities.py`:
 
 1. `musicbrainz_release` (MusicBrainz release MBID)
-2. `fanedit_id` (IFDB WordPress post ID) — used when no MB release exists
+2. `fanedit_id` (IFDB WordPress post ID), used when no MB release exists
 
-## New `ExternalIds` fields
+## `ExternalIds` fields
 
 `mediavocab.ExternalIds`
 
@@ -100,7 +100,7 @@ The dominant external id for `RELEASE` is resolved in
 
 ## `MetadataProvider.list_variants()`
 
-`metadatarr.resolve.base.MetadataProvider.list_variants` — `metadatarr/resolve/base.py`
+`metadatarr.resolve.base.MetadataProvider.list_variants`, `metadatarr/resolve/base.py`
 
 ```python
 def list_variants(self, external_ids: ExternalIds,
@@ -109,7 +109,7 @@ def list_variants(self, external_ids: ExternalIds,
 
 Called when `signals.include_variants=True`. Returns a list of
 `ProviderEntity` objects with `kind=EntityKind.RELEASE`. The default
-implementation returns `[]`; override in variant-aware providers.
+implementation returns `[]`. Override in variant-aware providers.
 
 The caller passes the already-resolved `external_ids` for the primary work so
 the provider knows which catalogue record to fan out from.
@@ -177,7 +177,7 @@ assert h_theatrical != h_directors
 from mediavocab import ExternalIds
 
 ext = ExternalIds(
-    imdb="tt0083658",              # Blade Runner (1982) — the parent film
+    imdb="tt0083658",              # Blade Runner (1982), the parent film
     fanedit_id=12345,              # IFDB post ID for a specific fanedit
     derived_from_imdb="tt0083658", # this entity is derived from that film
     bluray_com_id=6543,
@@ -194,7 +194,7 @@ ext = ExternalIds(musicbrainz_release="a1b2c3d4-...")
 
 entity = ProviderEntity(
     kind=EntityKind.RELEASE,
-    name="Blade Runner — The Final Cut (Blu-ray, US)",
+    name="Blade Runner, The Final Cut (Blu-ray, US)",
     external_ids=ext,
 )
 
@@ -242,3 +242,6 @@ class MyFaneditProvider(MetadataProvider):
 
 register(MyFaneditProvider())
 ```
+
+---
+[← Entities & Relations](entities.md) · [Home](index.md) · [Anime, Manga & Books Providers →](providers_anime_books.md)

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 LOG = logging.getLogger("media_archivist.server.app")
 
@@ -21,14 +22,38 @@ def create_app(db_path: str):
     """Build a FastAPI app bound to the DB at ``db_path``."""
     _require_fastapi()
     from fastapi import FastAPI
+    from fastapi.staticfiles import StaticFiles
+    from fastapi.templating import Jinja2Templates
 
     from media_archivist.server.routes import register_routes
+    from media_archivist.server.web import register_web
 
     app = FastAPI(
         title="media_archivist",
         description="Cross-source media metadata index — HTTP surface.",
     )
-    register_routes(app, db_path=db_path)
+    scheduler = register_routes(app, db_path=db_path)
+
+    server_dir = Path(__file__).parent
+    static_dir = server_dir / "static"
+    templates_dir = server_dir / "templates"
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+    templates = Jinja2Templates(directory=str(templates_dir))
+
+    def _safe_url(value):
+        """Only allow http(s) URLs through to href/src attributes.
+
+        Blocks ``javascript:``/``data:``/other scheme injection from
+        ingested provider data (stored XSS hardening).
+        """
+        if isinstance(value, str) and value.lower().startswith(("http://", "https://")):
+            return value
+        return ""
+
+    templates.env.filters["safe_url"] = _safe_url
+
+    register_web(app, db_path=db_path, templates=templates, scheduler=scheduler)
+
     return app
 
 

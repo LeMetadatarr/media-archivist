@@ -1,6 +1,7 @@
 # Recipes — practical end-to-end workflows
 
-Each recipe is a self-contained tutorial using real `media-archivist` subcommands and library calls. All recipes assume `media_archivist[all]` is installed.
+Each recipe is a self-contained tutorial using real `media-archivist` subcommands and library calls. Recipes that use Bandcamp or SoundCloud assume `py_bandcamp` and/or
+`nuvem_de_som` are installed alongside `media_archivist[all]`.
 
 ## Available recipes
 
@@ -12,17 +13,16 @@ Each recipe is a self-contained tutorial using real `media-archivist` subcommand
 
 4. **[dataset-for-ml.md](./dataset-for-ml.md)** — Produce a HuggingFace `datasets`-loadable JSONL with deterministic train/val/test splits via fingerprint-stable hashing.
 
+5. **[cross-source-dedup-with-quarantine.md](./cross-source-dedup-with-quarantine.md)** — Full walk through the quarantine workflow: run canonicalize, inspect quarantine-list, resolve and reject rows, re-run canonicalize.
 
-6. **[cross-source-dedup-with-quarantine.md](./cross-source-dedup-with-quarantine.md)** — Full walk through the quarantine workflow: run canonicalize, inspect quarantine-list, resolve and reject rows, re-run canonicalize.
-
-7. **[automate-with-cron.md](./automate-with-cron.md)** — Daily refresh via cron; how to make it re-entrant without re-scraping (link sidecar persistence).
+6. **[automate-with-cron.md](./automate-with-cron.md)** — Daily refresh via cron; how to make it re-entrant without re-scraping (link sidecar persistence).
 
 ## Quick start
 
 All recipes assume you have installed the library:
 
 ```bash
-pip install media_archivist[all]
+pip install "media_archivist[all]" py_bandcamp nuvem_de_som
 ```
 
 Each recipe creates its own isolated database file(s). Example output files are prefixed with the recipe name (e.g., `recipe_music_library.json`).
@@ -116,8 +116,8 @@ media-archivist quarantine-reject --db-file my_index.json --row-id <id>
 
 ## Further reading
 
-- [README.md](../README.md) — user-facing installation and basic usage.
-- [CLI architecture](../docs/cli.md) — all subcommands and validation rules.
-- [Canonical view & dedupe](../docs/canonical.md) — fingerprinting, `--where` syntax.
-- [Disambiguation & external IDs](../docs/disambiguation.md) — providers, quarantine workflow.
-- [`examples/`](../examples/) — Python library examples (cross_source_dataset.py, canonicalize_movies.py, hf_dataset.py).
+- [README.md](../../README.md) — user-facing installation and basic usage.
+- [CLI architecture](../cli.md) — all subcommands and validation rules.
+- [Canonical view & dedupe](../canonical.md) — fingerprinting, `--where` syntax.
+- [Disambiguation & external IDs](../disambiguation.md) — providers, quarantine workflow.
+- [`examples/`](../../examples/) — Python library examples (cross_source_dataset.py, canonicalize_movies.py, hf_dataset.py).

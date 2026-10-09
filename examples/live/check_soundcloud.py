@@ -10,7 +10,7 @@ try:
     if SoundCloudArchivist is None:
         raise ImportError
 except ImportError:
-    print("SKIP: install media_archivist[soundcloud]", file=sys.stderr)
+    print("SKIP: install nuvem_de_som", file=sys.stderr)
     raise SystemExit(0)
 
 

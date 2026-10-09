@@ -421,20 +421,20 @@ def test_signals_from_entry_derives_modality_from_medium():
     from media_archivist.canonicalize import signals_from_entry
     from media_archivist.models.canonical import MediaEntry
     from media_archivist.models.raw import Source
-    from mediavocab import PlaybackModality
+    from mediavocab import PlaybackType
 
     # Bandcamp ⇒ MUSIC ⇒ AUDIO
     s = signals_from_entry(MediaEntry.build(
         source=Source.BANDCAMP, url="https://x.bandcamp.com/album/y",
         title="Album", raw={}))
     assert s.medium == MediaType.MUSIC
-    assert s.modality is PlaybackModality.AUDIO
+    assert s.playback_type is PlaybackType.AUDIO
 
     # SoundCloud ⇒ MUSIC ⇒ AUDIO
     s = signals_from_entry(MediaEntry.build(
         source=Source.SOUNDCLOUD, url="https://soundcloud.com/x/y",
         title="Track", raw={}))
-    assert s.modality is PlaybackModality.AUDIO
+    assert s.playback_type is PlaybackType.AUDIO
 
     # YouTube with album metadata ⇒ MUSIC ⇒ AUDIO
     s = signals_from_entry(MediaEntry.build(
@@ -442,7 +442,7 @@ def test_signals_from_entry_derives_modality_from_medium():
         title="Track", album="Album", artist="Artist", duration=240.0,
         raw={}))
     assert s.medium == MediaType.MUSIC
-    assert s.modality is PlaybackModality.AUDIO
+    assert s.playback_type is PlaybackType.AUDIO
 
 
 def test_signals_from_entry_leaves_generic_modality_unset():
@@ -456,7 +456,7 @@ def test_signals_from_entry_leaves_generic_modality_unset():
         source=Source.YOUTUBE, url="https://youtube.com/watch?v=abc",
         title="Random Vlog", raw={}))
     assert s.medium == MediaType.GENERIC
-    assert s.modality is None
+    assert s.playback_type is None
 
 
 # ---------------------------------------------------------------------------
@@ -542,8 +542,11 @@ def test_providers_for_filters_by_medium():
     all_p = [AniListProvider(), JikanAnimeProvider(), _StubProvider(ProviderMatch(
         provider="stub_movie", confidence=0.9, signals=Signals(title="X"),
     ))]
-    # Override stub media to MOVIE for clarity
-    all_p[-1].__class__.media = {MediaType.MOVIE}
+    # Override stub media to MOVIE for clarity. Set it on the instance, not
+    # the class — mutating _StubProvider.media leaks into every other test's
+    # stub (they default to {MOVIE, MUSIC}) and, under a randomized order,
+    # silently drops music providers so quarantine tests find nothing.
+    all_p[-1].media = {MediaType.MOVIE}
 
     anime_only = _providers_for(all_p, MediaType.EPISODIC_SERIES,
                                   content_genres=["anime"])
@@ -638,3 +641,38 @@ def test_music_row_without_artist_is_skipped(tmp_path):
     canonical, quarantine, _ = canonicalize(str(db_path), providers=[])
     assert len(canonical.records) == 0
     assert len(quarantine.entries) == 0
+
+
+def test_canonicalize_with_no_eligible_providers_does_not_crash(tmp_path, stub_registered):
+    """Regression test: ThreadPoolExecutor(max_workers=n_workers) must not be
+    constructed with n_workers=0 when the eligible-provider list is empty.
+
+    ``_providers_for`` filters the active provider list down to the ones
+    whose ``media`` set matches the row's medium. When a row's medium has
+    no matching provider (e.g. only movie providers are active but the row
+    is music), ``eligible`` is `[]` while `chosen` is non-empty, and the
+    old ``n_workers = min(len(eligible), max_workers)`` drove n_workers to
+    0. ``ThreadPoolExecutor(max_workers=0)`` then raised
+    ``ValueError: max_workers must be greater than 0``, and every such row
+    failed with "raised unexpectedly; skipping" instead of being cleanly
+    stamped as unmatched.
+    """
+    db_path = tmp_path / "db.json"
+    db = EnvelopeJsonStorage(str(db_path))
+    db["a"] = _bandcamp("a", "Hello", "Foo", 240)
+    db.store()
+
+    # Register a provider that only handles MOVIE, so the MUSIC row above
+    # has zero eligible providers even though one provider is active.
+    class _MovieOnlyStub(_StubProvider):
+        media = {MediaType.MOVIE}
+    register(_MovieOnlyStub())
+
+    # Must not crash: the row has no eligible provider for its medium, so
+    # it resolves from local signals alone with no provider matches and no
+    # conflicts — no ValueError, no quarantine.
+    canonical, quarantine, entities = canonicalize(str(db_path), providers=["stub"])
+
+    assert len(quarantine.entries) == 0
+    rec = next(iter(canonical.records.values()))
+    assert rec.provider_log == []

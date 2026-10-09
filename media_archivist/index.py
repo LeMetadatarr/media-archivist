@@ -17,6 +17,7 @@ Example::
 from __future__ import annotations
 
 import ast
+import operator
 from pathlib import Path
 from typing import Any, Iterator, List, Optional
 
@@ -30,6 +31,14 @@ _ALLOWED_BOOLOPS = (ast.And, ast.Or)
 _ALLOWED_CMPOPS = (ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE,
                    ast.In, ast.NotIn)
 _ALLOWED_FUNCS = {"len": len, "lower": str.lower, "upper": str.upper}
+_BINOP_FUNCS = {ast.Add: operator.add, ast.Sub: operator.sub,
+                 ast.Mult: operator.mul, ast.Div: operator.truediv,
+                 ast.Mod: operator.mod, ast.FloorDiv: operator.floordiv}
+
+# Upper bound on the number of AST nodes a --where expression may contain.
+# Guards against pathologically deep/wide expressions (parsed once per
+# request, but evaluated once per row -- an expensive tree amplifies fast).
+_MAX_DSL_NODES = 200
 
 
 class WhereError(ValueError):
@@ -55,9 +64,14 @@ def _eval_node(node: ast.AST, ctx: dict) -> Any:
         return all(vals) if isinstance(node.op, ast.And) else any(vals)
     if isinstance(node, ast.BinOp) and isinstance(node.op, _ALLOWED_BINOPS):
         a, b = _eval_node(node.left, ctx), _eval_node(node.right, ctx)
-        ops = {ast.Add: "+", ast.Sub: "-", ast.Mult: "*", ast.Div: "/",
-               ast.Mod: "%", ast.FloorDiv: "//"}
-        return eval(f"a {ops[type(node.op)]} b", {"a": a, "b": b})
+        if isinstance(node.op, ast.Mult):
+            # String/bytes/list repetition (e.g. "a" * 10**9) has no
+            # legitimate use in a filter predicate and lets a single
+            # request force a giant allocation -- reject it outright.
+            # Only plain numeric multiplication is allowed.
+            if isinstance(a, (str, bytes, list)) or isinstance(b, (str, bytes, list)):
+                raise WhereError("string/sequence repetition not allowed in --where")
+        return _BINOP_FUNCS[type(node.op)](a, b)
     if isinstance(node, ast.Compare):
         left = _eval_node(node.left, ctx)
         for op, comparator in zip(node.ops, node.comparators):
@@ -113,6 +127,11 @@ def evaluate_where(expr: str, entry: MediaEntry) -> bool:
         tree = ast.parse(expr, mode="eval")
     except SyntaxError as e:
         raise WhereError(f"invalid expression: {e.msg}") from e
+    node_count = sum(1 for _ in ast.walk(tree))
+    if node_count > _MAX_DSL_NODES:
+        raise WhereError(
+            f"expression too complex ({node_count} nodes > {_MAX_DSL_NODES} max)"
+        )
     ctx = entry.model_dump(mode="python")
     return bool(_eval_node(tree.body, ctx))
 
@@ -125,6 +144,7 @@ class Index:
         self._db = EnvelopeJsonStorage(self.path)
         self._canonical_index = self._load_canonical_index()
         self._entity_index = self._load_entity_index()
+        self._id_index: Optional[dict[str, dict]] = None
 
     def _load_canonical_index(self):
         """Read ``<db>.canonical.json`` if present and build a lookup map."""
@@ -159,8 +179,15 @@ class Index:
              has_stream: Optional[bool] = None,
              explicit: Optional[bool] = None,
              grep: Optional[str] = None,
-             limit: int = 0) -> Iterator[MediaEntry]:
-        """Yield :class:`MediaEntry` rows matching the given filters."""
+             limit: int = 0,
+             offset: int = 0) -> Iterator[MediaEntry]:
+        """Yield :class:`MediaEntry` rows matching the given filters.
+
+        ``offset`` skips the first ``offset`` matching rows (post-filter,
+        pre-limit) before yielding — the standard offset/limit pagination
+        contract. ``limit=0`` still means "no limit" (existing convention).
+        """
+        skipped = 0
         n = 0
         needle = grep.lower() if grep else None
         for raw in self._db.values():
@@ -183,6 +210,9 @@ class Index:
                 continue
             if where and not evaluate_where(where, entry):
                 continue
+            if skipped < offset:
+                skipped += 1
+                continue
             yield entry
             n += 1
             if limit and n >= limit:
@@ -190,6 +220,60 @@ class Index:
 
     def to_list(self, **filters) -> List[MediaEntry]:
         return list(self.view(**filters))
+
+    def count(self, *, where: Optional[str] = None,
+              source: Optional[str] = None,
+              has_stream: Optional[bool] = None,
+              explicit: Optional[bool] = None,
+              grep: Optional[str] = None) -> int:
+        """Count entries matching the given filters (no limit/offset).
+
+        Applies the same predicate as :meth:`view` so callers can compute
+        page totals, but skips MediaEntry construction is not possible in
+        general (filters like ``where`` need the full entry), so this
+        still builds each matching row -- it is a full scan, same cost
+        class as ``view()`` without a limit.
+        """
+        n = 0
+        for _ in self.view(where=where, source=source, has_stream=has_stream,
+                            explicit=explicit, grep=grep, limit=0, offset=0):
+            n += 1
+        return n
+
+    def _build_id_index(self) -> dict[str, dict]:
+        """Build (and cache) a stable_id -> raw lookup map.
+
+        The on-disk storage is keyed by URL, not by the derived entry id,
+        so a keyed lookup still needs an id -> raw map. Computing that map
+        only needs ``source``/``url`` (cheap), not a full MediaEntry
+        conversion of every row, and is built once per Index instance
+        rather than re-scanned per lookup.
+        """
+        from media_archivist.models.canonical import stable_id
+        from media_archivist.models.raw import Source
+
+        index: dict[str, dict] = {}
+        for raw in self._db.values():
+            try:
+                sid = stable_id(Source(raw["source"]), raw["url"])
+            except Exception:
+                continue
+            index[sid] = raw
+        return index
+
+    def get(self, entry_id: str) -> Optional[MediaEntry]:
+        """Look up a single entry by id without a per-call full-table scan."""
+        if self._id_index is None:
+            self._id_index = self._build_id_index()
+        raw = self._id_index.get(entry_id)
+        if raw is None:
+            return None
+        try:
+            entry = to_media_entry(raw)
+        except Exception:
+            return None
+        self._stamp_canonical(entry, raw)
+        return entry
 
     def _stamp_canonical(self, entry: MediaEntry, raw: dict) -> None:
         """Attach canonical_id / canonical_status / external_ids / relations from sidecars."""

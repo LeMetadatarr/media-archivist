@@ -1,0 +1,22 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+{% extends "base.html" %}
+{% block title %}Stream health — media_archivist{% endblock %}
+{% block page_title %}Stream health{% endblock %}
+{% block content %}
+<div class="card">
+  <p class="label" style="color:var(--text-dim)">
+    Probes stored stream URLs for reachability and flags dead/expired
+    entries before Jellyfin 404s on them at play time. Scans a bounded
+    set of entries (see below) — narrow with source/where for a larger
+    library.
+  </p>
+  <form hx-get="{{ root_path }}/ui/health/table" hx-target="#health-table" hx-swap="innerHTML" hx-trigger="submit, load">
+    <input type="text" name="source" placeholder="source (e.g. youtube)">
+    <input type="text" name="where" placeholder="--where expression" style="min-width:260px">
+    <button class="btn" type="submit">Scan</button>
+  </form>
+</div>
+<div id="health-table" style="margin-top: var(--gap);">
+  <p class="empty">Loading…</p>
+</div>
+{% endblock %}

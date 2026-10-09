@@ -99,7 +99,7 @@ All modules under `media_archivist/` are considered public API:
 
 - `__init__.py` — Top-level imports (Index, Archivists, exceptions)
 - `index.py` — Read-side Index class
-- `canon.py` — Fingerprinting and linking functions
+- `dedupe.py` — Fingerprinting and linking functions (fuzzy, local)
 - `canonicalize.py` — Canonicalization orchestrator
 - `models/` — All pydantic models
 - `providers/` — Provider base class and registry
