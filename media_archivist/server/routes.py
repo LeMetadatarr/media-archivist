@@ -88,6 +88,7 @@ from media_archivist.models.api import (
 )
 from media_archivist.providers import all_providers
 from media_archivist.models.canonical import MediaEntry
+from media_archivist.exceptions import EmptySourceError
 from media_archivist.server.scheduler import Scheduler
 from media_archivist.version import __version__
 
@@ -150,6 +151,11 @@ def register_routes(app, *, db_path: str) -> Scheduler:
         )
         after = len(archivist.video_urls) if hasattr(archivist, "video_urls") else 0
         task.rows_added = max(0, after - before)
+        if isinstance(archivist, YoutubeArchivist) and archivist.entries_seen == 0:
+            raise EmptySourceError(
+                f"{task.request.url} listed no videos (tutubo and yt-dlp both "
+                "returned nothing); nothing was indexed"
+            )
 
     def _make_progress_hook(task_id: str):
         def _hook(d: dict) -> None:
