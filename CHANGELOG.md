@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.22.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.22.0a1) (2026-10-09)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.21.0a1...0.22.0a1)
+
+**Merged pull requests:**
+
+- feat: accept a download format and default to merged best video and audio [\#59](https://github.com/LeMetadatarr/media-archivist/pull/59) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.21.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.21.0a1) (2026-10-09)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.20.4a1...0.21.0a1)
