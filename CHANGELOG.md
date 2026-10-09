@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.20.4a1](https://github.com/LeMetadatarr/media-archivist/tree/0.20.4a1) (2026-10-09)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.20.3a1...0.20.4a1)
+
+**Merged pull requests:**
+
+- fix: fall back to yt-dlp when tutubo lists no videos and fail empty tasks [\#57](https://github.com/LeMetadatarr/media-archivist/pull/57) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.20.3a1](https://github.com/LeMetadatarr/media-archivist/tree/0.20.3a1) (2026-10-09)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.20.2a2...0.20.3a1)
