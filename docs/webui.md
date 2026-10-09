@@ -100,6 +100,36 @@ For playback without downloading, see
 which the "▶ Play (yt-dlp)" / "↻ refresh stream" buttons above use the same
 resolver as.
 
+### Jellyfin movie layout
+
+By default a download is one file directly under the download directory.
+With `MEDIA_ARCHIVIST_MOVIE_LAYOUT=1` on the server, or `--movie-layout` on
+`media-archivist download`, each download is instead filed as a Jellyfin or
+Kodi movie:
+
+```
+<download dir>/Never Gonna Give You Up (2009)/
+├── Never Gonna Give You Up (2009).mkv
+├── movie.nfo
+└── poster.jpg
+```
+
+`movie.nfo` is the same NFO that `strm-export --nfo` writes: title, year,
+plot, premiere date, studio, runtime and unique ids (`youtube` plus any
+`imdb` or `tmdb` the entry carries) and a `media-archivist` id that names
+the entry. `poster.<ext>` is the entry's thumbnail, fetched within 20 seconds. The year is the entry's publication year; an entry without one
+is filed as `Title/Title.ext`. A folder is used only when it is new, empty or holds this entry's
+`movie.nfo`. When it holds anything else, the entry is filed as
+`Title (Year) [id]/Title (Year) [id].ext` (the YouTube video id, else the
+entry id). Files that media-archivist did not file are never overwritten: if
+the target file or both folders exist, the download fails with
+`download_failed` and the downloaded file stays where it was. Re-filing an
+entry with a different file type replaces the video recorded in its
+`movie.nfo` (`media_archivist_file`) and nothing else. Names are cut to the 255-byte
+file name limit on a character boundary. Music sources (Bandcamp, SoundCloud,
+YouTube Music) are left in the flat layout. The CLI flag needs `--id`,
+`--where` or `--source`, since a bare `--url` has no index metadata.
+
 ## Providers
 
 A grid of every metadatarr provider media-archivist knows about, and

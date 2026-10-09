@@ -28,6 +28,7 @@ import argparse
 import logging
 from typing import List, Optional
 
+from media_archivist import movie_layout
 from media_archivist.version import __version__
 
 from media_archivist.commands.canonical import (
@@ -422,6 +423,16 @@ def build_parser() -> argparse.ArgumentParser:
                             help="format selector passed to yt-dlp (default: bv*+ba/b, "
                                  "or b when ffmpeg is not installed)")
     p_download.set_defaults(func=cmd_download)
+    p_download.add_argument("--movie-layout", dest="movie_layout", action="store_true",
+                            default=None,
+                            help="file each download as 'Title (Year)/Title (Year).ext' "
+                                 "with movie.nfo and poster for Jellyfin/Kodi "
+                                 "(default: on for entries from the index when "
+                                 "MEDIA_ARCHIVIST_MOVIE_LAYOUT is set; needs "
+                                 "--id/--where/--source)")
+    p_download.add_argument("--no-movie-layout", dest="movie_layout", action="store_false",
+                            help="keep the flat layout even when "
+                                 "MEDIA_ARCHIVIST_MOVIE_LAYOUT is set")
 
     p_health = sub.add_parser("health", parents=[common],
                               help="probe stored stream URLs; flag dead/expired "

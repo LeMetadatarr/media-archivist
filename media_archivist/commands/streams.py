@@ -6,8 +6,10 @@ from __future__ import annotations
 import dataclasses
 import json
 import sys
+from pathlib import Path
 from urllib.parse import urlparse
 
+from media_archivist import movie_layout
 from media_archivist import streams as _streams
 
 
@@ -53,9 +55,17 @@ def cmd_resolve(args) -> int:
 
 
 def _entries_to_download(args):
-    """Resolve the list of (label, url) pairs a `download` invocation targets."""
+    """Resolve the (label, url, entry) triples a `download` invocation targets.
+
+    ``entry`` is ``None`` for a bare ``--url``, which has no index metadata.
+    """
     if args.url:
-        return [(args.url, args.url)]
+        if args.movie_layout is True:
+            raise SystemExit(
+                "error: --movie-layout needs index metadata; use --id, --where "
+                "or --source instead of --url"
+            )
+        return [(args.url, args.url, None)]
     if not args.db_file and not args.db:
         raise SystemExit(
             "error: pass --url, or --db-file/--db plus --id/--where/--source"
@@ -70,9 +80,9 @@ def _entries_to_download(args):
         url = entry.stream or entry.url
         if not url:
             raise SystemExit(f"error: entry {args.id!r} has no url or stream")
-        return [(args.id, url)]
+        return [(args.id, url, entry)]
     entries = idx.to_list(where=args.where, source=args.source_filter)
-    return [(e.title or e.url, e.stream or e.url) for e in entries if (e.stream or e.url)]
+    return [(e.title or e.url, e.stream or e.url, e) for e in entries if (e.stream or e.url)]
 
 
 def cmd_download(args) -> int:
@@ -81,8 +91,10 @@ def cmd_download(args) -> int:
         print("no matching entries to download", file=sys.stderr)
         return 0
 
+    layout = (movie_layout.enabled_by_env() if args.movie_layout is None
+              else args.movie_layout)
     ok = 0
-    for label, url in targets:
+    for label, url, entry in targets:
         def _hook(d: dict, _label=label) -> None:
             if d.get("status") == "downloading":
                 pct = d.get("_percent_str", "").strip()
@@ -95,6 +107,12 @@ def cmd_download(args) -> int:
         except _streams.StreamDownloadError as e:
             print(f"error: {label}: {e}", file=sys.stderr)
             continue
+        if layout and entry is not None:
+            try:
+                path = movie_layout.file_as_movie(path, entry, Path(args.output_dir))
+            except OSError as e:
+                print(f"error: {label}: could not file {path}: {e}", file=sys.stderr)
+                continue
         print(str(path))
         ok += 1
 

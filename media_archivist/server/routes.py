@@ -179,6 +179,7 @@ def register_routes(app, *, db_path: str) -> Scheduler:
         return _hook
 
     async def _download_worker(task: Task) -> None:
+        from media_archivist import movie_layout
         from media_archivist import notify as notify_mod
         from media_archivist import streams
 
@@ -209,6 +210,9 @@ def register_routes(app, *, db_path: str) -> Scheduler:
                 ),
                 timeout=DOWNLOAD_TIMEOUT_S,
             )
+            if movie_layout.enabled_by_env():
+                path = await asyncio.to_thread(
+                    movie_layout.file_as_movie, path, entry, dest_dir)
         except Exception as e:
             try:
                 notify_mod.notify(
