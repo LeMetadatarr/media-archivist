@@ -418,8 +418,9 @@ def build_parser() -> argparse.ArgumentParser:
                             help="keep only entries from this source")
     p_download.add_argument("--output-dir", dest="output_dir", required=True,
                             help="directory downloads are written into")
-    p_download.add_argument("--format", default="best",
-                            help="format selector passed to yt-dlp (default: best)")
+    p_download.add_argument("--format", default=None,
+                            help="format selector passed to yt-dlp (default: bv*+ba/b, "
+                                 "or b when ffmpeg is not installed)")
     p_download.set_defaults(func=cmd_download)
 
     p_health = sub.add_parser("health", parents=[common],

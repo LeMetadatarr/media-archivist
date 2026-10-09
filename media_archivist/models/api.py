@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Dict, List, Literal, Optional, Union
+from typing import Annotated, Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from media_archivist.models.canonical import MediaEntry
 
@@ -27,6 +27,10 @@ class ArchiveRequest(BaseModel):
     min_duration: int = -1
 
 
+FormatSelector = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+"""A yt-dlp format selector; surrounding whitespace is dropped, blank is rejected."""
+
+
 class DownloadRequest(BaseModel):
     """Request to download a copy of an already-indexed entry to disk.
 
@@ -41,7 +45,15 @@ class DownloadRequest(BaseModel):
 
     kind: Literal["download"] = "download"
     entry_id: str
-    format: str = "best"
+    format: Optional[FormatSelector] = None
+
+
+class DownloadOptions(BaseModel):
+    """Optional body of ``POST /entries/{id}/download``."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    format: Optional[FormatSelector] = None
 
 
 class Task(BaseModel):

@@ -90,6 +90,10 @@ a specific entry on disk. The "⬇ Download" button posts to
 job: it queues, runs, and reports progress via `GET /tasks/{task_id}`. Files
 land under `MEDIA_ARCHIVIST_DOWNLOAD_DIR`. The button (and the endpoint) only
 appear/work when `yt-dlp` is available on the server — a 503 otherwise.
+The field beside the button sets the yt-dlp format selector; left empty it
+uses `bv*+ba/b` (best video plus best audio, merged by `ffmpeg`), or `b`
+(the best single stream) when `ffmpeg` is not installed. The endpoint
+takes the same selector as an optional `format` in its JSON body.
 
 For playback without downloading, see
 [`.strm` + play-time resolution in jellyfin.md](jellyfin.md#recommended-play-time-resolution-with-resolve1),

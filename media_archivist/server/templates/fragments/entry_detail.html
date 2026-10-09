@@ -47,8 +47,11 @@
       </div>
       {% if ytdlp_available %}
       <div class="download-action" style="margin-top:8px">
+        <input type="text" name="format" class="download-format"
+               placeholder="format (default bv*+ba/b, or b without ffmpeg)" aria-label="yt-dlp format selector">
         <button type="button" class="btn btn-ghost"
                 hx-post="{{ root_path }}/ui/entries/{{ entry.id }}/download"
+                hx-include="previous .download-format"
                 hx-target="next .download-status" hx-swap="innerHTML">
           &#11015; Download
         </button>
