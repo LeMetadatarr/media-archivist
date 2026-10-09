@@ -19,6 +19,7 @@ argument list — never ``shell=True``.
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
@@ -325,6 +326,47 @@ def resolve_stream(url: str, *, source: Optional[str] = None, prefer: str = "bes
                 source, e, url,
             )
     return _resolve_via_ytdlp(url, prefer, timeout)
+
+
+def list_playlist(url: str, *, timeout: float = 120.0) -> Dict[str, Any]:
+    """List a playlist / channel without resolving each video.
+
+    Equivalent to ``yt-dlp --flat-playlist -J``: returns the playlist info
+    dict whose ``entries`` hold one flat record per video. Uses the
+    ``yt_dlp`` Python module when installed, otherwise the binary.
+    """
+    _require_http(url)
+    yt_dlp = _import_yt_dlp()
+    if yt_dlp is not None:
+        opts: Dict[str, Any] = {
+            "quiet": True,
+            "no_warnings": True,
+            "extract_flat": "in_playlist",
+            "skip_download": True,
+            "socket_timeout": timeout,
+        }
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+        except Exception as e:
+            raise StreamResolveError(f"yt-dlp failed to list {url}: {e}") from e
+        return info or {}
+    if shutil.which("yt-dlp") is None:
+        raise StreamResolveError(
+            "neither the yt_dlp python module nor the yt-dlp binary is available"
+        )
+    try:
+        proc = subprocess.run(
+            ["yt-dlp", "--flat-playlist", "-J", url],
+            capture_output=True, text=True, timeout=timeout, check=True,
+        )
+        return json.loads(proc.stdout) or {}
+    except subprocess.CalledProcessError as e:
+        raise StreamResolveError(
+            f"yt-dlp binary failed to list {url}: {(e.stderr or '').strip()}"
+        ) from e
+    except (subprocess.TimeoutExpired, ValueError) as e:
+        raise StreamResolveError(f"yt-dlp binary could not list {url}: {e}") from e
 
 
 def download(url: str, dest_dir: str, *, format: str = "best",
