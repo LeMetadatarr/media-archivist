@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.20.3a1](https://github.com/LeMetadatarr/media-archivist/tree/0.20.3a1) (2026-10-09)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.20.2a2...0.20.3a1)
+
+**Merged pull requests:**
+
+- fix: install ffmpeg and a JavaScript runtime in the Docker image [\#58](https://github.com/LeMetadatarr/media-archivist/pull/58) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.20.2a2](https://github.com/LeMetadatarr/media-archivist/tree/0.20.2a2) (2026-10-09)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.20.2a1...0.20.2a2)
