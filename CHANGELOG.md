@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.23.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.23.0a1) (2026-10-09)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.22.0a1...0.23.0a1)
+
+**Merged pull requests:**
+
+- feat: file downloads as Jellyfin movies with movie.nfo and poster [\#60](https://github.com/LeMetadatarr/media-archivist/pull/60) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.22.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.22.0a1) (2026-10-09)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.21.0a1...0.22.0a1)
