@@ -44,8 +44,9 @@ The image carries a `HEALTHCHECK` that polls `/healthz` every 30 s.
 The container runs `media-archivist serve --host 0.0.0.0` against
 `/data/index.json`. The `/data` mount holds the index plus all sidecars
 (`<db>.canonical.json`, `<db>.quarantine.json`, `<db>.tasks.json`,
-`<db>.links.json`). `yt-dlp` is preinstalled so transcript enrichment and
-stream resolution work out of the box.
+`<db>.links.json`). `yt-dlp`, `ffmpeg` and the `deno` JavaScript runtime are preinstalled, so
+transcript enrichment, stream resolution and downloads that merge separate
+video and audio streams work out of the box.
 
 ## Systemd (per-user)
 
