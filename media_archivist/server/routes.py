@@ -84,6 +84,7 @@ from media_archivist.models.api import (
     SubscriptionSyncResponse,
     SubscriptionSyncResult,
     Task,
+    TaskCountsResponse,
 )
 from media_archivist.providers import all_providers
 from media_archivist.models.canonical import MediaEntry
@@ -327,6 +328,12 @@ def register_routes(app, *, db_path: str) -> Scheduler:
             entry_id=result.entry_id, status=result.status,
             langs=result.langs, files=result.files, error=result.error,
         )
+
+    @app.get("/tasks", response_model=TaskCountsResponse)
+    def task_counts() -> TaskCountsResponse:
+        """Scheduler tasks per status, for dashboards."""
+        counts = scheduler.store.counts()
+        return TaskCountsResponse(**counts, total=sum(counts.values()))
 
     @app.get("/tasks/{task_id}", response_model=Task)
     def get_task(task_id: str) -> Task:

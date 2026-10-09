@@ -15,9 +15,9 @@ import threading
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Awaitable, Callable, Dict, List, Optional, Union
+from typing import Awaitable, Callable, Dict, List, Optional, Union, get_args
 
-from media_archivist.models.api import ArchiveRequest, DownloadRequest, Task
+from media_archivist.models.api import ArchiveRequest, DownloadRequest, Task, TaskStatus
 
 TaskRequest = Union[ArchiveRequest, DownloadRequest]
 
@@ -137,6 +137,12 @@ class TaskStore:
 
     def get(self, task_id: str) -> Optional[Task]:
         return self.tasks.get(task_id)
+
+    def counts(self) -> Dict[str, int]:
+        """Number of tasks in each status."""
+        with self._lock:
+            statuses = [t.status for t in self.tasks.values()]
+        return {s: statuses.count(s) for s in get_args(TaskStatus)}
 
     def pending(self) -> List[Task]:
         return [t for t in self.tasks.values() if t.status in {"queued", "running"}]

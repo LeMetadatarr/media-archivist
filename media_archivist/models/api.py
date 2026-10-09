@@ -64,6 +64,18 @@ class Task(BaseModel):
         return self.request.kind
 
 
+class TaskCountsResponse(BaseModel):
+    """Number of scheduler tasks per status."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    queued: int = 0
+    running: int = 0
+    ok: int = 0
+    error: int = 0
+    total: int = 0
+
+
 class EntryListResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
