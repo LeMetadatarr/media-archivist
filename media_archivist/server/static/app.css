@@ -70,6 +70,11 @@ a { color: var(--accent); }
   padding: 8px; border-bottom: 1px solid var(--border); font-size: 0.85rem; color: var(--text-dim);
 }
 .table tbody td { padding: 8px; border-bottom: 1px solid var(--border); }
+.th-sort {
+  background: none; border: 0; padding: 0; font: inherit; color: inherit;
+  cursor: pointer; text-align: left;
+}
+.th-sort:hover, .th-sort-active { color: var(--text); text-decoration: underline; }
 .table tbody tr[hx-get] { cursor: pointer; }
 .table tbody tr[hx-get]:hover { background: var(--bg-elev); }
 .table tbody tr[hx-get]:focus-visible {

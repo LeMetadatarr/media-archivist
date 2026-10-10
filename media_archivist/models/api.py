@@ -48,6 +48,31 @@ class DownloadRequest(BaseModel):
     format: Optional[FormatSelector] = None
 
 
+class SyncRequest(BaseModel):
+    """Sync one stored subscription (queued by the server's schedule)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["sync"] = "sync"
+    url: str
+
+
+class EnrichRequest(BaseModel):
+    """Fill missing YouTube duration / channel / upload date from yt-dlp."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["enrich"] = "enrich"
+    limit: int = Field(default=100, ge=1, le=10_000)
+    force: bool = False
+
+
+TaskRequest = Annotated[
+    Union[ArchiveRequest, DownloadRequest, SyncRequest, EnrichRequest],
+    Field(discriminator="kind"),
+]
+
+
 class DownloadOptions(BaseModel):
     """Optional body of ``POST /entries/{id}/download``."""
 
@@ -61,12 +86,16 @@ class Task(BaseModel):
 
     id: str
     status: TaskStatus = "queued"
-    request: Union[ArchiveRequest, DownloadRequest] = Field(discriminator="kind")
+    request: TaskRequest
     created: str = Field(default_factory=_utcnow)
     started: Optional[str] = None
     finished: Optional[str] = None
     error: Optional[str] = None
     rows_added: int = 0
+    # enrich-only: rows whose metadata changed.
+    rows_updated: int = 0
+    # A short outcome note (e.g. "paused by YouTube bot check").
+    detail: Optional[str] = None
     # download-only fields; unused (stay None/0) for kind="archive" tasks.
     progress: Optional[int] = None
     filepath: Optional[str] = None
@@ -86,6 +115,19 @@ class TaskCountsResponse(BaseModel):
     ok: int = 0
     error: int = 0
     total: int = 0
+
+
+class TaskListResponse(TaskCountsResponse):
+    """Task counts per status plus one page of tasks, newest first.
+
+    ``total`` counts every task; ``matched`` counts those passing the
+    ``status``/``kind`` filters, which ``limit``/``offset`` page through.
+    """
+
+    matched: int = 0
+    limit: int = 0
+    offset: int = 0
+    tasks: List[Task] = Field(default_factory=list)
 
 
 class EntryListResponse(BaseModel):
@@ -227,6 +269,8 @@ class SubscriptionInfo(BaseModel):
     last_rows_added: int = 0
     last_error: Optional[str] = None
     auto_download: bool = False
+    interval_hours: Optional[float] = None
+    next_sync_at: Optional[str] = None
 
 
 class SubscriptionListResponse(BaseModel):
@@ -243,6 +287,7 @@ class SubscriptionCreateRequest(BaseModel):
     backend: Optional[Literal["youtube", "ia", "music", "bandcamp", "soundcloud"]] = None
     label: Optional[str] = None
     auto_download: bool = False
+    interval_hours: Optional[float] = Field(default=None, gt=0, le=24 * 366)
 
 
 class SubscriptionDeleteRequest(BaseModel):

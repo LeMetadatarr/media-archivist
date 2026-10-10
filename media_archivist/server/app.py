@@ -25,6 +25,7 @@ def create_app(db_path: str):
     from fastapi.staticfiles import StaticFiles
     from fastapi.templating import Jinja2Templates
 
+    from media_archivist.server import auth
     from media_archivist.server.routes import register_routes
     from media_archivist.server.web import register_web
 
@@ -32,6 +33,7 @@ def create_app(db_path: str):
         title="media_archivist",
         description="Cross-source media metadata index — HTTP surface.",
     )
+    auth.install(app)
     scheduler = register_routes(app, db_path=db_path)
 
     server_dir = Path(__file__).parent

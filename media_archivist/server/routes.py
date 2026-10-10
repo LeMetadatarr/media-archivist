@@ -54,7 +54,7 @@ from media_archivist.canonicalize import (
     quarantine_resolve,
     render_conflict,
 )
-from media_archivist.index import Index, WhereError
+from media_archivist.index import Index, WhereError, parse_sort
 from media_archivist.models.api import (
     ArchiveRequest,
     CanonicalizeRequest,
@@ -66,6 +66,7 @@ from media_archivist.models.api import (
     CollectionListResponse,
     DownloadOptions,
     DownloadRequest,
+    EnrichRequest,
     EntryListResponse,
     HealthResponse,
     ProviderInfo,
@@ -85,11 +86,13 @@ from media_archivist.models.api import (
     SubscriptionSyncResponse,
     SubscriptionSyncResult,
     Task,
-    TaskCountsResponse,
+    TaskListResponse,
+    TaskStatus,
 )
 from media_archivist.providers import all_providers
 from media_archivist.models.canonical import MediaEntry
 from media_archivist.exceptions import EmptySourceError
+from media_archivist.server.periodic import Periodic
 from media_archivist.server.scheduler import Scheduler
 from media_archivist.version import __version__
 
@@ -106,6 +109,41 @@ ARCHIVE_TIMEOUT_S = 3600
 # Same rationale as ARCHIVE_TIMEOUT_S: a stalled download must not
 # head-of-line-block the sequential scheduler forever.
 DOWNLOAD_TIMEOUT_S = 3600
+
+# Same rationale again, for one scheduled subscription sync and one batch
+# of metadata fills.
+SYNC_TIMEOUT_S = 3600
+ENRICH_TIMEOUT_S = 3600
+
+
+def _subscription_info(sub) -> SubscriptionInfo:
+    from media_archivist import subscriptions as subs_mod
+
+    nxt = subs_mod.next_sync_at(sub)
+    return SubscriptionInfo(
+        **sub.model_dump(),
+        next_sync_at=nxt.isoformat(timespec="seconds") if nxt else None,
+    )
+
+
+def fill_youtube_metadata(db_path: str, entry: MediaEntry) -> MediaEntry:
+    """Fill a YouTube entry's missing metadata on read, when allowed now.
+
+    Returns the re-read entry when something was written, else ``entry``.
+    """
+    from media_archivist import ytmeta
+
+    raw = dict(entry.raw or {})
+    if not raw.get("url") or not ytmeta.needs_fill(raw):
+        return entry
+    try:
+        result = ytmeta.fill_entry_lazily(db_path, raw)
+    except Exception:
+        LOG.exception("metadata fill failed for %s", entry.id)
+        return entry
+    if result.status not in ("filled", "unchanged", "error"):
+        return entry
+    return Index(db_path).get(entry.id) or entry
 
 
 def register_routes(app, *, db_path: str) -> Scheduler:
@@ -158,6 +196,41 @@ def register_routes(app, *, db_path: str) -> Scheduler:
                 "returned nothing); nothing was indexed"
             )
 
+    async def _sync_worker(task: Task) -> None:
+        from media_archivist import subscriptions as subs_mod
+
+        result = await asyncio.wait_for(
+            asyncio.to_thread(subs_mod.sync_one, db_path, task.request.url),
+            timeout=SYNC_TIMEOUT_S,
+        )
+        task.rows_added = result.rows_added
+        if not result.ok:
+            raise RuntimeError(result.error or "sync failed")
+
+    async def _enrich_worker(task: Task) -> None:
+        import threading
+
+        from media_archivist import ytmeta
+
+        request: EnrichRequest = task.request  # type: ignore[assignment]
+        stop = threading.Event()
+        try:
+            result = await asyncio.wait_for(
+                asyncio.to_thread(ytmeta.reenrich, db_path, limit=request.limit,
+                                  force=request.force, stop=stop),
+                timeout=ENRICH_TIMEOUT_S,
+            )
+        except BaseException:
+            stop.set()
+            raise
+        task.rows_updated = result.updated + result.sanitized
+        notes = [f"{result.checked} read, {result.updated} filled, "
+                 f"{result.sanitized} cleaned, {result.remaining} left"]
+        if result.bot_check:
+            notes.append(f"paused by YouTube bot check for "
+                         f"{int(ytmeta.LIMITER.blocked_for())}s")
+        task.detail = "; ".join(notes)
+
     def _make_progress_hook(task_id: str):
         def _hook(d: dict) -> None:
             # Runs on the asyncio.to_thread() worker thread, i.e. off the
@@ -188,6 +261,9 @@ def register_routes(app, *, db_path: str) -> Scheduler:
         entry = idx.get(request.entry_id)
         if entry is None:
             raise ValueError(f"entry not found: {request.entry_id}")
+        if movie_layout.enabled_by_env():
+            # The movie folder is named after the upload year.
+            entry = await asyncio.to_thread(fill_youtube_metadata, db_path, entry)
         url = entry.stream or entry.url
         dest_dir = streams.default_download_dir()
         hook = _make_progress_hook(task.id)
@@ -235,19 +311,27 @@ def register_routes(app, *, db_path: str) -> Scheduler:
             LOG.exception("_download_worker: notify failed for %s", request.entry_id)
 
     async def _dispatch_worker(task: Task) -> None:
-        if task.kind == "download":
-            await _download_worker(task)
-        else:
-            await _archive_worker(task)
+        worker = {
+            "download": _download_worker,
+            "sync": _sync_worker,
+            "enrich": _enrich_worker,
+        }.get(task.kind, _archive_worker)
+        await worker(task)
 
     scheduler = Scheduler(db_path, _dispatch_worker)
+    periodic = Periodic(db_path, scheduler)
+    app.state.scheduler = scheduler
+    app.state.periodic = periodic
 
     @asynccontextmanager
     async def _lifespan(_app):
-        scheduler.start(asyncio.get_running_loop())
+        loop = asyncio.get_running_loop()
+        scheduler.start(loop)
+        periodic.start(loop)
         try:
             yield
         finally:
+            await periodic.stop()
             await scheduler.stop()
 
     app.router.lifespan_context = _lifespan
@@ -261,13 +345,22 @@ def register_routes(app, *, db_path: str) -> Scheduler:
         explicit: Optional[bool] = None,
         limit: int = Query(default=100, ge=1, le=10_000),
         offset: int = Query(default=0, ge=0),
+        sort_key: Optional[str] = Query(default=None, alias="sortKey"),
+        sort_direction: Optional[str] = Query(default=None, alias="sortDirection"),
     ) -> EntryListResponse:
+        """Entries matching the filters, sorted by ``sortKey`` (``added``,
+        ``title``, ``artist``, ``album``, ``duration``, ``published``,
+        ``source``) in ``sortDirection`` (``ascending``/``descending``)."""
+        try:
+            key, descending = parse_sort(sort_key, sort_direction)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from None
         idx = Index(db_path)
         try:
             entries: List[MediaEntry] = idx.to_list(
                 source=source, where=where, grep=grep,
                 has_stream=has_stream, explicit=explicit, limit=limit,
-                offset=offset,
+                offset=offset, sort_key=key, descending=descending,
             )
             total = idx.count(
                 source=source, where=where, grep=grep,
@@ -279,11 +372,21 @@ def register_routes(app, *, db_path: str) -> Scheduler:
 
     @app.get("/entries/{entry_id}", response_model=MediaEntry)
     def get_entry(entry_id: str) -> MediaEntry:
+        """One entry. A YouTube entry missing its duration, channel or
+        upload date is first read from yt-dlp, when the rate limit allows."""
         idx = Index(db_path)
         entry = idx.get(entry_id)
         if entry is None:
             raise HTTPException(status_code=404, detail="entry not found")
-        return entry
+        return fill_youtube_metadata(db_path, entry)
+
+    @app.post("/entries/enrich", response_model=Task)
+    def submit_enrich(request: Optional[EnrichRequest] = None) -> Task:
+        """Queue a fill of missing YouTube metadata (duration, channel, date)."""
+        try:
+            return scheduler.submit(request or EnrichRequest())
+        except asyncio.QueueFull:
+            raise HTTPException(status_code=429, detail="task queue full") from None
 
     @app.post("/archive", response_model=Task)
     def submit_archive(request: ArchiveRequest) -> Task:
@@ -344,11 +447,19 @@ def register_routes(app, *, db_path: str) -> Scheduler:
             langs=result.langs, files=result.files, error=result.error,
         )
 
-    @app.get("/tasks", response_model=TaskCountsResponse)
-    def task_counts() -> TaskCountsResponse:
-        """Scheduler tasks per status, for dashboards."""
+    @app.get("/tasks", response_model=TaskListResponse)
+    def task_list(
+        status: Optional[TaskStatus] = None,
+        kind: Optional[str] = None,
+        limit: int = Query(default=50, ge=1, le=1000),
+        offset: int = Query(default=0, ge=0),
+    ) -> TaskListResponse:
+        """Task counts per status, and one page of tasks, newest first."""
         counts = scheduler.store.counts()
-        return TaskCountsResponse(**counts, total=sum(counts.values()))
+        matched, tasks = scheduler.store.page(status=status, kind=kind,
+                                              limit=limit, offset=offset)
+        return TaskListResponse(**counts, total=sum(counts.values()), matched=matched,
+                                limit=limit, offset=offset, tasks=tasks)
 
     @app.get("/tasks/{task_id}", response_model=Task)
     def get_task(task_id: str) -> Task:
@@ -670,7 +781,7 @@ def register_routes(app, *, db_path: str) -> Scheduler:
         subs = subs_mod.list_subscriptions(db_path)
         return SubscriptionListResponse(
             total=len(subs),
-            subscriptions=[SubscriptionInfo(**s.model_dump()) for s in subs],
+            subscriptions=[_subscription_info(s) for s in subs],
         )
 
     @app.post("/subscriptions", response_model=SubscriptionInfo)
@@ -680,11 +791,11 @@ def register_routes(app, *, db_path: str) -> Scheduler:
         try:
             sub = subs_mod.add_subscription(
                 db_path, request.url, backend=request.backend, label=request.label,
-                auto_download=request.auto_download,
+                auto_download=request.auto_download, interval_hours=request.interval_hours,
             )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from None
-        return SubscriptionInfo(**sub.model_dump())
+        return _subscription_info(sub)
 
     @app.delete("/subscriptions", response_model=SubscriptionListResponse)
     def subscriptions_remove(request: SubscriptionDeleteRequest) -> SubscriptionListResponse:
@@ -696,7 +807,7 @@ def register_routes(app, *, db_path: str) -> Scheduler:
         subs = subs_mod.list_subscriptions(db_path)
         return SubscriptionListResponse(
             total=len(subs),
-            subscriptions=[SubscriptionInfo(**s.model_dump()) for s in subs],
+            subscriptions=[_subscription_info(s) for s in subs],
         )
 
     @app.post("/subscriptions/sync", response_model=SubscriptionSyncResponse)

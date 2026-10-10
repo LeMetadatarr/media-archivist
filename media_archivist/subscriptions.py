@@ -20,7 +20,7 @@ import logging
 import os
 import tempfile
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
@@ -42,6 +42,13 @@ _URL_BACKEND_HINTS: List[tuple] = [
 ]
 
 KNOWN_BACKENDS = {"youtube", "ia", "music", "bandcamp", "soundcloud"}
+
+DEFAULT_INTERVAL_HOURS = 6.0
+_ENV_INTERVAL = "MEDIA_ARCHIVIST_SYNC_INTERVAL_HOURS"
+
+# Serialises load-modify-save of the sidecar within one process (the
+# server's scheduled syncs and its API handlers).
+_sidecar_lock = threading.RLock()
 
 
 def _utcnow() -> str:
@@ -70,6 +77,9 @@ class Subscription(BaseModel):
     # Back-compat: absent in older sidecars, which pydantic defaults to
     # False on load — no migration needed.
     auto_download: bool = False
+    # Hours between scheduled syncs in ``serve``; None uses the default
+    # (MEDIA_ARCHIVIST_SYNC_INTERVAL_HOURS, else 6).
+    interval_hours: Optional[float] = Field(default=None, gt=0)
 
 
 class SubscriptionSidecar(BaseModel):
@@ -122,7 +132,8 @@ def save_subscriptions(db_path: str, sidecar: SubscriptionSidecar) -> Path:
 
 def add_subscription(db_path: str, url: str, *, backend: Optional[str] = None,
                       label: Optional[str] = None,
-                      auto_download: bool = False) -> Subscription:
+                      auto_download: bool = False,
+                      interval_hours: Optional[float] = None) -> Subscription:
     """Add (or update the label of) a subscription; dedupes by URL."""
     url = url.strip()
     if not url:
@@ -134,40 +145,85 @@ def add_subscription(db_path: str, url: str, *, backend: Optional[str] = None,
         )
     if resolved_backend not in KNOWN_BACKENDS:
         raise ValueError(f"unknown backend: {resolved_backend!r}")
+    if interval_hours is not None and not interval_hours > 0:
+        raise ValueError("interval_hours must be > 0")
 
-    sidecar = load_subscriptions(db_path)
-    for sub in sidecar.subscriptions:
-        if sub.url == url:
-            # Already subscribed — update backend/label in place rather than
-            # duplicating, so re-running `subscribe` is idempotent.
-            sub.backend = resolved_backend
-            if label is not None:
-                sub.label = label
-            if auto_download:
-                sub.auto_download = True
-            save_subscriptions(db_path, sidecar)
-            return sub
+    with _sidecar_lock:
+        sidecar = load_subscriptions(db_path)
+        for sub in sidecar.subscriptions:
+            if sub.url == url:
+                # Already subscribed — update backend/label in place rather than
+                # duplicating, so re-running `subscribe` is idempotent.
+                sub.backend = resolved_backend
+                if label is not None:
+                    sub.label = label
+                if auto_download:
+                    sub.auto_download = True
+                if interval_hours is not None:
+                    sub.interval_hours = interval_hours
+                save_subscriptions(db_path, sidecar)
+                return sub
 
-    sub = Subscription(url=url, backend=resolved_backend, label=label,
-                        auto_download=auto_download)
-    sidecar.subscriptions.append(sub)
-    save_subscriptions(db_path, sidecar)
-    return sub
+        sub = Subscription(url=url, backend=resolved_backend, label=label,
+                            auto_download=auto_download, interval_hours=interval_hours)
+        sidecar.subscriptions.append(sub)
+        save_subscriptions(db_path, sidecar)
+        return sub
 
 
 def remove_subscription(db_path: str, url: str) -> bool:
     """Remove the subscription for *url*; return whether one was removed."""
-    sidecar = load_subscriptions(db_path)
-    before = len(sidecar.subscriptions)
-    sidecar.subscriptions = [s for s in sidecar.subscriptions if s.url != url]
-    if len(sidecar.subscriptions) == before:
-        return False
-    save_subscriptions(db_path, sidecar)
-    return True
+    with _sidecar_lock:
+        sidecar = load_subscriptions(db_path)
+        before = len(sidecar.subscriptions)
+        sidecar.subscriptions = [s for s in sidecar.subscriptions if s.url != url]
+        if len(sidecar.subscriptions) == before:
+            return False
+        save_subscriptions(db_path, sidecar)
+        return True
 
 
 def list_subscriptions(db_path: str) -> List[Subscription]:
     return load_subscriptions(db_path).subscriptions
+
+
+def default_interval_hours() -> float:
+    try:
+        value = float(os.environ.get(_ENV_INTERVAL, DEFAULT_INTERVAL_HOURS))
+    except ValueError:
+        return DEFAULT_INTERVAL_HOURS
+    return value if value > 0 else DEFAULT_INTERVAL_HOURS
+
+
+def interval_of(sub: Subscription) -> timedelta:
+    return timedelta(hours=sub.interval_hours or default_interval_hours())
+
+
+def _parse_ts(value: Optional[str]) -> Optional[datetime]:
+    if not value:
+        return None
+    try:
+        ts = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    return ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
+
+
+def next_sync_at(sub: Subscription) -> Optional[datetime]:
+    """When the schedule next syncs *sub*; ``None`` means now (never synced)."""
+    last = _parse_ts(sub.last_synced_at)
+    return None if last is None else last + interval_of(sub)
+
+
+def due_subscriptions(db_path: str, now: Optional[datetime] = None) -> List[Subscription]:
+    """Subscriptions whose interval has passed since their last sync."""
+    now = now or datetime.now(timezone.utc)
+    due = []
+    for sub in list_subscriptions(db_path):
+        nxt = next_sync_at(sub)
+        if nxt is None or nxt <= now:
+            due.append(sub)
+    return due
 
 
 _BACKEND_TO_CLS_FACTORY = {
@@ -234,6 +290,7 @@ def sync_subscription(db_path: str, sub: Subscription, *,
         cls = _archivist_class(sub.backend)
     except Exception as e:
         sub.last_error = str(e)
+        sub.last_synced_at = _utcnow()
         return SyncResult(url=sub.url, backend=sub.backend, ok=False, error=str(e))
 
     try:
@@ -316,8 +373,39 @@ def sync_all(db_path: str, *, dry_run: bool = False, download: bool = False,
             download_dir=download_dir, downloader=downloader,
         ))
     if not dry_run:
-        save_subscriptions(db_path, sidecar)
+        for sub in sidecar.subscriptions:
+            _store_run(db_path, sub)
     return results
+
+
+def _store_run(db_path: str, synced: Subscription) -> None:
+    """Write *synced*'s last-run fields into the current sidecar.
+
+    Re-reads the sidecar so subscriptions added, edited or removed while
+    the sync ran are kept as they are now.
+    """
+    with _sidecar_lock:
+        sidecar = load_subscriptions(db_path)
+        for sub in sidecar.subscriptions:
+            if sub.url == synced.url:
+                sub.last_synced_at = synced.last_synced_at
+                sub.last_rows_added = synced.last_rows_added
+                sub.last_error = synced.last_error
+                save_subscriptions(db_path, sidecar)
+                return
+
+
+def sync_one(db_path: str, url: str, *, download: bool = False,
+             download_dir: Optional[str] = None,
+             downloader: Optional[Callable[[str, str], None]] = None) -> SyncResult:
+    """Sync the stored subscription for *url* and persist its last run."""
+    sub = next((s for s in list_subscriptions(db_path) if s.url == url), None)
+    if sub is None:
+        raise ValueError(f"no subscription for {url}")
+    result = sync_subscription(db_path, sub, download=download,
+                               download_dir=download_dir, downloader=downloader)
+    _store_run(db_path, sub)
+    return result
 
 
 def watch(db_path: str, *, interval: float, download: bool = False,
