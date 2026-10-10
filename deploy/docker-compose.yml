@@ -12,6 +12,7 @@ services:
       - media-archivist-data:/data
     environment:
       MEDIA_ARCHIVIST_DB_FILE: /data/index.json
+      MEDIA_ARCHIVIST_AUTH_EXEMPT: "127.0.0.0/8,::1/128"
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/healthz"]
       interval: 30s

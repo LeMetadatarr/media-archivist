@@ -26,6 +26,7 @@ def cmd_subscribe(args) -> int:
         sub = subs_mod.add_subscription(
             db_path, args.url, backend=args.backend, label=args.label,
             auto_download=getattr(args, "download", False),
+            interval_hours=getattr(args, "interval_hours", None),
         )
     except ValueError as e:
         print(f"error: {e}", file=sys.stderr)

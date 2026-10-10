@@ -51,6 +51,9 @@ Module inventory below is generated from `git ls-files 'media_archivist/*.py'
   explicit DB path, duration handling).
 - `media_archivist/youtube.py` — YouTube backend (`YoutubeArchivist`,
   `YoutubeMonitor`), via `tutubo`.
+- `media_archivist/ytmeta.py` — YouTube metadata hygiene: drops junk
+  listing values, fills duration/channel/upload date from a rate-limited
+  single-video yt-dlp read, backs off on YouTube's bot check.
 - `media_archivist/music.py` — YouTube Music backend, via `tutubo.ytmus`.
 - `media_archivist/ia.py` — Internet Archive backend, via `internetarchive`.
 - `media_archivist/bandcamp.py` — Bandcamp backend, via `py_bandcamp`.
@@ -126,6 +129,10 @@ Module inventory below is generated from `git ls-files 'media_archivist/*.py'
   `/healthz`, `/providers`, `/canonicalize`, `/quarantine`.
 - `media_archivist/server/scheduler.py` — background scheduler for the
   server.
+- `media_archivist/server/periodic.py` — recurring work inside `serve`:
+  scheduled subscription syncs and YouTube metadata fills, queued as tasks.
+- `media_archivist/server/auth.py` — optional API key (`X-Api-Key` /
+  `apikey`), local and Tailscale addresses exempt.
 - `media_archivist/server/web.py` — server-rendered htmx WebUI, mounted onto
   the same FastAPI app as the HTTP API.
 - `media_archivist/commands/__init__.py` — command handler modules for the
@@ -230,8 +237,11 @@ below is a registered subparser choice in `build_parser()`.
 - All resolver providers live in `metadatarr`, NOT here — there are no
   media-archivist-specific resolver providers. The resolver gates on three
   axes: `media`, `modality`, `genre_filter`.
-- The FastAPI service is single-tenant with no authentication; it is meant for
-  LAN / behind a reverse proxy only.
+- The FastAPI service is single-tenant. Its API key is optional and off unless
+  `MEDIA_ARCHIVIST_API_KEY` is set; the local-address exemption looks at the
+  socket peer only, and a request carrying forwarding headers is never exempt.
+- YouTube's bot check is never worked around: `ytmeta` leaves the fields
+  empty and backs off.
 - Two overlapping CI files exist for license check (`license-check.yml` and
   `license_check.yml`); both call the gh-automations reusable workflow.
 

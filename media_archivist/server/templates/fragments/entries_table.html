@@ -4,10 +4,29 @@
 {% elif not entries %}
 <p class="empty">No entries match this filter.</p>
 {% else %}
+<input type="hidden" id="f-sort-key" name="sortKey" value="{{ sort_key }}" hx-swap-oob="true">
+<input type="hidden" id="f-sort-direction" name="sortDirection" value="{{ sort_direction }}" hx-swap-oob="true">
 <div class="scroll-x">
 <table class="table">
   <thead>
-    <tr><th>Title</th><th>Source</th><th>Artist</th><th>Duration</th><th>Stream</th></tr>
+    <tr>
+      {% for key, heading in sort_columns %}
+      {% if key %}
+      {% set active = key == sort_key %}
+      {% set next_direction = "descending" if active and sort_direction == "ascending" else "ascending" %}
+      <th aria-sort="{{ sort_direction if active else 'none' }}">
+        <button class="th-sort{% if active %} th-sort-active{% endif %}" type="button"
+                hx-get="{{ root_path }}/ui/entries/table"
+                hx-include="#filters-form"
+                hx-vals='{"offset": 0, "sortKey": "{{ key }}", "sortDirection": "{{ next_direction }}"}'
+                hx-target="#entries-table" hx-swap="innerHTML"
+                title="Sort by {{ heading | lower }}">{{ heading }}{% if active %} {{ "▲" if sort_direction == "ascending" else "▼" }}{% endif %}</button>
+      </th>
+      {% else %}
+      <th>{{ heading }}</th>
+      {% endif %}
+      {% endfor %}
+    </tr>
   </thead>
   <tbody>
     {% for e in entries %}
@@ -18,6 +37,7 @@
       <td>{{ e.source.value }}</td>
       <td>{{ e.artist or "" }}</td>
       <td>{{ (e.duration | int) if e.duration else "" }}</td>
+      <td>{{ (e.published or "")[:10] }}</td>
       <td>{% if e.stream %}<span class="badge badge-ok">yes</span>{% else %}<span class="badge badge-dim">no</span>{% endif %}</td>
     </tr>
     {% endfor %}

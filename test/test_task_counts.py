@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""GET /tasks: scheduler task counts per status."""
+"""GET /tasks: scheduler task counts per status, beside the task listing."""
 from __future__ import annotations
 
 import threading
@@ -17,6 +17,10 @@ from media_archivist.server.app import create_app  # noqa: E402
 EMPTY = {"queued": 0, "running": 0, "ok": 0, "error": 0, "total": 0}
 
 
+def _counts(body):
+    return {k: body[k] for k in EMPTY}
+
+
 @pytest.fixture
 def db_path(tmp_path):
     return str(tmp_path / "db.json")
@@ -25,7 +29,7 @@ def db_path(tmp_path):
 def _wait(client, pred, timeout=5.0):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        body = client.get("/tasks").json()
+        body = _counts(client.get("/tasks").json())
         if pred(body):
             return body
         time.sleep(0.02)
@@ -36,7 +40,8 @@ def test_no_tasks_all_zero(db_path):
     with TestClient(create_app(db_path)) as c:
         r = c.get("/tasks")
     assert r.status_code == 200
-    assert r.json() == EMPTY
+    assert _counts(r.json()) == EMPTY
+    assert r.json()["tasks"] == []
 
 
 def test_counts_follow_task_lifecycle(db_path, monkeypatch):

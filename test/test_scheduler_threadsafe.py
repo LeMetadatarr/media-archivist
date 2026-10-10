@@ -78,7 +78,12 @@ def test_submit_marshals_queue_write_onto_loop_thread(tmp_path):
         pass
 
     try:
-        loop.call_soon_threadsafe(scheduler.start, loop)
+        # Register the loop before submitting: the contract under test is
+        # what submit() does once a loop is known.
+        async def _start():
+            scheduler.start(loop)
+
+        asyncio.run_coroutine_threadsafe(_start(), loop).result(timeout=5)
 
         calls = []
         real_put_nowait = scheduler._queue.put_nowait
