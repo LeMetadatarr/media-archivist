@@ -19,7 +19,7 @@ from media_archivist.canonicalize import (
     quarantine_resolve,
     render_conflict,
 )
-from media_archivist.index import Index, WhereError
+from media_archivist.index import Index, WhereError, parse_sort
 from media_archivist.models.api import (
     ArchiveRequest,
     DownloadRequest,
@@ -140,11 +140,13 @@ def register_web(app, *, db_path: str, templates, scheduler) -> None:
     def entries_page(request: Request):
         return _render(request, "entries.html", active="entries")
 
-    def _query_entries(source, where, grep, has_stream, explicit, limit, offset):
+    def _query_entries(source, where, grep, has_stream, explicit, limit, offset,
+                       sort_key="added", descending=False):
         idx = Index(db_path)
         entries = idx.to_list(
             source=source or None, where=where or None, grep=grep or None,
             has_stream=has_stream, explicit=explicit, limit=limit, offset=offset,
+            sort_key=sort_key, descending=descending,
         )
         total = idx.count(
             source=source or None, where=where or None, grep=grep or None,
@@ -157,6 +159,11 @@ def register_web(app, *, db_path: str, templates, scheduler) -> None:
     # instead of rendering one giant table.
     _UI_PAGE_SIZE = 50
 
+    # (sortKey, column heading) of the entries table, in column order;
+    # None marks a column that does not sort.
+    _SORT_COLUMNS = [("title", "Title"), ("source", "Source"), ("artist", "Artist"),
+                     ("duration", "Duration"), ("published", "Published"), (None, "Stream")]
+
     @app.get("/ui/entries/table", response_class=HTMLResponse)
     def entries_table(
         request: Request,
@@ -167,10 +174,17 @@ def register_web(app, *, db_path: str, templates, scheduler) -> None:
         explicit: Optional[bool] = None,
         limit: int = Query(default=_UI_PAGE_SIZE, ge=1, le=10_000),
         offset: int = Query(default=0, ge=0),
+        sort_key: Optional[str] = Query(default=None, alias="sortKey"),
+        sort_direction: Optional[str] = Query(default=None, alias="sortDirection"),
     ):
+        try:
+            key, descending = parse_sort(sort_key or None, sort_direction or None)
+        except ValueError as e:
+            return _render(request, "fragments/entries_table.html", error=str(e))
         try:
             entries, total = _query_entries(
                 source, where, grep, has_stream, explicit, limit, offset,
+                key, descending,
             )
         except WhereError as e:
             # 200, not 400: htmx does not swap 4xx bodies by default, so a
@@ -195,15 +209,19 @@ def register_web(app, *, db_path: str, templates, scheduler) -> None:
             has_prev=has_prev, has_next=has_next,
             source=source, where=where, grep=grep,
             has_stream=has_stream, explicit=explicit,
+            sort_key=key, sort_direction="descending" if descending else "ascending",
+            sort_columns=_SORT_COLUMNS,
         )
 
     @app.get("/ui/entries/{entry_id}", response_class=HTMLResponse)
     def entry_detail(request: Request, entry_id: str):
+        from media_archivist.server.routes import fill_youtube_metadata
         from media_archivist.streams import ytdlp_available
 
         idx = Index(db_path)
         for e in idx.view():
             if e.id == entry_id:
+                e = fill_youtube_metadata(db_path, e)
                 return _render(request, "fragments/entry_detail.html", entry=e,
                                stream_kind=_stream_kind(e), yt_id=_youtube_id(e),
                                ytdlp_available=ytdlp_available())

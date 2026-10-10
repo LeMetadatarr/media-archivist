@@ -37,6 +37,10 @@ entries missing a resolvable stream at a glance. Results are paginated —
 along (`hx-include`d from the filter form), so you can page through a large
 DB without re-typing the query.
 
+Click a column heading (title, source, artist, duration, published) to sort
+by it; click it again to reverse the order. Entries without a value sort
+last, and the sort stays in place while you filter and page.
+
 ![Library](img/library.png)
 
 Click into a row for the entry detail drawer: thumbnail and full metadata,
@@ -147,11 +151,11 @@ laptop.
 
 ## Security
 
-Like the rest of the HTTP service, the Web UI has **no built-in
-authentication**. It's designed for single-tenant, LAN-only use. If you need
-to reach it beyond your local network, put it behind a reverse proxy
-(Caddy, Traefik, nginx) — see [`deploy.md`](./deploy.md) for examples and
-the full route table.
+The Web UI is designed for single-tenant use on your local network. With
+`MEDIA_ARCHIVIST_API_KEY` set, local and Tailscale addresses still open it
+without a key, and everything else gets `401`. The UI does not send the key
+itself, so to reach it from outside, put it behind a reverse proxy with its
+own login (Caddy, Traefik, nginx); see [`deploy.md`](./deploy.md#api-key).
 
 ## Troubleshooting
 

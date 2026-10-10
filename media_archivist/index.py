@@ -136,6 +136,45 @@ def evaluate_where(expr: str, entry: MediaEntry) -> bool:
     return bool(_eval_node(tree.body, ctx))
 
 
+SORT_KEYS = ("added", "title", "artist", "album", "duration", "published", "source")
+"""Fields :meth:`Index.view` can sort by; ``added`` is the order rows were indexed."""
+
+_SORT_DIRECTIONS = {"ascending": False, "asc": False, "descending": True, "desc": True}
+
+
+def parse_sort(sort_key: Optional[str], sort_direction: Optional[str] = None) -> tuple:
+    """``(key, descending)`` from the *arr-style ``sortKey``/``sortDirection`` pair.
+
+    Raises ``ValueError`` on an unknown key or direction. No key means
+    ``added``; no direction means ascending.
+    """
+    key = (sort_key or "added").strip()
+    if key not in SORT_KEYS:
+        raise ValueError(f"unknown sortKey {key!r}; one of: {', '.join(SORT_KEYS)}")
+    direction = (sort_direction or "ascending").strip().lower()
+    if direction not in _SORT_DIRECTIONS:
+        raise ValueError(f"unknown sortDirection {sort_direction!r}; ascending or descending")
+    return key, _SORT_DIRECTIONS[direction]
+
+
+def _sorted(entries: List[MediaEntry], key: str, descending: bool) -> List[MediaEntry]:
+    """Sort by ``key``; entries without a value go last in either direction."""
+    if key == "added":
+        return list(reversed(entries)) if descending else entries
+
+    def value(e: MediaEntry):
+        v = e.source.value if key == "source" else getattr(e, key)
+        if isinstance(v, str):
+            v = v.casefold()
+            return v or None
+        return v
+
+    present = [e for e in entries if value(e) is not None]
+    missing = [e for e in entries if value(e) is None]
+    present.sort(key=value, reverse=descending)
+    return present + missing
+
+
 class Index:
     """Read-side SDK over a media_archivist DB file."""
 
@@ -180,13 +219,26 @@ class Index:
              explicit: Optional[bool] = None,
              grep: Optional[str] = None,
              limit: int = 0,
-             offset: int = 0) -> Iterator[MediaEntry]:
+             offset: int = 0,
+             sort_key: Optional[str] = None,
+             descending: bool = False) -> Iterator[MediaEntry]:
         """Yield :class:`MediaEntry` rows matching the given filters.
 
         ``offset`` skips the first ``offset`` matching rows (post-filter,
         pre-limit) before yielding — the standard offset/limit pagination
         contract. ``limit=0`` still means "no limit" (existing convention).
+        ``sort_key`` (one of :data:`SORT_KEYS`) orders the matches before
+        paging, which reads every match first; without it rows come in
+        the order they were indexed.
         """
+        if sort_key is not None and (sort_key != "added" or descending):
+            key, _ = parse_sort(sort_key)
+            matches = list(self.view(where=where, source=source, has_stream=has_stream,
+                                     explicit=explicit, grep=grep))
+            ordered = _sorted(matches, key, descending)
+            end = offset + limit if limit else None
+            yield from ordered[offset:end]
+            return
         skipped = 0
         n = 0
         needle = grep.lower() if grep else None

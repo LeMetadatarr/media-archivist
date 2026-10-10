@@ -8,10 +8,10 @@ The same process also serves the build-free Web UI at `/`, alongside the
 JSON API and the Swagger docs at `/docs`. See [`webui.md`](./webui.md) for a
 page-by-page tour.
 
-> **Security note:** The service has no built-in authentication. It is designed
-> for single-tenant, LAN use. Do not expose port 8000 directly to the internet
->, put it behind your existing reverse proxy (Caddy, Traefik, nginx) and
-> restrict access accordingly.
+> **Security note:** The API key is optional and off by default. Do not
+> expose port 8000 directly to the internet; put it behind your reverse proxy
+> (Caddy, Traefik, nginx), and set an API key when anything outside your
+> network can reach it (see [API key](#api-key)).
 
 ## Docker Compose (recommended)
 
@@ -85,12 +85,15 @@ Once the service is up, three endpoints connect it to the rest of your stack:
 
 | Method | Path                 | Purpose |
 | ------ | -------------------- | ------- |
-| `GET`  | `/entries`           | Query the canonical view (filters: `source`, `where`, `grep`, `has_stream`, `explicit`, `limit`). |
-| `GET`  | `/entries/{id}`      | Fetch a single `MediaEntry` by id. |
+| `GET`  | `/entries`           | Query the canonical view (filters: `source`, `where`, `grep`, `has_stream`, `explicit`, `limit`, `offset`). Sorted by `sortKey` (`added`, `title`, `artist`, `album`, `duration`, `published`, `source`) in `sortDirection` (`ascending` or `descending`); entries without a value sort last. |
+| `GET`  | `/entries/{id}`      | Fetch a single `MediaEntry` by id. A YouTube entry without a duration, channel or upload date is first read from yt-dlp when the rate limit allows (see [YouTube metadata](#youtube-metadata)). |
+| `POST` | `/entries/enrich`    | Queue a fill of missing YouTube metadata. Optional body `{"limit": 100, "force": false}`. Returns a `Task`. |
 | `POST` | `/archive`           | Enqueue an archive task. Returns a `Task`. |
 | `POST` | `/entries/{id}/download` | Enqueue an optional download of one entry via `yt-dlp` to `MEDIA_ARCHIVIST_DOWNLOAD_DIR`. Optional JSON body `{"format": "<yt-dlp selector>"}` (default `bv*+ba/b`, or `b` when ffmpeg is not installed). Returns a `Task`. `503` if `yt-dlp` isn't available. |
 | `GET`  | `/tasks/{id}`        | Task progress (`queued`, `running`, `ok`, `error`). |
-| `GET`  | `/tasks`             | Task counts per status: `{"queued": 0, "running": 1, "ok": 12, "error": 2, "total": 15}`. |
+| `GET`  | `/tasks`             | Task counts per status (`queued`, `running`, `ok`, `error`, `total`) and one page of tasks, newest first, in `tasks`. Query: `status`, `kind` (`archive`, `download`, `sync`, `enrich`), `limit` (default 50), `offset`; `matched` counts the tasks the filters select. |
+| `GET`  | `/subscriptions`     | Subscriptions with `interval_hours`, `last_synced_at` and `next_sync_at`. |
+| `POST` | `/subscriptions`     | Subscribe. Body: `{url, backend?, label?, auto_download?, interval_hours?}`. |
 | `GET`  | `/feed.rss`          | RSS feed of recently-added entries. |
 | `GET`  | `/m3u`               | M3U playlist of stream URLs. |
 | `GET`  | `/stats`             | Source mix, canonical / quarantined counts. |
@@ -106,6 +109,50 @@ The schedulable surface is single-tenant by design, submitted tasks
 queue and run sequentially. Task state persists in
 `<db>.tasks.json`. If the service is restarted, anything still pending
 is re-queued automatically.
+
+## Scheduled subscription sync
+
+`serve` syncs every subscription on its own: once a minute it queues a
+`sync` task for each subscription whose interval has passed since its
+`last_synced_at`. The interval is the subscription's `interval_hours`
+(`subscribe --interval-hours`, or the API body), else
+`MEDIA_ARCHIVIST_SYNC_INTERVAL_HOURS`, else 6 hours. The last run is stored in
+`<db>.subscriptions.json`, so a restart keeps the schedule; a subscription
+never synced is due at once. A failed sync waits for its next interval. Set
+`MEDIA_ARCHIVIST_SCHEDULED_SYNC=0` to turn the schedule off and keep only
+`POST /subscriptions/sync` and the CLI.
+
+## YouTube metadata
+
+Channel and playlist listings often lack a video's duration, channel and
+upload date. Values a listing gives that are not real ones (relative times
+such as "3 years ago", view counts, badges) are never stored. The gaps are
+filled from a single-video yt-dlp read: when an entry is opened
+(`GET /entries/{id}`, the entry page), and by an `enrich` task that the
+server queues at most once an hour while rows still need it (and by
+`POST /entries/enrich`). Each task reads up to 100 videos, one every
+`MEDIA_ARCHIVIST_YT_METADATA_INTERVAL` seconds (default 2). A video is read
+once; the result is kept on its row with a `metadata_checked` timestamp.
+
+When YouTube answers with its bot check, the fields stay empty and reads
+pause for 15 minutes, doubling up to 6 hours while the check persists. The
+check is never worked around: no cookies, no client switching. Set
+`MEDIA_ARCHIVIST_REENRICH=0` to stop the hourly task.
+
+## API key
+
+Set `MEDIA_ARCHIVIST_API_KEY` to require a key. Clients send it as the
+`X-Api-Key` header or the `apikey` query parameter, as with the *arr apps;
+anything else gets `401`. `GET /healthz` stays open for health checks.
+
+Requests from the local network need no key: loopback, `10.0.0.0/8`,
+`172.16.0.0/12`, `192.168.0.0/16` and Tailscale (`100.64.0.0/10`,
+`fd7a:115c:a1e0::/48`). `MEDIA_ARCHIVIST_AUTH_EXEMPT` replaces that list with
+comma-separated networks; set it empty to exempt nothing. The decision uses
+the connecting address only. A request that carries `X-Forwarded-For`,
+`Forwarded` or `X-Real-IP` always needs the key, so a reverse proxy on your
+network does not make outside clients local. The Web UI sends no key, so
+through a proxy it needs the proxy's own login.
 
 ---
 [← Datasets, Enrichment & Sharing](datasets.md) · [Home](index.md) · [Jellyfin / Kodi Remote Media →](jellyfin.md)
