@@ -60,6 +60,7 @@ nav:
       - Datasets, enrichment & sharing: datasets.md
       - Running as a service: deploy.md
       - Jellyfin / Kodi remote media: jellyfin.md
+      - App API: app-api.md
       - Metadata providers (metadatarr): metadatarr.md
   - Recipes:
       - recipes/index.md
