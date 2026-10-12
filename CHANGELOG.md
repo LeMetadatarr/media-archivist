@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.24.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.24.0a1) (2026-10-12)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.23.0a1...0.24.0a1)
+
+**Merged pull requests:**
+
+- feat: scheduled syncs, task listing, API key, sorting, YouTube metadata fill [\#69](https://github.com/LeMetadatarr/media-archivist/pull/69) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.23.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.23.0a1) (2026-10-09)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.22.0a1...0.23.0a1)
