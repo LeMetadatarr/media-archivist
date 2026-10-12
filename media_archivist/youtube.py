@@ -329,25 +329,71 @@ class YoutubeArchivist(JsonArchivist):
             except VideoUnavailable:
                 continue
 
+    def _index_listing(self, url: str, videos, *, channel_id: Optional[str] = None,
+                       channel: Optional[str] = None) -> None:
+        """Record in the working index which videos the listing of ``url`` gave.
+
+        Every video gets its first-seen time; when ``url`` is a subscription,
+        the videos become its members and the listing counts as its full
+        listing. Nothing happens for a database without an index (one no
+        server has opened), and a failure here never fails the archive.
+        """
+        from media_archivist import subscriptions as subs
+        from media_archivist.indexdb import index_path, open_index, subscription_id_for_url, utcnow
+        from media_archivist.ytindex import store
+        from media_archivist.ytindex.client import VideoItem
+
+        path = getattr(self.db, "path", None)
+        if not path or not videos or not index_path(path).is_file():
+            return
+        items = [VideoItem(video_id=v.video_id, title=_attr(v, "title") or None,
+                           duration=clean_duration(_attr(v, "length"))
+                           or clean_duration(_attr(v, "duration_seconds")))
+                 for v in videos if _VIDEO_ID.fullmatch(_attr(v, "video_id") or "")]
+        try:
+            index = open_index(path)
+            now = utcnow()
+            with index.write() as conn:
+                ids, _ = store.upsert_videos(conn, items, now, channel_id=channel_id,
+                                             channel=channel)
+                row = subs._find_existing(conn, url.strip(), subscription_id_for_url(url))
+                if row is None:
+                    return
+                sid = row["id"]
+                if channel_id and subs.is_unresolved(sid):
+                    sid = subs.rekey_indexed(conn, sid, channel_id)
+                store.record_memberships(conn, sid, ids, now)
+                conn.execute(
+                    "UPDATE subscriptions SET last_listing_at = ?,"
+                    " first_indexed_at = COALESCE(first_indexed_at, ?),"
+                    " channel_id = COALESCE(channel_id, ?), title = COALESCE(title, ?),"
+                    " listing_requested = 0 WHERE id = ?", (now, now, channel_id, channel, sid))
+        except Exception:
+            self.log.exception("could not record the listing of %s in the working index", url)
+
     def archive_playlist(self, url: str) -> None:
         self.log.debug("Archiving playlist: %s", url)
         videos, title = self._list_videos(url, Playlist(url))
         meta = {"playlist": title} if title else {}
         self._archive_listing(url, videos, meta, f"playlist {url}")
+        self._index_listing(url, videos)
 
     def archive_channel(self, url: str) -> None:
         self.log.debug("Archiving channel: %s", url)
         channel = Channel(url)
         videos, _ = self._list_videos(url, channel)
         meta = {}
+        channel_id = None
         if videos and not isinstance(videos[0], _FlatVideo):
             try:
                 name = clean_channel(channel.channel_name)
             except Exception:
                 name = None
+            channel_id = _attr(channel, "channel_id") or None
             if name:
                 meta["author"] = name
         self._archive_listing(url, videos, meta, f"channel {url}")
+        self._index_listing(url, videos, channel_id=channel_id, channel=meta.get("author"))
 
     def archive_channel_playlists(self, url: str) -> None:
         from media_archivist.progress import progress

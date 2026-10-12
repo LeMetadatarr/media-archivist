@@ -1,17 +1,20 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Channel/playlist subscriptions — auto-index new uploads on sync.
+"""Channel/playlist subscriptions: the CLI's sidecar and the working index.
 
-A subscription is just a remembered ``(url, backend)`` pair. Syncing a
-subscription re-runs the matching :class:`~media_archivist.base.JsonArchivist`
-subclass's ``.archive(url)`` against the DB; the archivist itself dedupes
-existing rows, so only genuinely new uploads get added. This module doesn't
-reimplement any of that — it just remembers *which* URLs to keep re-archiving
-and stamps bookkeeping (last-synced-at, rows-added) around each run.
+The sidecar (``<db>.subscriptions.json``, beside the ``.canonical.json`` /
+``.quarantine.json`` / ``.entities.json`` sidecars) is a list of remembered
+``(url, backend)`` pairs. Syncing one re-runs the matching
+:class:`~media_archivist.base.JsonArchivist` subclass's ``.archive(url)``
+against the database; the archivist dedupes existing rows, so only new
+uploads are added, and this module stamps the bookkeeping (last-synced-at,
+rows-added) around each run.
 
-Stored as a ``<db>.subscriptions.json`` sidecar, mirroring the
-``<db>.canonical.json`` / ``<db>.quarantine.json`` / ``<db>.entities.json``
-sidecar convention in :mod:`media_archivist.canonicalize` /
-:mod:`media_archivist.entities`.
+The working index holds the subscriptions of the app API: a stable id per
+channel or playlist, the apps holding it, its export settings and the state
+of its indexing (see the second half of this module and
+:mod:`media_archivist.ytindex`). A YouTube subscription added to the
+sidecar is also held in the index by ``user`` once a server has created the
+index, and removing it from the sidecar releases that hold.
 """
 from __future__ import annotations
 
@@ -170,13 +173,14 @@ def add_subscription(db_path: str, url: str, *, backend: Optional[str] = None,
                 if interval_hours is not None:
                     sub.interval_hours = interval_hours
                 save_subscriptions(db_path, sidecar)
-                return sub
-
-        sub = Subscription(url=url, backend=resolved_backend, label=label,
-                            auto_download=auto_download, interval_hours=interval_hours)
-        sidecar.subscriptions.append(sub)
-        save_subscriptions(db_path, sidecar)
-        return sub
+                break
+        else:
+            sub = Subscription(url=url, backend=resolved_backend, label=label,
+                                auto_download=auto_download, interval_hours=interval_hours)
+            sidecar.subscriptions.append(sub)
+            save_subscriptions(db_path, sidecar)
+    _mirror_to_index(db_path, url, resolved_backend, label)
+    return sub
 
 
 def remove_subscription(db_path: str, url: str) -> bool:
@@ -188,7 +192,8 @@ def remove_subscription(db_path: str, url: str) -> bool:
         if len(sidecar.subscriptions) == before:
             return False
         save_subscriptions(db_path, sidecar)
-        return True
+    _release_from_index(db_path, url)
+    return True
 
 
 def list_subscriptions(db_path: str) -> List[Subscription]:
@@ -488,3 +493,334 @@ def watch(db_path: str, *, interval: float, download: bool = False,
         if event.wait(interval):
             break
     LOG.info("subscriptions.watch: stopped")
+
+
+# ---------------------------------------------------------------------------
+# Subscriptions in the working index: the ``/api/v1`` contract.
+#
+# A row of the index's ``subscriptions`` table is keyed by a stable id
+# (``youtube:channel:UC…``, ``youtube:playlist:PL…``) and held by one or
+# more apps. The functions below are the only writers of those rows outside
+# the indexer (:mod:`media_archivist.ytindex.engine`).
+# ---------------------------------------------------------------------------
+
+FEED_EVERY = timedelta(hours=2)
+CHANNEL_LISTING_EVERY = timedelta(days=7)
+PLAYLIST_LISTING_EVERY = timedelta(hours=24)
+PLAYLISTS_TAB_EVERY = timedelta(hours=24)
+PLAYLIST_VIDEOS_EVERY = timedelta(hours=24)
+THUMBNAIL_RETRY = timedelta(hours=24)
+MAX_FAILURES = 3
+EXPORT_LAYOUTS = ("movies", "episodes")
+_UNRESOLVED_PREFIX = "youtube:url:"
+
+
+class SubscriptionNotFound(LookupError):
+    """No subscription in the index has that id."""
+
+
+def youtube_kind(url: str) -> Optional[str]:
+    """``channel`` or ``playlist`` for a YouTube URL the index can follow, else ``None``."""
+    from urllib.parse import urlparse
+
+    parsed = urlparse((url or "").strip())
+    host = parsed.netloc.lower()
+    if parsed.scheme not in ("http", "https") or not (
+            host == "youtube.com" or host.endswith(".youtube.com")) or host.startswith("music."):
+        return None
+    if "list=" in parsed.query:
+        return "playlist"
+    parts = [p for p in parsed.path.split("/") if p]
+    if parts and (parts[0].startswith("@") or (parts[0] in ("channel", "c", "user") and len(parts) >= 2)):
+        return "channel"
+    return None
+
+
+def is_unresolved(subscription_id: str) -> bool:
+    return subscription_id.startswith(_UNRESOLVED_PREFIX)
+
+
+def clean_export(export: Optional[dict], current: Optional[dict] = None) -> Dict[str, object]:
+    """An export block with every field, ``export`` merged over ``current``.
+
+    Raises ``ValueError`` when ``automatic`` is on without a ``target_dir``
+    or ``layout`` is not one of :data:`EXPORT_LAYOUTS`.
+    """
+    out = {"automatic": False, "target_dir": None, "layout": "movies"}
+    out.update(current or {})
+    for key, value in (export or {}).items():
+        if key not in out:
+            raise ValueError(f"unknown export field {key!r}")
+        out[key] = value
+    if not isinstance(out["automatic"], bool):
+        raise ValueError("export.automatic must be true or false")
+    if out["target_dir"] is not None and (not isinstance(out["target_dir"], str)
+                                          or not out["target_dir"].strip()):
+        raise ValueError("export.target_dir must be a folder path or null")
+    if out["layout"] not in EXPORT_LAYOUTS:
+        raise ValueError(f"export.layout must be one of {', '.join(EXPORT_LAYOUTS)}")
+    if out["automatic"] and not out["target_dir"]:
+        raise ValueError("export.target_dir is required when export.automatic is true")
+    return out
+
+
+def _row(conn, subscription_id: str):
+    return conn.execute("SELECT * FROM subscriptions WHERE id = ?", (subscription_id,)).fetchone()
+
+
+def _find_existing(conn, url: str, subscription_id: str):
+    return _row(conn, subscription_id) or conn.execute(
+        "SELECT * FROM subscriptions WHERE url = ? ORDER BY created_at LIMIT 1", (url,)).fetchone()
+
+
+def _iso(value: Optional[datetime]) -> Optional[str]:
+    if value is None:
+        return None
+    return value.astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def _api_time(value: Optional[str]) -> Optional[str]:
+    return _iso(_parse_ts(value))
+
+
+def next_check_at(row, now: Optional[datetime] = None) -> Optional[datetime]:
+    """When the indexer next reads the subscription; ``None`` while it is flagged."""
+    if row["flagged"]:
+        return None
+    now = now or datetime.now(timezone.utc)
+    if row["listing_requested"] or not row["first_indexed_at"] or is_unresolved(row["id"]):
+        return now
+    last_listing = _parse_ts(row["last_listing_at"]) or now
+    if row["kind"] == "playlist":
+        return last_listing + PLAYLIST_LISTING_EVERY
+    nxt = last_listing + CHANNEL_LISTING_EVERY
+    if row["channel_id"]:
+        last_feed = _parse_ts(row["last_feed_at"])
+        nxt = min(nxt, last_feed + FEED_EVERY if last_feed else now)
+    return nxt
+
+
+def _as_api(conn, row) -> Dict[str, object]:
+    sid = row["id"]
+    holders = [r["app"] for r in conn.execute(
+        "SELECT app FROM subscription_holders WHERE subscription_id = ? ORDER BY app", (sid,))]
+    count = conn.execute("SELECT COUNT(*) FROM memberships WHERE subscription_id = ?",
+                         (sid,)).fetchone()[0]
+    return {
+        "id": sid,
+        "url": row["url"],
+        "kind": row["kind"],
+        "title": row["title"],
+        "label": row["label"],
+        "thumbnail": f"/api/v1/subscriptions/{sid}/thumbnail" if row["thumbnail"] else None,
+        "holders": holders,
+        "index_playlists": bool(row["index_playlists"]) and row["kind"] == "channel",
+        "export": {"automatic": bool(row["export_automatic"]),
+                   "target_dir": row["export_target"], "layout": row["export_layout"]},
+        "entry_count": count,
+        "first_indexed_at": _api_time(row["first_indexed_at"]),
+        "last_listing_at": _api_time(row["last_listing_at"]),
+        "last_feed_at": _api_time(row["last_feed_at"]),
+        "next_check_at": _iso(next_check_at(row)),
+        "failures": row["failures"],
+        "last_error": row["last_error"],
+        "flagged": bool(row["flagged"]),
+    }
+
+
+def get_indexed(index, subscription_id: str) -> Dict[str, object]:
+    """One subscription as ``GET /api/v1/subscriptions/{id}`` shows it."""
+    row = _row(index.conn, subscription_id)
+    if row is None:
+        raise SubscriptionNotFound(subscription_id)
+    return _as_api(index.conn, row)
+
+
+def list_indexed(index) -> List[Dict[str, object]]:
+    rows = index.execute("SELECT * FROM subscriptions ORDER BY created_at, id").fetchall()
+    return [_as_api(index.conn, r) for r in rows]
+
+
+def create_indexed(index, url: str, *, app: str, label: Optional[str] = None,
+                   index_playlists: Optional[bool] = None, export: Optional[dict] = None,
+                   resolve: Optional[Callable[[str], Optional[str]]] = None) -> tuple:
+    """Subscribe ``app`` to a YouTube channel or playlist.
+
+    Returns ``(subscription, created)``. A channel given by handle is
+    resolved to its channel id with ``resolve`` (one request; ``None`` or an
+    error leaves it to the indexer), so the same channel added by two
+    addresses is one subscription. An existing subscription only gains
+    ``app`` as a holder; its settings are left as they are.
+    """
+    from media_archivist.indexdb import subscription_id_for_url, utcnow
+
+    url = (url or "").strip()
+    kind = youtube_kind(url)
+    if kind is None:
+        raise ValueError("url must be a YouTube channel or playlist address")
+    clean = clean_export(export)
+    sid = subscription_id_for_url(url)
+    channel_id = sid.split(":", 2)[2] if sid.startswith("youtube:channel:") else None
+    if is_unresolved(sid) and resolve is not None:
+        known = _find_existing(index.conn, url, sid)
+        if known is None or is_unresolved(known["id"]):
+            try:
+                channel_id = resolve(url)
+            except Exception as e:
+                LOG.info("could not resolve %s now (%s); the indexer will", url, e)
+                channel_id = None
+            if channel_id:
+                sid = f"youtube:channel:{channel_id}"
+    now = utcnow()
+    with index.write() as conn:
+        row = _find_existing(conn, url, sid)
+        created = row is None
+        if created:
+            conn.execute(
+                "INSERT INTO subscriptions (id, url, backend, kind, channel_id, label,"
+                " index_playlists, export_automatic, export_target, export_layout,"
+                " listing_requested, created_at) VALUES (?, ?, 'youtube', ?, ?, ?, ?, ?, ?, ?, 1, ?)",
+                (sid, url, kind, channel_id, label,
+                 int(index_playlists is not False and kind == "channel"),
+                 int(clean["automatic"]), clean["target_dir"], clean["layout"], now))
+        else:
+            sid = row["id"]
+        conn.execute("INSERT OR IGNORE INTO subscription_holders (subscription_id, app, added_at)"
+                     " VALUES (?, ?, ?)", (sid, app, now))
+        return _as_api(conn, _row(conn, sid)), created
+
+
+def update_indexed(index, subscription_id: str, changes: Dict[str, object]) -> Dict[str, object]:
+    """Change ``label``, ``index_playlists`` or ``export``; clears ``flagged``."""
+    unknown = set(changes) - {"label", "index_playlists", "export"}
+    if unknown:
+        raise ValueError(f"cannot change {', '.join(sorted(unknown))}")
+    with index.write() as conn:
+        row = _row(conn, subscription_id)
+        if row is None:
+            raise SubscriptionNotFound(subscription_id)
+        label = changes.get("label", row["label"])
+        if label is not None and not isinstance(label, str):
+            raise ValueError("label must be text or null")
+        index_playlists = changes.get("index_playlists", bool(row["index_playlists"]))
+        if not isinstance(index_playlists, bool):
+            raise ValueError("index_playlists must be true or false")
+        current = {"automatic": bool(row["export_automatic"]), "target_dir": row["export_target"],
+                   "layout": row["export_layout"]}
+        export = changes.get("export")
+        if export is not None and not isinstance(export, dict):
+            raise ValueError("export must be an object")
+        clean = clean_export(export, current)
+        conn.execute(
+            "UPDATE subscriptions SET label = ?, index_playlists = ?, export_automatic = ?,"
+            " export_target = ?, export_layout = ?, flagged = 0, failures = 0 WHERE id = ?",
+            (label, int(index_playlists and row["kind"] == "channel"), int(clean["automatic"]),
+             clean["target_dir"], clean["layout"], subscription_id))
+        return _as_api(conn, _row(conn, subscription_id))
+
+
+def release_indexed(index, subscription_id: str, app: str, *, all_holders: bool = False) -> bool:
+    """Remove ``app`` (or every app) from the holders; True when the subscription went away.
+
+    A subscription nobody holds stops being indexed. Its entries, the
+    record of which of them it listed and its playlists stay in the index,
+    so subscribing again later does not show its back catalogue as new.
+    """
+    with index.write() as conn:
+        if _row(conn, subscription_id) is None:
+            raise SubscriptionNotFound(subscription_id)
+        if all_holders:
+            conn.execute("DELETE FROM subscription_holders WHERE subscription_id = ?",
+                         (subscription_id,))
+        else:
+            conn.execute("DELETE FROM subscription_holders WHERE subscription_id = ? AND app = ?",
+                         (subscription_id, app))
+        left = conn.execute("SELECT COUNT(*) FROM subscription_holders WHERE subscription_id = ?",
+                            (subscription_id,)).fetchone()[0]
+        if left:
+            return False
+        conn.execute("DELETE FROM subscriptions WHERE id = ?", (subscription_id,))
+        return True
+
+
+def request_listing(index, subscription_id: str) -> Dict[str, object]:
+    """Ask for a full listing at the next pass; clears ``flagged``."""
+    with index.write() as conn:
+        cur = conn.execute("UPDATE subscriptions SET listing_requested = 1, flagged = 0,"
+                           " failures = 0 WHERE id = ?", (subscription_id,))
+        if not cur.rowcount:
+            raise SubscriptionNotFound(subscription_id)
+        return _as_api(conn, _row(conn, subscription_id))
+
+
+def rekey_indexed(conn, old_id: str, channel_id: str) -> str:
+    """Move a subscription known by its URL to its channel id; returns the new id.
+
+    When the channel is already subscribed under its id, the two become one:
+    holders and listed entries are merged and the earlier ``first_seen`` of
+    each entry is kept.
+    """
+    new_id = f"youtube:channel:{channel_id}"
+    if new_id == old_id:
+        return new_id
+    if _row(conn, new_id) is None:
+        conn.execute("UPDATE subscriptions SET id = ?, channel_id = ? WHERE id = ?",
+                     (new_id, channel_id, old_id))
+    else:
+        conn.execute("DELETE FROM subscriptions WHERE id = ?", (old_id,))
+    conn.execute("INSERT OR IGNORE INTO subscription_holders (subscription_id, app, added_at)"
+                 " SELECT ?, app, added_at FROM subscription_holders WHERE subscription_id = ?",
+                 (new_id, old_id))
+    conn.execute("DELETE FROM subscription_holders WHERE subscription_id = ?", (old_id,))
+    conn.execute(
+        "INSERT INTO memberships (subscription_id, entry_id, position, first_seen)"
+        " SELECT ?, entry_id, position, first_seen FROM memberships WHERE subscription_id = ?"
+        " ON CONFLICT(subscription_id, entry_id) DO UPDATE SET"
+        " first_seen = MIN(first_seen, excluded.first_seen)", (new_id, old_id))
+    conn.execute("DELETE FROM memberships WHERE subscription_id = ?", (old_id,))
+    conn.execute("UPDATE playlists SET channel_subscription_id = ? WHERE channel_subscription_id = ?",
+                 (new_id, old_id))
+    return new_id
+
+
+def record_failure(conn, subscription_id: str, message: str) -> None:
+    """Count a failure other than the bot check; the third in a row flags the subscription."""
+    conn.execute(
+        "UPDATE subscriptions SET failures = failures + 1, last_error = ?,"
+        " flagged = CASE WHEN failures + 1 >= ? THEN 1 ELSE flagged END WHERE id = ?",
+        (message, MAX_FAILURES, subscription_id))
+
+
+def record_success(conn, subscription_id: str) -> None:
+    conn.execute("UPDATE subscriptions SET failures = 0, last_error = NULL WHERE id = ?",
+                 (subscription_id,))
+
+
+def _mirror_to_index(db_path: str, url: str, backend: str, label: Optional[str]) -> None:
+    """Hold a YouTube sidecar subscription in the working index as ``user``.
+
+    Only when the index exists (a server has opened the database): the CLI
+    alone never creates one.
+    """
+    from media_archivist.indexdb import index_path, open_index
+
+    if backend != "youtube" or youtube_kind(url) is None or not index_path(db_path).is_file():
+        return
+    try:
+        create_indexed(open_index(db_path), url, app="user", label=label)
+    except Exception:
+        LOG.exception("could not add %s to the working index", url)
+
+
+def _release_from_index(db_path: str, url: str) -> None:
+    from media_archivist.indexdb import index_path, open_index, subscription_id_for_url
+
+    if not index_path(db_path).is_file():
+        return
+    try:
+        index = open_index(db_path)
+        row = _find_existing(index.conn, url.strip(), subscription_id_for_url(url))
+        if row is not None:
+            release_indexed(index, row["id"], "user")
+    except Exception:
+        LOG.exception("could not remove %s from the working index", url)

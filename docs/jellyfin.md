@@ -308,6 +308,83 @@ The WebUI's entry detail drawer also has a "💬 Fetch subtitles" button
 fetches on demand for a single entry, writing into the server's
 download directory, whenever `yt-dlp` is available.
 
+## Exports through the app API
+
+A running server exports `.strm` files on request: one video, one playlist
+or everything a subscription lists, into a folder Jellyfin watches.
+
+```bash
+curl -X POST http://nas.local:8000/api/v1/exports \
+  -H 'Content-Type: application/json' \
+  -d '{"scope": "playlist", "id": "youtube:playlist:PLyyyy",
+       "target_dir": "/media/streams/youtube", "layout": "movies",
+       "links": "signed", "refresh_jellyfin": true, "collection": true}'
+```
+
+The answer lists every file written and the export's id. Exporting the same
+entry again into the same folder rewrites its files in place.
+`DELETE /api/v1/exports/{id}` removes the files that export wrote and
+nothing else: a file that was changed since, or that another export also
+wrote, stays, and so does a folder that is not empty. The full contract is
+in the app API reference, `docs/app-api.md`.
+
+The `movies` layout writes `Title (Year) [videoid]/Title (Year) [videoid].strm`
+with `movie.nfo` and the video's thumbnail as the poster, for a Movies
+library. The `episodes` layout files each channel as a show and each upload
+year as a season, `Channel/Season 2024/Channel - S2024E0503 - Title [videoid].strm`,
+with `tvshow.nfo`, `season.nfo` and an episode `.nfo`, for a Shows library.
+A video whose upload date is not known yet is left out of the `episodes`
+layout and reported as skipped, and so is one whose episode `.strm` or `.nfo`
+is already there with other content that no export wrote.
+
+The server writes only below the folders listed, comma-separated, in
+`MEDIA_ARCHIVIST_LIBRARY_ROOTS`. A target outside them, or one that leads
+out of them through a symbolic link, is refused, and with no roots set
+nothing is exported. No file is written through a symbolic link.
+
+Each `.strm` file points at `/api/v1/stream/{id}` on the server, which
+resolves a fresh stream on every play and redirects to it, or to the watch
+page when resolution fails or YouTube's bot check has paused per-video
+requests. A play is a request a person waits on, so it takes no turn in the
+request spacing that holds back the indexer and the downloads, and they do
+not hold it back. At most four plays resolve at once; a fifth waits up to
+three seconds for a slot and is then sent to the watch page, and when eight
+plays already wait it is sent there at once, so waiting plays cannot take
+the server's worker threads. YouTube Music plays are held to the same pause
+and bot check bookkeeping as YouTube plays. A resolved
+address is kept for five minutes and plays of one entry share one
+resolution, so a Jellyfin scan that probes one `.strm` file many times makes
+one YouTube request, and the server's other routes stay as fast as they were.
+`MEDIA_ARCHIVIST_PUBLIC_URL` sets the address written into the
+files (for example `http://nas.local:8000`); without it the address the
+export request arrived on is used. A subscription that exports
+automatically has no request to take an address from, so it needs that
+variable. Automatic export writes every entry a listing adds to the
+subscription. For a subscription created with it switched on, the first
+listing adds the whole back catalogue, so a channel of 2,000 videos becomes
+2,000 `.strm` files, and fetching their posters takes one spaced request each,
+about five and a half hours at the default spacing. Turn it on after the first
+listing to export only what comes later.
+
+`"links": "signed"` adds a signature to each link, so a player outside the
+networks exempt from the API key plays that one video without the key, and
+the key never lands in a file. The signature opens `/api/v1/stream/{id}`
+for that entry and no other route. The signing secret is
+`MEDIA_ARCHIVIST_LINK_SECRET`; without it the server generates one and
+keeps it in its index. Changing the secret revokes every signed link, and
+the files are then exported again. `POST /api/v1/entries/{id}/link` hands
+out one signed link, with `{"expires_in": seconds}` for one that expires.
+
+With `MEDIA_ARCHIVIST_JELLYFIN_URL` and `MEDIA_ARCHIVIST_JELLYFIN_API_KEY`
+set, `refresh_jellyfin` asks Jellyfin to scan its libraries once the posters
+are on disk, and `collection` on a playlist export makes a Jellyfin
+collection named like the playlist, holding exactly its exported videos, or
+updates the one made before. The server waits up to ten minutes for
+Jellyfin to scan the new items and finds them by their YouTube id, so
+Jellyfin may see the library under another path. A collection the server
+did not make is never changed, and none is made when its name is taken.
+`GET /api/v1/exports/{id}` reports what happened.
+
 ## Caveats
 
 - **YouTube via the redirect endpoint** still requires a player that

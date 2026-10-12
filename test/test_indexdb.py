@@ -17,6 +17,7 @@ from media_archivist.storage import EnvelopeJsonStorage
 URL = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 URL2 = "https://www.youtube.com/watch?v=aaaaaaaaaaa"
 CHANNEL = "https://www.youtube.com/channel/UCuAXFkgsw1L7xaCfnd5JJOw"
+VERSIONS = [step.version for step in indexdb.load_migrations()]
 
 
 @pytest.fixture
@@ -62,14 +63,15 @@ def test_schema_v1_tables_exist(db_path):
 
 
 def test_migrations_are_recorded_and_idempotent(db_path):
+    every = [s.version for s in indexdb.load_migrations()]
     first = indexdb.IndexDB(db_path)
-    assert [m["version"] for m in first.migrations()] == [1, 2]
-    assert first.schema_version == 2
+    assert [m["version"] for m in first.migrations()] == VERSIONS
+    assert first.schema_version == VERSIONS[-1]
     assert first.migrate() == []
     first.close()
     again = indexdb.IndexDB(db_path)
     assert again.migrate() == []
-    assert [m["version"] for m in again.migrations()] == [1, 2]
+    assert [m["version"] for m in again.migrations()] == VERSIONS
 
 
 def test_migration_versions_must_be_unique(monkeypatch):
@@ -84,11 +86,12 @@ def test_a_failing_step_is_rolled_back_and_not_recorded(db_path, monkeypatch):
 
     real = indexdb.load_migrations
     monkeypatch.setattr(indexdb, "load_migrations",
-                        lambda: real() + [indexdb.Migration(99, "boom", boom)])
+                        lambda: sorted(real() + [indexdb.Migration(99, "boom", boom)],
+                                       key=lambda s: s.version))
     with pytest.raises(RuntimeError):
         indexdb.IndexDB(db_path)
     index = indexdb.IndexDB(db_path, migrate=False)
-    assert [m["version"] for m in index.migrations()] == [1, 2]
+    assert [m["version"] for m in index.migrations()] == [v for v in VERSIONS if v < 99]
     assert not index.execute("SELECT name FROM sqlite_master WHERE name = 'half_done'").fetchone()
 
 
@@ -200,7 +203,7 @@ def test_json_import_rerun_is_a_no_op(db_path):
 def test_no_json_database_imports_nothing(db_path):
     index = indexdb.IndexDB(db_path)
     assert index.execute("SELECT COUNT(*) FROM entries_meta").fetchone()[0] == 0
-    assert index.schema_version == 2
+    assert index.schema_version == VERSIONS[-1]
 
 
 @pytest.mark.parametrize("url,expected", [
@@ -290,7 +293,7 @@ def _seed_raw(db_path, patch):
 def test_json_import_survives_odd_values(db_path, patch):
     _seed_raw(db_path, patch)
     index = indexdb.IndexDB(db_path)
-    assert index.schema_version == 2
+    assert index.schema_version == VERSIONS[-1]
     for row in index.execute("SELECT * FROM entries_meta"):
         for column in ("key", "metadata_checked", "network_failed_at", "published", "channel"):
             assert row[column] is None or isinstance(row[column], str)
@@ -358,7 +361,7 @@ def test_corrupt_subscriptions_sidecar_leaves_the_import_to_retry(db_path):
     index.close()
     sidecar.write_text(good)
     again = indexdb.IndexDB(db_path)
-    assert [m["version"] for m in again.migrations()] == [1, 2]
+    assert [m["version"] for m in again.migrations()] == VERSIONS
     assert again.execute("SELECT COUNT(*) FROM subscriptions").fetchone()[0] == 1
 
 
@@ -371,12 +374,13 @@ def test_a_deferred_step_writes_nothing_and_holds_back_later_steps(db_path, monk
         conn.execute("INSERT INTO settings VALUES ('by_later_step', '1', '')")
 
     real = indexdb.load_migrations
-    monkeypatch.setattr(indexdb, "load_migrations", lambda: real() + [
-        indexdb.Migration(50, "not ready", not_ready), indexdb.Migration(60, "later", later)])
+    monkeypatch.setattr(indexdb, "load_migrations", lambda: sorted(real() + [
+        indexdb.Migration(50, "not ready", not_ready), indexdb.Migration(60, "later", later)],
+        key=lambda m: m.version))
     for _ in range(2):
         index = indexdb.IndexDB(db_path)
-        assert [m["version"] for m in index.migrations()] == [1, 2]
-        assert index.schema_version == 2
+        assert [m["version"] for m in index.migrations()] == [v for v in VERSIONS if v < 50]
+        assert index.schema_version == [v for v in VERSIONS if v < 50][-1]
         assert index.execute("SELECT COUNT(*) FROM settings").fetchone()[0] == 0
         index.close()
 

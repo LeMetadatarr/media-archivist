@@ -33,14 +33,22 @@ def _seconds(value: Any) -> float:
     return value
 
 
+def _concurrency(value: Any) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 8:
+        raise ValueError("download_concurrency must be a whole number from 1 to 8")
+    return value
+
+
 DEFAULTS: Dict[str, Any] = {
     "youtube_ip_family": "ipv4",
     "youtube_request_spacing": 10,
+    "download_concurrency": 1,
 }
 
 VALIDATORS: Dict[str, Callable[[Any], Any]] = {
     "youtube_ip_family": _ip_family,
     "youtube_request_spacing": _seconds,
+    "download_concurrency": _concurrency,
 }
 
 

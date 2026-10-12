@@ -317,6 +317,7 @@ def register_routes(app, *, db_path: str) -> Scheduler:
             "download": _download_worker,
             "sync": _sync_worker,
             "enrich": _enrich_worker,
+            "index": periodic.run_index_task,
         }.get(task.kind, _archive_worker)
         await worker(task)
 

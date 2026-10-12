@@ -127,3 +127,50 @@ def nfo_xml(entry: MediaEntry) -> str:
 
     lines.append(f"</{root}>")
     return "\n".join(lines) + "\n"
+
+
+def _youtube_id(entry: MediaEntry) -> Optional[str]:
+    video_id = entry.raw.get("videoId")
+    return str(video_id) if entry.source is Source.YOUTUBE and video_id else None
+
+
+def episode_nfo_xml(entry: MediaEntry, season: int, episode: int) -> str:
+    """An ``<episodedetails>`` NFO for a video filed as one episode of its channel."""
+    lines = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>', "<episodedetails>",
+             _tag("title", entry.title or entry.url), _tag("plot", _plot(entry)),
+             _tag("season", season), _tag("episode", episode)]
+    if entry.artist:
+        lines.append(_tag("studio", entry.artist))
+    runtime = _runtime_minutes(entry.duration)
+    if runtime is not None:
+        lines.append(_tag("runtime", runtime))
+    if entry.thumbnail:
+        lines.append(_tag("thumb", entry.thumbnail))
+    year, premiered = _year_and_premiered(entry.published)
+    if premiered:
+        lines += [_tag("aired", premiered), _tag("premiered", premiered)]
+    if year:
+        lines.append(_tag("year", year))
+    video_id = _youtube_id(entry)
+    if video_id:
+        lines.append(f'  <uniqueid type="youtube" default="true">{escape(video_id)}</uniqueid>')
+    lines.append(f'  <uniqueid type="media-archivist">{escape(entry.id)}</uniqueid>')
+    lines.append("</episodedetails>")
+    return "\n".join(lines) + "\n"
+
+
+def tvshow_nfo_xml(title: str, channel_id: Optional[str] = None) -> str:
+    """A ``<tvshow>`` NFO for a channel filed as a show."""
+    lines = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>', "<tvshow>",
+             _tag("title", title), _tag("studio", title)]
+    if channel_id:
+        lines.append(f'  <uniqueid type="youtube" default="true">{escape(channel_id)}</uniqueid>')
+    lines.append("</tvshow>")
+    return "\n".join(lines) + "\n"
+
+
+def season_nfo_xml(season: int) -> str:
+    """A ``<season>`` NFO for one upload year of a channel."""
+    return "\n".join(['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>', "<season>",
+                      _tag("title", f"Season {season}"), _tag("seasonnumber", season),
+                      "</season>"]) + "\n"

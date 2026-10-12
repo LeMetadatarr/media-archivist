@@ -25,7 +25,7 @@ def create_app(db_path: str):
     from fastapi.staticfiles import StaticFiles
     from fastapi.templating import Jinja2Templates
 
-    from media_archivist import indexdb, ytmeta
+    from media_archivist import indexdb, ytclient, ytmeta
     from media_archivist.server import api_v1, auth
     from media_archivist.server.routes import register_routes
     from media_archivist.server.web import register_web
@@ -38,8 +38,10 @@ def create_app(db_path: str):
     app.state.db_path = db_path
     app.state.index = indexdb.open_index(db_path)
     ytmeta.LIMITER.persist_to(db_path)
+    ytclient.CLIENT.bind(app.state.index)
     app.include_router(api_v1.router)
     scheduler = register_routes(app, db_path=db_path)
+    api_v1.downloads.install(app)
 
     server_dir = Path(__file__).parent
     static_dir = server_dir / "static"

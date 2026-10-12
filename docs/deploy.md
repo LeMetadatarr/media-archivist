@@ -110,18 +110,58 @@ queue and run sequentially. Task state persists in
 `<db>.tasks.json`. If the service is restarted, anything still pending
 is re-queued automatically.
 
+## Downloads for apps
+
+`POST /api/v1/downloads` queues a download for another application, which
+chooses the folder and the file name. The folder must be inside one of the
+folders listed in `MEDIA_ARCHIVIST_DOWNLOAD_ROOTS`, separated by `:`; when the
+variable is unset, the only allowed folder is `MEDIA_ARCHIVIST_DOWNLOAD_DIR`
+and the folders below it. Symbolic links are resolved before the check, so a
+link inside a root that points elsewhere is refused.
+
+Downloads run apart from the archive and sync tasks, one at a time unless the
+`download_concurrency` setting says otherwise, taking each app's queue in
+turn. They run yt-dlp as a program (the `yt-dlp` command, or
+`python -m yt_dlp` when only the module is installed), so a cancelled download
+stops at once and leaves no partial files. When YouTube answers a download
+with its bot check, that download goes back to the queue and downloads pause
+for the `download` back-off kind; other kinds of request carry on. A download
+that meets the bot check on its fifth attempt fails instead of going back.
+
+A download never replaces a file already in its folder: when a name is taken,
+the video and its subtitles all get the first free number, as in
+`Title [id] (2).mp4`. Forgetting a download with `delete_files=true` removes a
+file only while it still holds what was downloaded and no other download lists
+it; the answer names every file kept and why.
+
 ## Scheduled subscription sync
 
-`serve` syncs every subscription on its own: once a minute it queues a
-`sync` task for each subscription whose interval has passed since its
+YouTube channels and playlists are kept current by the working index. Once a
+minute `serve` queues one `index` task when anything is due: a channel's feed
+(its latest uploads, one request) every two hours, its whole Videos tab once a
+week, a playlist's videos once a day, a channel's Playlists tab and the video
+ids of those playlists once a day (at most eight playlists per pass), missing
+pictures, and a few per-video reads for videos whose length no listing gave.
+A new subscription and `POST /api/v1/subscriptions/{id}/refresh` are listed in
+full at once. A subscription that fails three times in a row for a reason
+other than YouTube's bot check is flagged and left alone until it is changed
+or refreshed. New videos are also added to the JSON database. The `/api/v1`
+routes serve the subscriptions and the entries the index holds.
+
+Subscriptions of the other backends (Internet Archive, Bandcamp, SoundCloud,
+YouTube Music) are synced from the sidecar: once a minute `serve` queues a
+`sync` task for each one whose interval has passed since its
 `last_synced_at`. The interval is the subscription's `interval_hours`
 (`subscribe --interval-hours`, or the API body), else
 `MEDIA_ARCHIVIST_SYNC_INTERVAL_HOURS`, else 6 hours; an interval above 8,784 hours
 (366 days) is refused, and an environment value above it is ignored. The last run is stored in
 `<db>.subscriptions.json`, so a restart keeps the schedule; a subscription
-never synced is due at once. A failed sync waits for its next interval. Set
-`MEDIA_ARCHIVIST_SCHEDULED_SYNC=0` to turn the schedule off and keep only
-`POST /subscriptions/sync` and the CLI.
+never synced is due at once. A failed sync waits for its next interval.
+
+Set `MEDIA_ARCHIVIST_SCHEDULED_SYNC=0` to turn all scheduled subscription work
+off and keep only `POST /subscriptions/sync`, the refresh endpoint and the
+CLI. Set `MEDIA_ARCHIVIST_SCHEDULED_INDEX=0` to turn only the index off; YouTube
+subscriptions are then synced from the sidecar like the other backends.
 
 ## YouTube metadata
 

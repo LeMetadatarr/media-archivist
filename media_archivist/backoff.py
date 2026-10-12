@@ -127,10 +127,18 @@ class Backoff:
             rows.put(kind, {"retry_at": now + wait, "wait_s": wait, "at": now})
             return wait
 
-    def mark_clear(self, kind: str) -> None:
-        """A request of ``kind`` succeeded: end its pause and reset the wait."""
+    def mark_clear(self, kind: str, *, started_at: Optional[float] = None) -> None:
+        """A request of ``kind`` succeeded: end its pause and reset the wait.
+
+        With ``started_at`` (this object's clock when the request began), a
+        pause recorded since then stays: the request was sent before the bot
+        check that set it and says nothing about it.
+        """
         self._check(kind)
         with self._rows() as rows:
+            row = rows.get(kind)
+            if row is not None and started_at is not None and row.get("at", 0) >= started_at:
+                return
             rows.delete(kind)
 
     def adopt(self, other: "Backoff") -> None:

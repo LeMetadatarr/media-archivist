@@ -10,7 +10,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 
-from media_archivist.server.api_v1 import deps
+from media_archivist.server.api_v1 import deps, entries, playlists, subscriptions, youtube
+from media_archivist.server.api_v1 import downloads, exports, stream
 from media_archivist.version import __version__
 
 router = APIRouter(prefix="/api/v1", tags=["api-v1"])
@@ -31,3 +32,12 @@ def meta(request: Request):
         "migrations": [m["version"] for m in index.migrations()],
         "features": sorted(deps.FEATURES),
     }
+
+
+router.include_router(subscriptions.router)
+router.include_router(entries.router)
+router.include_router(playlists.router)
+router.include_router(youtube.router)
+router.include_router(exports.router)
+router.include_router(stream.router)
+router.include_router(downloads.router)

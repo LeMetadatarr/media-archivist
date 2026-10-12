@@ -48,6 +48,7 @@ def _periodic(c):
     p = c.app.state.periodic
     p.enrich_enabled = False
     p.sync_enabled = True
+    p.index_enabled = False
     return p
 
 
