@@ -31,6 +31,7 @@ def meta(request: Request):
         "schema_version": index.schema_version,
         "migrations": [m["version"] for m in index.migrations()],
         "features": sorted(deps.FEATURES),
+        "status_cards": list(stream.CARD_REASONS),
     }
 
 

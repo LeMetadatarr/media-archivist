@@ -343,15 +343,15 @@ out of them through a symbolic link, is refused, and with no roots set
 nothing is exported. No file is written through a symbolic link.
 
 Each `.strm` file points at `/api/v1/stream/{id}` on the server, which
-resolves a fresh stream on every play and redirects to it, or to the watch
-page when resolution fails or YouTube's bot check has paused per-video
-requests. A play is a request a person waits on, so it takes no turn in the
-request spacing that holds back the indexer and the downloads, and they do
-not hold it back. At most four plays resolve at once; a fifth waits up to
-three seconds for a slot and is then sent to the watch page, and when eight
-plays already wait it is sent there at once, so waiting plays cannot take
-the server's worker threads. YouTube Music plays are held to the same pause
-and bot check bookkeeping as YouTube plays. A resolved
+resolves a fresh stream on every play and redirects to it. When it cannot
+for a reason of the video or the source, it plays a short status card that
+says why, instead of failing or sending the player to a web page. A play is a request a person waits on, so
+it takes no turn in the request spacing that holds back the indexer and the
+downloads, and they do not hold it back. At most four plays resolve at once;
+a fifth waits up to three seconds for a slot and is then answered `503` with
+`Retry-After`, and when eight plays already wait it is answered `503` at
+once, so waiting plays cannot take the server's worker threads. YouTube Music plays
+are held to the same pause and bot check bookkeeping as YouTube plays. A resolved
 address is kept for five minutes and plays of one entry share one
 resolution, so a Jellyfin scan that probes one `.strm` file many times makes
 one YouTube request, and the server's other routes stay as fast as they were.
@@ -384,6 +384,53 @@ Jellyfin to scan the new items and finds them by their YouTube id, so
 Jellyfin may see the library under another path. A collection the server
 did not make is never changed, and none is made when its name is taken.
 `GET /api/v1/exports/{id}` reports what happened.
+
+### Status cards
+
+Four cards exist, each ten seconds of video served from the package:
+
+| Card | Shown when |
+|---|---|
+| `rate-limited` | the source's bot check, a 403 or a 429 answered this play, or per-video requests are paused after one |
+| `unavailable` | the video is private, removed, blocked in the country or for members only |
+| `age-restricted` | the source says the video is age-restricted or asks the viewer to confirm their age |
+| `could-not-play` | any other failure: an unclassified network or extractor error, a premiere that has not started, a format that is not offered |
+
+A play that only could not get its turn, because all four play slots stayed
+taken for three seconds, eight plays already wait, or resolution timed out,
+is answered `503` with `Retry-After: 60` and no card. That failure says
+nothing about the video, and a card would be recorded as its content.
+
+A card is an MPEG transport stream, answered `200` with
+`Content-Type: video/mp2t` and sent in chunks, with no `Content-Length` and
+no `Accept-Ranges`, and a `Range` header is ignored. Jellyfin probes `.strm`
+targets with ffprobe during a library scan, and ffprobe starts with
+`Range: bytes=0-`, so a card cannot be told from a play by its request. A
+transport stream of unknown length reports no duration, so the scan records
+none and a later successful probe records the real runtime. Whether a media server keeps the card's stream details (container, resolution, audio) on an item scanned during a failure has not been checked against a real library scan. A
+`HEAD` request is answered `503` while a play cannot be resolved. A
+successful resolution answers `HEAD` as it always did. The signature and
+expiry check runs before any of this, so a bad link is `401` and never a
+card. A card is never cached, is sent with `Cache-Control: no-store`, and
+writes nothing to the index.
+
+The `status_cards` setting is `on` by default. With `off`, a play that
+cannot be resolved for a reason of the video redirects to the watch page, as
+before; a play that only lacked its turn is still answered `503`. Set it
+with `PATCH /api/v1/settings`.
+
+The cards are rendered once and kept in
+`media_archivist/server/api_v1/cards/`. Each is one ffmpeg call, changing
+only the two lines of text and the output name:
+
+```bash
+ffmpeg -f lavfi -i "color=c=0x14161a:s=960x540:r=2:d=10" -f lavfi -i "anullsrc=r=22050:cl=mono" -t 10 -vf "drawtext=fontfile=/usr/share/fonts/TTF/DejaVuSans.ttf:text='<line one>':fontcolor=white:fontsize=42:x=(w-text_w)/2:y=(h/2)-55,drawtext=fontfile=/usr/share/fonts/TTF/DejaVuSans.ttf:text='<line two>':fontcolor=0xb8bcc4:fontsize=26:x=(w-text_w)/2:y=(h/2)+15" -c:v libx264 -profile:v baseline -level 3.0 -pix_fmt yuv420p -preset veryslow -crf 36 -g 2 -c:a aac -b:a 16k -shortest -f mpegts <name>.ts
+```
+
+The result is H.264 baseline at 960x540 and 2 frames per second, with a
+silent mono AAC track, in an MPEG transport stream. The first line is
+DejaVu Sans at 42 px in white and the second at 26 px in grey, centred on a
+dark background.
 
 ## Caveats
 

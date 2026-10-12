@@ -82,7 +82,8 @@ def test_a_flood_of_plays_on_one_link_makes_one_resolution_and_leaves_routes_fas
     for t in threads:
         t.join(30)
     assert len(results) == 70
-    assert all(code == 302 and loc in ("https://cdn.example/v", WATCH) for code, loc, _ in results)
+    assert all((code == 302 and loc == "https://cdn.example/v") or code == 503
+               for code, loc, _ in results)
     assert any(loc == "https://cdn.example/v" for _, loc, _ in results)
     assert len(resolved) == 1
     assert latency < 1.5, latency
@@ -110,7 +111,7 @@ def test_plays_of_other_entries_wait_for_a_slot_only_up_to_the_bound(served, mon
         started = time.monotonic()
         r = c.get("/api/v1" + link(VIDEOS[5]), follow_redirects=False)
         took = time.monotonic() - started
-        assert r.status_code == 302 and r.headers["location"] == watch(VIDEOS[5])
+        assert r.status_code == 503 and r.headers["retry-after"]
         assert 0.3 < took < 1.5, took
         assert not inside.acquire(timeout=0.2)
     finally:
@@ -155,7 +156,7 @@ def test_many_plays_of_different_entries_leave_other_routes_fast(served, monkeyp
         release.set()
         for t in threads:
             t.join(30)
-    assert len(results) == len(MANY) and all(code == 302 for code, _, _ in results)
+    assert len(results) == len(MANY) and all(code in (503, 302) for code, _, _ in results)
 
 
 def test_a_youtube_music_play_is_gated_like_a_youtube_play(tmp_path, monkeypatch):

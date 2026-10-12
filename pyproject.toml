@@ -42,4 +42,5 @@ version = { attr = "media_archivist.version.__version__" }
 include = ["media_archivist*"]
 
 [tool.setuptools.package-data]
-media_archivist = ["server/templates/*.html", "server/templates/fragments/*.html", "server/static/*"]
+media_archivist = ["server/templates/*.html", "server/templates/fragments/*.html", "server/static/*",
+                            "server/api_v1/cards/*.ts"]
