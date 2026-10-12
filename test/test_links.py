@@ -172,7 +172,7 @@ def test_stream_never_waits_for_a_paused_details_kind(db_path, monkeypatch, reso
     with _client(db_path, monkeypatch, key=False) as c:
         backoff.Backoff(indexdb.open_index(db_path)).mark_blocked("details")
         r = c.get(f"/api/v1/stream/{EID}")
-    assert r.status_code == 302 and r.headers["location"] == WATCH
+    assert r.status_code == 200 and r.headers["content-type"] == "video/mp2t"
     assert resolved == []
 
 
@@ -183,7 +183,7 @@ def test_a_bot_check_while_resolving_pauses_details_and_redirects(db_path, monke
     monkeypatch.setattr(streams, "resolve_stream", challenged)
     with _client(db_path, monkeypatch, key=False) as c:
         r = c.get(f"/api/v1/stream/{EID}")
-    assert r.status_code == 302 and r.headers["location"] == WATCH
+    assert r.status_code == 200 and r.headers["content-type"] == "video/mp2t"
     pauses = backoff.Backoff(indexdb.open_index(db_path)).blocked()
     assert pauses["details"]["paused"] is True
     assert pauses["listing"]["paused"] is False
@@ -196,7 +196,7 @@ def test_other_resolution_failures_redirect_without_pausing(db_path, monkeypatch
     monkeypatch.setattr(streams, "resolve_stream", broken)
     with _client(db_path, monkeypatch, key=False) as c:
         r = c.get(f"/api/v1/stream/{EID}")
-    assert r.status_code == 302 and r.headers["location"] == WATCH
+    assert r.status_code == 200 and r.headers["content-type"] == "video/mp2t"
     assert backoff.Backoff(indexdb.open_index(db_path)).blocked()["details"]["paused"] is False
 
 
