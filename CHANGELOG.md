@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.25.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.25.0a1) (2026-10-12)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.24.0a1...0.25.0a1)
+
+**Merged pull requests:**
+
+- feat: SQLite working index, /api/v1 router, persisted back-off and settings [\#72](https://github.com/LeMetadatarr/media-archivist/pull/72) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.24.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.24.0a1) (2026-10-12)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.23.0a1...0.24.0a1)
