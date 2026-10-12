@@ -12,11 +12,16 @@ list with comma-separated networks; an empty value exempts nothing. A
 request that arrives with ``X-Forwarded-For``, ``Forwarded`` or
 ``X-Real-IP`` is never exempt, because a reverse proxy on the local network
 would otherwise pass every outside client through as local.
+
+A ``GET`` or ``HEAD`` of ``/api/v1/stream/{id}`` carrying a valid signature
+for that id (see :mod:`media_archivist.links`) needs no key; the signature
+opens that route and no other.
 """
 from __future__ import annotations
 
 import ipaddress
 import os
+import re
 import secrets
 from typing import Iterable, Mapping, Optional, Tuple, Union
 
@@ -29,6 +34,8 @@ DEFAULT_EXEMPT = (
 )
 FORWARDING_HEADERS = ("x-forwarded-for", "forwarded", "x-real-ip")
 OPEN_PATHS = {"/healthz", "/api/v1/healthz"}
+SIGNED_PATH = re.compile(r"/api/v1/stream/([^/]+)")
+SIGNED_METHODS = ("GET", "HEAD")
 
 Network = Union[ipaddress.IPv4Network, ipaddress.IPv6Network]
 
@@ -84,6 +91,21 @@ class ApiKeyAuth:
         return not forwarded and self.is_exempt(peer)
 
 
+def signed_stream(request, path: str) -> bool:
+    """True when ``request`` plays one entry through a valid signed link.
+
+    ``path`` is the request path below the app's root path.
+    """
+    from media_archivist import links
+
+    if request.method not in SIGNED_METHODS or not request.query_params.get("sig"):
+        return False
+    m = SIGNED_PATH.fullmatch(path)
+    if m is None:
+        return False
+    return links.verify_query(request.app.state.index, m[1], request.query_params)
+
+
 def install(app, auth: Optional[ApiKeyAuth] = None) -> ApiKeyAuth:
     """Add the key check to ``app`` as HTTP middleware."""
     from fastapi.responses import JSONResponse
@@ -100,7 +122,8 @@ def install(app, auth: Optional[ApiKeyAuth] = None) -> ApiKeyAuth:
         root = request.scope.get("root_path") or ""
         if root and path.startswith(root):
             path = path[len(root):]
-        if auth.allowed(peer, request.headers, request.query_params, path):
+        if auth.allowed(peer, request.headers, request.query_params, path) \
+                or signed_stream(request, path):
             return await call_next(request)
         return JSONResponse(status_code=401, content={"detail": "invalid or missing API key"})
 

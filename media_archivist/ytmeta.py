@@ -8,11 +8,13 @@ Only values that mean what the field says are stored: a positive number of
 seconds, a non-empty channel name, a calendar date.
 
 The gaps are filled by a full ``yt-dlp`` extraction of the single video,
-one at a time through a shared :class:`MetadataLimiter`. When YouTube
-answers with its bot check ("Sign in to confirm you're not a bot") the
-fields stay empty and the ``details`` kind of :mod:`media_archivist.backoff`
-pauses; nothing here retries around the check, rotates clients or supplies
-cookies.
+one at a time through a shared :class:`MetadataLimiter`, each one a
+``details`` request of :data:`media_archivist.ytclient.CLIENT` (spaced, in
+the configured address family, refused while ``details`` is paused). When
+YouTube answers with its bot check ("Sign in to confirm you're not a bot")
+the fields stay empty and the ``details`` kind of
+:mod:`media_archivist.backoff` pauses; nothing here retries around the
+check, rotates clients or supplies cookies.
 
 The outcome of an extraction is cached on the row: the filled fields plus
 ``metadata_checked`` (UTC timestamp), so a video is extracted once.
@@ -27,17 +29,15 @@ import math
 import os
 import re
 import shutil
-import socket
 import subprocess
 import threading
 import time
-import urllib.error
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from typing import Any, Callable, Dict, Optional
 
 from media_archivist import backoff as backoff_mod
-from media_archivist.exceptions import MediaArchivistError
+from media_archivist import ytclient
 
 LOG = logging.getLogger("media_archivist.ytmeta")
 
@@ -52,64 +52,14 @@ MAX_NETWORK_FAILURES = 3
 _ISO_DATE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})(?:$|[T ])")
 _COMPACT_DATE = re.compile(r"^(\d{4})(\d{2})(\d{2})$")
 
-# Substrings (lower-cased) of the errors yt-dlp raises when YouTube answers
-# with its bot check, a captcha, or its per-session rate limit instead of the
-# video. All three mean: stop asking for a while.
-BOT_CHECK_MARKERS = (
-    "confirm you're not a bot",
-    "confirm you\u2019re not a bot",
-    "not a bot",
-    "this content isn't available",
-    "this content isn\u2019t available",
-    "requiring a captcha challenge",
-    "rate-limited by youtube",
-    "http error 429",
-    "too many requests",
-)
-
-# Substrings (lower-cased) of the errors that say the video itself cannot be
-# read, now and later: unavailable, private, removed, deleted, terminated
-# account, blocked in the country. Only these (and an HTTP 4xx other than
-# 429) stamp a row; every other failure is taken for the network's and the
-# row is tried again.
-PERMANENT_MARKERS = (
-    "video unavailable",
-    "video is unavailable",
-    "this video is not available",
-    "available in your country",
-    "blocked it in your country",
-    "private video",
-    "video is private",
-    "has been removed",
-    "been deleted",
-    "has been terminated",
-    "account associated with this video",
-    "removed for violating",
-    "age-restricted",
-    "confirm your age",
-    "members-only",
-    "members only",
-    "available to this channel's members",
-    "requires payment",
-    "drm protected",
-    "recording is not available",
-    "closed their youtube account",
-    "isn't available anymore",
-    "isn\u2019t available anymore",
-    "is not available anymore",
-)
-
-
-class MetadataError(MediaArchivistError):
-    """A single-video extraction failed for a reason other than the bot check."""
-
-
-class BotCheckError(MetadataError):
-    """YouTube answered with its bot check; the caller must back off."""
-
-
-class NetworkError(MetadataError):
-    """The network failed before YouTube answered; the video is not judged."""
+MetadataError = ytclient.YouTubeError
+BotCheckError = ytclient.BotCheckError
+NetworkError = ytclient.NetworkError
+BOT_CHECK_MARKERS = ytclient.BOT_CHECK_MARKERS
+PERMANENT_MARKERS = ytclient.PERMANENT_MARKERS
+is_bot_check = ytclient.is_bot_check
+http_status = ytclient.http_status
+failure_kind = ytclient.failure_kind
 
 
 def _utcnow() -> str:
@@ -165,72 +115,6 @@ def published_from_info(info: Dict[str, Any]) -> str:
     if isinstance(ts, (int, float)) and not isinstance(ts, bool) and ts > 0:
         return datetime.fromtimestamp(ts, tz=timezone.utc).date().isoformat()
     return ""
-
-
-def is_bot_check(message: str) -> bool:
-    low = (message or "").lower()
-    return any(m in low for m in BOT_CHECK_MARKERS)
-
-
-_HTTP_ERROR = re.compile(r"HTTP Error (\d{3})")
-
-
-def _chain(error: BaseException):
-    """*error* and everything it wraps (cause, context, yt-dlp's ``exc_info``)."""
-    seen = set()
-    todo = [error]
-    while todo:
-        e = todo.pop(0)
-        if e is None or id(e) in seen:
-            continue
-        seen.add(id(e))
-        yield e
-        exc_info = getattr(e, "exc_info", None)
-        if isinstance(exc_info, tuple) and len(exc_info) > 1:
-            todo.append(exc_info[1])
-        todo.extend((e.__cause__, e.__context__))
-
-
-def http_status(error: BaseException) -> Optional[int]:
-    """The HTTP status behind *error*, from the exception chain or its text."""
-    chain = list(_chain(error))
-    for e in chain:
-        status = getattr(e, "status", None)
-        if isinstance(status, int) and not isinstance(status, bool):
-            return status
-        if isinstance(e, urllib.error.HTTPError):
-            return e.code
-    for e in chain:
-        m = _HTTP_ERROR.search(str(e))
-        if m:
-            return int(m[1])
-    return None
-
-
-def failure_kind(error: BaseException) -> str:
-    """``"permanent"``, ``"bot"`` or ``"network"``.
-
-    The bot wording comes first: yt-dlp prefixes a blocked session's answer
-    with "Video unavailable", which would otherwise read as a permanent
-    failure. The markers are narrow, so yt-dlp's age gate ("Sign in to
-    confirm your age") is no bot check. Then a known permanent message, even
-    inside an HTTP 403 chain. Then HTTP 403 or 429, which YouTube answers to
-    a blocked address or a missing token rather than about the video. Then
-    any other HTTP 4xx
-    (404, 410, 451) is permanent. Everything else, an unknown exception type
-    included, is taken for the network's and retried later.
-    """
-    text = " ".join(str(e).lower() for e in _chain(error))
-    if is_bot_check(text):
-        return "bot"
-    if any(m in text for m in PERMANENT_MARKERS):
-        return "permanent"
-    status = http_status(error)
-    if status in (403, 429):
-        return "bot"
-    if status is not None and 400 <= status < 500:
-        return "permanent"
-    return "network"
 
 
 def is_definitive_failure(error: BaseException) -> bool:
@@ -341,13 +225,15 @@ LIMITER = MetadataLimiter()
 """Process-wide limiter shared by lazy fills and the re-enrich task."""
 
 
-def _extract_python(yt_dlp, url: str, timeout: float) -> Dict[str, Any]:
+def _extract_python(yt_dlp, url: str, timeout: float,
+                    client: Optional[ytclient.YouTubeClient] = None) -> Dict[str, Any]:
     opts = {
         "quiet": True,
         "no_warnings": True,
         "skip_download": True,
         "noplaylist": True,
         "socket_timeout": timeout,
+        **(client or ytclient.CLIENT).ytdlp_options(),
     }
     with yt_dlp.YoutubeDL(opts) as ydl:
         # process=False: the extractor's own metadata, without format
@@ -362,12 +248,14 @@ def _error_lines(stderr: Optional[str]) -> str:
     return "\n".join(errors or [ln for ln in lines if not ln.startswith("WARNING:")])
 
 
-def _extract_binary(url: str, timeout: float) -> Dict[str, Any]:
+def _extract_binary(url: str, timeout: float,
+                    client: Optional[ytclient.YouTubeClient] = None) -> Dict[str, Any]:
     if shutil.which("yt-dlp") is None:
         raise MetadataError("neither the yt_dlp python module nor the yt-dlp binary is available")
     try:
         proc = subprocess.run(
-            ["yt-dlp", "-J", "--skip-download", "--no-playlist", url],
+            ["yt-dlp", "-J", "--skip-download", "--no-playlist",
+             *(client or ytclient.CLIENT).ytdlp_args(), url],
             capture_output=True, text=True, timeout=timeout, check=True,
         )
     except subprocess.CalledProcessError as e:
@@ -375,29 +263,27 @@ def _extract_binary(url: str, timeout: float) -> Dict[str, Any]:
     return json.loads(proc.stdout) or {}
 
 
-def extract_video(video_id: str, *, timeout: float = 60.0) -> Dict[str, Any]:
-    """Full yt-dlp metadata for one video.
+def extract_video(video_id: str, *, timeout: float = 60.0,
+                  client: Optional[ytclient.YouTubeClient] = None) -> Dict[str, Any]:
+    """Full yt-dlp metadata for one video, as one ``details`` request of the client.
 
-    Raises :class:`BotCheckError` on YouTube's bot check and
+    Raises :class:`~media_archivist.ytclient.PausedError` while ``details``
+    is paused, :class:`BotCheckError` on YouTube's bot check,
+    :class:`NetworkError` when YouTube was not reached and
     :class:`MetadataError` on any other failure.
     """
     from media_archivist import streams
 
+    client = client or ytclient.CLIENT
     url = f"https://www.youtube.com/watch?v={video_id}"
-    yt_dlp = streams._import_yt_dlp()
-    try:
+
+    def read():
+        yt_dlp = streams._import_yt_dlp()
         if yt_dlp is not None:
-            return _extract_python(yt_dlp, url, timeout)
-        return _extract_binary(url, timeout)
-    except MetadataError:
-        raise
-    except Exception as e:
-        kind = failure_kind(e)
-        if kind == "bot":
-            raise BotCheckError(str(e)) from e
-        if kind == "network":
-            raise NetworkError(f"yt-dlp could not reach {url}: {e}") from e
-        raise MetadataError(f"yt-dlp failed for {url}: {e}") from e
+            return _extract_python(yt_dlp, url, timeout, client)
+        return _extract_binary(url, timeout, client)
+
+    return client.call("details", read)
 
 
 def fields_from_info(info: Dict[str, Any]) -> Dict[str, Any]:
@@ -509,7 +395,10 @@ def _fill_row(db_path: str, raw: Dict[str, Any],
     try:
         info = (extract or extract_video)(raw["videoId"])
     except Exception as e:
-        kind = "bot" if isinstance(e, BotCheckError) else failure_kind(e)
+        if isinstance(e, ytclient.PausedError):
+            lim.bot_check()
+            return FillResult(url=url, status="bot-check", error=str(e))
+        kind = failure_kind(e)
         if kind == "bot":
             length = lim.bot_check()
             LOG.warning("YouTube bot check while reading %s; metadata fills paused for %ds",

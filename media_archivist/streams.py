@@ -21,15 +21,17 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import re
 import shutil
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 from urllib.parse import urlparse, parse_qs
 
+from media_archivist import ytclient
 from media_archivist.exceptions import MediaArchivistError
 
 LOG = logging.getLogger("media_archivist.streams")
@@ -168,6 +170,11 @@ def _pick_format(info: Dict[str, Any], prefer: str) -> Dict[str, Any]:
     return candidates[0]
 
 
+def _is_youtube(url: str) -> bool:
+    host = (urlparse(url).hostname or "").lower()
+    return host == "youtu.be" or host == "youtube.com" or host.endswith(".youtube.com")
+
+
 def _resolve_via_python(url: str, prefer: str, timeout: float) -> ResolvedStream:
     yt_dlp = _import_yt_dlp()
     assert yt_dlp is not None
@@ -178,6 +185,8 @@ def _resolve_via_python(url: str, prefer: str, timeout: float) -> ResolvedStream
         "noplaylist": True,
         "socket_timeout": timeout,
     }
+    if _is_youtube(url):
+        opts.update(ytclient.CLIENT.ytdlp_options())
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=False)
@@ -216,7 +225,8 @@ def _resolve_via_binary(url: str, prefer: str, timeout: float) -> ResolvedStream
         "bestaudio": "bestaudio",
         "worst": "worst",
     }.get(prefer, prefer)
-    cmd = ["yt-dlp", "-g", "-f", fmt_selector, url]
+    family = ytclient.CLIENT.ytdlp_args() if _is_youtube(url) else []
+    cmd = ["yt-dlp", "-g", "-f", fmt_selector, *family, url]
     try:
         proc = subprocess.run(
             cmd, capture_output=True, text=True, timeout=timeout, check=True,
@@ -491,3 +501,147 @@ def _download_via_binary(url: str, dest: Path, format: str,
     if not lines:
         raise StreamDownloadError(f"yt-dlp binary printed no filepath for {url}")
     return Path(lines[-1].strip())
+
+
+# The fields a download's file name may be built from, and the yt-dlp
+# output-template field each one reads. yt-dlp sanitises every field value
+# for the file system; the literal text around them is sanitised here.
+FILENAME_FIELDS: Dict[str, str] = {
+    "title": "title",
+    "id": "id",
+    "video_id": "id",
+    "uploader": "uploader",
+    "channel": "channel",
+    "upload_date": "upload_date",
+    "date": "upload_date>%Y-%m-%d",
+    "year": "upload_date>%Y",
+    "ext": "ext",
+}
+DEFAULT_FILENAME_TEMPLATE = "{title} [{video_id}]"
+MAX_FILENAME_TEMPLATE = 200
+SUBTITLE_EXTS = frozenset({"vtt", "srt", "ass", "ssa", "ttml", "srv1", "srv2", "srv3",
+                           "json3", "lrc"})
+
+PROGRESS_MARK = "ARCHIVIST-PROGRESS"
+DONE_MARK = "ARCHIVIST-DONE"
+_UNSAFE_LITERAL = re.compile(r'[\x00-\x1f\x7f/\\:*?"<>|]')
+_PLAIN_PERCENT = re.compile(r"^\[download\]\s+(\d+(?:\.\d+)?)%")
+
+
+def output_template(filename: Optional[str] = None) -> str:
+    """The yt-dlp output template for a file name built from :data:`FILENAME_FIELDS`.
+
+    ``filename`` is the name without its extension, such as
+    ``"{title} ({year}) [{video_id}]"``. Characters a file name may not
+    hold (path separators, control characters and the ones Windows refuses)
+    are replaced with ``_`` in the literal text, so the name can never leave
+    the folder it is written to. Raises ``ValueError`` for an unknown field,
+    a format spec or conversion, a template with no field, or one longer
+    than :data:`MAX_FILENAME_TEMPLATE`.
+    """
+    import string
+
+    template = DEFAULT_FILENAME_TEMPLATE if filename is None else filename
+    if not template.strip() or len(template) > MAX_FILENAME_TEMPLATE:
+        raise ValueError(f"filename must be 1 to {MAX_FILENAME_TEMPLATE} characters")
+    parts = []
+    fields = 0
+    try:
+        parsed = list(string.Formatter().parse(template))
+    except ValueError as e:
+        raise ValueError(f"filename is not a valid template: {e}") from None
+    for literal, field_name, spec, conversion in parsed:
+        parts.append(_UNSAFE_LITERAL.sub("_", literal).replace("%", "%%"))
+        if field_name is None:
+            continue
+        if field_name not in FILENAME_FIELDS:
+            raise ValueError(f"unknown filename field {{{field_name}}}; expected one of "
+                             + ", ".join(f"{{{f}}}" for f in FILENAME_FIELDS))
+        if spec or conversion:
+            raise ValueError(f"filename field {{{field_name}}} takes no format spec")
+        parts.append(f"%({FILENAME_FIELDS[field_name]})s")
+        fields += 1
+    if not fields:
+        raise ValueError("filename must use at least one field, such as {video_id}")
+    name = "".join(parts).strip().lstrip(".")
+    return f"{name}.%(ext)s"
+
+
+def ytdlp_command() -> Optional[List[str]]:
+    """How to run yt-dlp as a program: the binary on ``PATH``, else ``python -m yt_dlp``."""
+    import importlib.util
+    import sys
+
+    binary = shutil.which("yt-dlp")
+    if binary:
+        return [binary]
+    if importlib.util.find_spec("yt_dlp") is not None:
+        return [sys.executable, "-m", "yt_dlp"]
+    return None
+
+
+def download_argv(url: str, dest_dir: str, *, filename: Optional[str] = None,
+                  format: Optional[str] = None, subtitles: Optional[List[str]] = None,
+                  ip_family: str = "auto") -> List[str]:
+    """yt-dlp's arguments for one download into ``dest_dir``.
+
+    Progress is printed one line per update as ``ARCHIVIST-PROGRESS
+    <downloaded> <total> <estimate>`` (``NA`` where unknown), and the
+    finished video as ``ARCHIVIST-DONE <json>`` with its ``filepath``,
+    ``title``, ``id`` and ``ext``; :func:`parse_download_line` reads both.
+    """
+    argv = [
+        "--newline", "--progress", "--no-playlist", "--no-colors",
+        "--socket-timeout", "60",
+        "--trim-filenames", "200",
+        "--progress-template",
+        (f"download:{PROGRESS_MARK} %(progress.downloaded_bytes)s "
+         "%(progress.total_bytes)s %(progress.total_bytes_estimate)s"),
+        "--print", f"after_move:{DONE_MARK} %(.{{filepath,title,id,ext}})j",
+        "-f", format or default_download_format(),
+        "-o", str(Path(dest_dir) / output_template(filename)),
+    ]
+    if ip_family == "ipv4":
+        argv.append("--force-ipv4")
+    elif ip_family == "ipv6":
+        argv.append("--force-ipv6")
+    if subtitles:
+        argv += ["--write-subs", "--write-auto-subs", "--sub-langs", ",".join(subtitles)]
+    argv += ["--", url]
+    return argv
+
+
+def _number(text: str) -> Optional[float]:
+    try:
+        value = float(text)
+    except ValueError:
+        return None
+    return value if math.isfinite(value) and value >= 0 else None
+
+
+def parse_download_line(line: str) -> Optional[Dict[str, Any]]:
+    """One line of yt-dlp's output as ``{"progress": …}`` or ``{"done": …}``.
+
+    A progress line gives ``downloaded`` bytes and ``percent`` (``None``
+    when yt-dlp knows no size); yt-dlp's plain ``[download]  42.0%`` line is
+    read too. Any other line is ``None``.
+    """
+    line = line.strip()
+    if line.startswith(PROGRESS_MARK + " "):
+        fields = line[len(PROGRESS_MARK) + 1:].split()
+        if len(fields) != 3:
+            return None
+        downloaded, total, estimate = (_number(f) for f in fields)
+        total = total or estimate
+        percent = min(100.0, downloaded * 100 / total) if downloaded is not None and total else None
+        return {"progress": {"downloaded": downloaded, "percent": percent}}
+    if line.startswith(DONE_MARK + " "):
+        try:
+            done = json.loads(line[len(DONE_MARK) + 1:])
+        except ValueError:
+            return None
+        return {"done": done} if isinstance(done, dict) else None
+    m = _PLAIN_PERCENT.match(line)
+    if m:
+        return {"progress": {"downloaded": None, "percent": min(100.0, float(m[1]))}}
+    return None

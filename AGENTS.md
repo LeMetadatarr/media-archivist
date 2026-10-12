@@ -54,6 +54,9 @@ Module inventory below is generated from `git ls-files 'media_archivist/*.py'
 - `media_archivist/ytmeta.py` — YouTube metadata hygiene: drops junk
   listing values, fills duration/channel/upload date from a rate-limited
   single-video yt-dlp read, backs off on YouTube's bot check.
+- `media_archivist/ytclient.py` — the one YouTube client: request spacing,
+  per-kind bot-check pauses, failure classification, IP family for yt-dlp
+  and tutubo.
 - `media_archivist/music.py` — YouTube Music backend, via `tutubo.ytmus`.
 - `media_archivist/ia.py` — Internet Archive backend, via `internetarchive`.
 - `media_archivist/bandcamp.py` — Bandcamp backend, via `py_bandcamp`.
@@ -93,15 +96,56 @@ Module inventory below is generated from `git ls-files 'media_archivist/*.py'
 - `media_archivist/index_migrations/m0001_schema.py` — schema version 1.
 - `media_archivist/index_migrations/m0002_import_json.py` — one-time copy of
   the JSON rows' metadata and the subscriptions sidecar into the index.
+- `media_archivist/index_migrations/m0400_downloads.py` — the download
+  queue's columns: order, files, subtitles, attempts, failure kind.
+- `media_archivist/index_migrations/m0401_download_digests.py` — the SHA-256
+  of each file a download placed, checked before forgetting deletes it.
+- `media_archivist/index_migrations/m0402_download_bot_attempts.py` — the
+  count of runs that met the bot check, apart from runs started.
 - `media_archivist/backoff.py` — per-kind pauses after YouTube's bot check,
   persisted in the index.
 - `media_archivist/settings.py` — run-time settings (YouTube IP family,
-  request spacing) persisted in the index.
+  request spacing, download concurrency) persisted in the index.
+- `media_archivist/index_migrations/m0200_index_columns.py` — the columns
+  the subscription index and the entries query add to schema version 1.
+- `media_archivist/index_migrations/m0201_import_titles.py` — one-time copy
+  of the JSON rows' titles and pictures into the index.
+- `media_archivist/ytgate.py` — the one door every YouTube request goes
+  through: per-kind calls and typed errors (paused, bot check, failed).
+- `media_archivist/blockedwords.py` — title words that leave a video out of
+  a query: folded, whole words, plurals.
+- `media_archivist/ytindex/__init__.py` — the YouTube index: which
+  subscription lists which video, and since when.
+- `media_archivist/ytindex/client.py` — the requests the indexer makes:
+  tutubo listings, playlists and pictures, the channel feed.
+- `media_archivist/ytindex/engine.py` — what is due (feed, full listing,
+  Playlists tab, playlist videos, pictures, details) and running it.
+- `media_archivist/ytindex/store.py` — writing listings, memberships,
+  first-seen times and playlist items into the index.
+- `media_archivist/ytindex/details.py` — per-video length, upload date and
+  channel from one yt-dlp read.
+- `media_archivist/ytindex/archive.py` — new indexed videos as rows of the
+  JSON database.
+- `media_archivist/ytindex/query.py` — the entries query with stable
+  cursors, one entry, channel playlists.
+- `media_archivist/downloads.py` — downloads on request: a queue per app in
+  the index, a worker lane that runs yt-dlp as a program, confined to the
+  download roots.
 - `media_archivist/streams.py` — stream resolution core, source-aware,
   yt-dlp by default.
-- `media_archivist/strm.py` — Jellyfin/Kodi `.strm` export.
-- `media_archivist/subscriptions.py` — channel/playlist subscriptions:
-  auto-index new uploads on sync.
+- `media_archivist/subscriptions.py` — channel/playlist subscriptions: the
+  CLI's sidecar and the working index's subscriptions with their holders.
+- `media_archivist/strm.py` — Jellyfin/Kodi `.strm` export: the CLI's
+  layouts, and the app API's `movies`/`episodes` exports, recorded in the
+  index so they can be undone.
+- `media_archivist/links.py` — plain and signed `/api/v1/stream/{id}` links
+  (HMAC-SHA256, optional expiry).
+- `media_archivist/jellyfin.py` — Jellyfin library refresh and the
+  collections exports make, matched by YouTube id.
+- `media_archivist/export_hooks.py` — automatic export of new entries for
+  subscriptions that ask for it.
+- `media_archivist/index_migrations/m0300_exports.py` — export records,
+  Jellyfin collections, a subscription's link kind.
 - `media_archivist/subtitles.py` — subtitle/caption fetching as
   Jellyfin/Kodi-ready sidecar files.
 - `media_archivist/sync.py` — incremental refresh helpers.
@@ -142,13 +186,28 @@ Module inventory below is generated from `git ls-files 'media_archivist/*.py'
 - `media_archivist/server/scheduler.py` — background scheduler for the
   server.
 - `media_archivist/server/periodic.py` — recurring work inside `serve`:
-  scheduled subscription syncs and YouTube metadata fills, queued as tasks.
+  the subscription index, sidecar syncs of the other backends and YouTube
+  metadata fills, queued as tasks.
 - `media_archivist/server/auth.py` — optional API key (`X-Api-Key` /
   `apikey`), local and Tailscale addresses exempt.
 - `media_archivist/server/api_v1/__init__.py` — the `/api/v1` app API
   router (`docs/app-api.md`): `healthz`, `meta`, one module per area.
 - `media_archivist/server/api_v1/deps.py` — what the `/api/v1` modules
   share: the index, the `X-Archivist-App` label, the feature list.
+- `media_archivist/server/api_v1/youtube.py` — `/api/v1/youtube/backoff`
+  and `/api/v1/settings`.
+- `media_archivist/server/api_v1/subscriptions.py` — `/api/v1/subscriptions`:
+  create, list, change, refresh, release per app, playlists, picture.
+- `media_archivist/server/api_v1/entries.py` — `/api/v1/entries`: the query
+  and one entry by id or key.
+- `media_archivist/server/api_v1/playlists.py` — `/api/v1/playlists`: one
+  playlist with its videos in order.
+- `media_archivist/server/api_v1/exports.py` — `/api/v1/exports`: write
+  `.strm` exports on request and undo them.
+- `media_archivist/server/api_v1/stream.py` — `/api/v1/stream/{id}` play-time
+  resolution and `POST /api/v1/entries/{id}/link` signed links.
+- `media_archivist/server/api_v1/downloads.py` — `/api/v1/downloads`:
+  queue, status, history, cancel.
 - `media_archivist/server/web.py` — server-rendered htmx WebUI, mounted onto
   the same FastAPI app as the HTTP API.
 - `media_archivist/commands/__init__.py` — command handler modules for the

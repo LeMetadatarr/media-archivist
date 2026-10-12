@@ -67,8 +67,17 @@ class EnrichRequest(BaseModel):
     force: bool = False
 
 
+class IndexRequest(BaseModel):
+    """Index what is due (no id), or list one subscription in full now."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["index"] = "index"
+    subscription_id: Optional[str] = None
+
+
 TaskRequest = Annotated[
-    Union[ArchiveRequest, DownloadRequest, SyncRequest, EnrichRequest],
+    Union[ArchiveRequest, DownloadRequest, SyncRequest, EnrichRequest, IndexRequest],
     Field(discriminator="kind"),
 ]
 
