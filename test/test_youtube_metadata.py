@@ -404,18 +404,17 @@ def test_overlapping_reads_run_one_at_a_time_and_pause_once(tmp_path):
     assert state["peak"] == 1
     assert 14 * 60 < lim.blocked_for() <= 15 * 60
     assert lim.bot_check() == pytest.approx(lim.blocked_for(), abs=1)
-    lim_next = lim._backoff
-    assert lim_next == 30 * 60
+    assert lim.pause.blocked()["details"]["wait"] == 15 * 60
 
 
 def test_bot_check_during_a_pause_does_not_double_it():
     lim = _Limiter()
-    assert lim.bot_check() == 60 * 15
-    lim.now += 60
-    assert lim.bot_check() == pytest.approx(60 * 14, abs=1)
-    assert lim.blocked_for() == pytest.approx(60 * 14, abs=1)
-    lim.now += 60 * 15
     assert lim.bot_check() == 60 * 30
+    lim.now += 60
+    assert lim.bot_check() == pytest.approx(60 * 29, abs=1)
+    assert lim.blocked_for() == pytest.approx(60 * 29, abs=1)
+    lim.now += 60 * 30
+    assert lim.bot_check() == 60 * 60
 
 
 def test_a_read_in_flight_refuses_the_next_one():
