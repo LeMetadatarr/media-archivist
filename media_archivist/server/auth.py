@@ -1,8 +1,9 @@
 """Optional API key for the HTTP server, the *arr way.
 
 Off unless ``MEDIA_ARCHIVIST_API_KEY`` is set. When on, every request
-except ``GET /healthz`` carries the key as the ``X-Api-Key`` header or the
-``apikey`` query parameter, or comes from an exempt address.
+except ``GET /healthz`` and ``GET /api/v1/healthz`` carries the key as the
+``X-Api-Key`` header or the ``apikey`` query parameter, or comes from an
+exempt address.
 
 Exempt addresses are the socket peer's, never a forwarded one: loopback,
 the private IPv4 ranges, Tailscale (``100.64.0.0/10``,
@@ -27,7 +28,7 @@ DEFAULT_EXEMPT = (
     "100.64.0.0/10", "fd7a:115c:a1e0::/48",
 )
 FORWARDING_HEADERS = ("x-forwarded-for", "forwarded", "x-real-ip")
-OPEN_PATHS = {"/healthz"}
+OPEN_PATHS = {"/healthz", "/api/v1/healthz"}
 
 Network = Union[ipaddress.IPv4Network, ipaddress.IPv6Network]
 

@@ -85,6 +85,18 @@ Module inventory below is generated from `git ls-files 'media_archivist/*.py'
 - `media_archivist/snapshot.py` — dated snapshots of a DB and a structural
   diff between two snapshots.
 - `media_archivist/storage.py` — envelope-aware JSON storage.
+- `media_archivist/indexdb.py` — SQLite working index beside the JSON
+  database (`<db>.index.sqlite3`): WAL, one connection per thread,
+  serialised writers, versioned migrations; the schema is in its docstring.
+- `media_archivist/index_migrations/__init__.py` — the index's migration
+  steps, one module per step, version numbers allocated in blocks.
+- `media_archivist/index_migrations/m0001_schema.py` — schema version 1.
+- `media_archivist/index_migrations/m0002_import_json.py` — one-time copy of
+  the JSON rows' metadata and the subscriptions sidecar into the index.
+- `media_archivist/backoff.py` — per-kind pauses after YouTube's bot check,
+  persisted in the index.
+- `media_archivist/settings.py` — run-time settings (YouTube IP family,
+  request spacing) persisted in the index.
 - `media_archivist/streams.py` — stream resolution core, source-aware,
   yt-dlp by default.
 - `media_archivist/strm.py` — Jellyfin/Kodi `.strm` export.
@@ -133,6 +145,10 @@ Module inventory below is generated from `git ls-files 'media_archivist/*.py'
   scheduled subscription syncs and YouTube metadata fills, queued as tasks.
 - `media_archivist/server/auth.py` — optional API key (`X-Api-Key` /
   `apikey`), local and Tailscale addresses exempt.
+- `media_archivist/server/api_v1/__init__.py` — the `/api/v1` app API
+  router (`docs/app-api.md`): `healthz`, `meta`, one module per area.
+- `media_archivist/server/api_v1/deps.py` — what the `/api/v1` modules
+  share: the index, the `X-Archivist-App` label, the feature list.
 - `media_archivist/server/web.py` — server-rendered htmx WebUI, mounted onto
   the same FastAPI app as the HTTP API.
 - `media_archivist/commands/__init__.py` — command handler modules for the

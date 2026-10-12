@@ -10,8 +10,9 @@ seconds, a non-empty channel name, a calendar date.
 The gaps are filled by a full ``yt-dlp`` extraction of the single video,
 one at a time through a shared :class:`MetadataLimiter`. When YouTube
 answers with its bot check ("Sign in to confirm you're not a bot") the
-fields stay empty and the limiter backs off; nothing here retries around
-the check, rotates clients or supplies cookies.
+fields stay empty and the ``details`` kind of :mod:`media_archivist.backoff`
+pauses; nothing here retries around the check, rotates clients or supplies
+cookies.
 
 The outcome of an extraction is cached on the row: the filled fields plus
 ``metadata_checked`` (UTC timestamp), so a video is extracted once.
@@ -35,14 +36,15 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from typing import Any, Callable, Dict, Optional
 
+from media_archivist import backoff as backoff_mod
 from media_archivist.exceptions import MediaArchivistError
 
 LOG = logging.getLogger("media_archivist.ytmeta")
 
 _ENV_INTERVAL = "MEDIA_ARCHIVIST_YT_METADATA_INTERVAL"
 DEFAULT_MIN_INTERVAL_S = 2.0
-DEFAULT_BACKOFF_S = 15 * 60
-MAX_BACKOFF_S = 6 * 3600
+DEFAULT_BACKOFF_S = backoff_mod.INITIAL_WAIT_S
+MAX_BACKOFF_S = backoff_mod.MAX_WAIT_S
 _READ_POLL_S = 0.05
 NETWORK_FAILED_KEY = "metadata_network_failed"
 MAX_NETWORK_FAILURES = 3
@@ -249,16 +251,23 @@ def _env_interval() -> float:
 
 
 class MetadataLimiter:
-    """One extraction at a time, spaced, with a doubling back-off after a bot check.
+    """One extraction at a time, spaced, paused after a bot check.
 
     Thread-safe. A successful :meth:`try_acquire` or :meth:`acquire` takes the
     single read slot and the caller hands it back with :meth:`release` when
     the read is over. :meth:`try_acquire` never waits (for request handlers)
     and returns ``False`` while another read is running; :meth:`acquire`
     sleeps out the spacing and a running read (for background work) but never
-    a back-off: while blocked it returns ``False`` at once. A bot check while
-    a back-off is already running leaves that back-off as it is.
+    a pause: while paused it returns ``False`` at once.
+
+    The pause is the ``details`` kind of a :class:`~media_archivist.backoff.Backoff`:
+    in memory until :meth:`persist_to` moves it into the working index beside
+    a database, after which it outlives a restart and is the same pause every
+    other ``details`` request sees. A bot check while a pause is already
+    running leaves that pause as it is.
     """
+
+    KIND = "details"
 
     def __init__(self, min_interval: Optional[float] = None, *,
                  backoff: float = DEFAULT_BACKOFF_S, max_backoff: float = MAX_BACKOFF_S,
@@ -267,27 +276,36 @@ class MetadataLimiter:
         self.min_interval = _env_interval() if min_interval is None else min_interval
         self.initial_backoff = backoff
         self.max_backoff = max_backoff
-        self._backoff = backoff
         self._clock = clock
         self._sleep = sleep
         self._lock = threading.Lock()
         self._next_allowed = 0.0
-        self._blocked_until = 0.0
         self._reading = False
+        self.pause = backoff_mod.Backoff(initial=backoff, maximum=max_backoff, clock=clock)
+
+    def persist_to(self, db_path: str) -> None:
+        """Keep the pause in the working index of ``db_path`` from now on."""
+        from media_archivist.indexdb import open_index
+
+        persisted = backoff_mod.Backoff(open_index(db_path), initial=self.initial_backoff,
+                            maximum=self.max_backoff)
+        persisted.adopt(self.pause)
+        self.pause = persisted
 
     def blocked_for(self) -> float:
-        """Seconds left in the current back-off (0 when not blocked)."""
-        with self._lock:
-            return max(0.0, self._blocked_until - self._clock())
+        """Seconds left in the current pause (0 when not paused)."""
+        return self.pause.remaining(self.KIND)
 
     @property
     def blocked(self) -> bool:
         return self.blocked_for() > 0
 
     def try_acquire(self) -> bool:
+        if self.blocked:
+            return False
         with self._lock:
             now = self._clock()
-            if self._reading or now < self._blocked_until or now < self._next_allowed:
+            if self._reading or now < self._next_allowed:
                 return False
             self._reading = True
             self._next_allowed = now + self.min_interval
@@ -295,10 +313,10 @@ class MetadataLimiter:
 
     def acquire(self) -> bool:
         while True:
+            if self.blocked:
+                return False
             with self._lock:
                 now = self._clock()
-                if now < self._blocked_until:
-                    return False
                 wait = self._next_allowed - now
                 if wait <= 0 and not self._reading:
                     self._reading = True
@@ -312,19 +330,11 @@ class MetadataLimiter:
             self._reading = False
 
     def bot_check(self) -> float:
-        """Enter back-off; returns its length in seconds."""
-        with self._lock:
-            now = self._clock()
-            if now < self._blocked_until:
-                return self._blocked_until - now
-            length = self._backoff
-            self._blocked_until = now + length
-            self._backoff = min(self._backoff * 2, self.max_backoff)
-            return length
+        """Enter the pause; returns its length in seconds."""
+        return self.pause.mark_blocked(self.KIND)
 
     def success(self) -> None:
-        with self._lock:
-            self._backoff = self.initial_backoff
+        self.pause.mark_clear(self.KIND)
 
 
 LIMITER = MetadataLimiter()

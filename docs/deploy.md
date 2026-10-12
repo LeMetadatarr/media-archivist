@@ -136,7 +136,8 @@ server queues at most once an hour while rows still need it (and by
 once; the result is kept on its row with a `metadata_checked` timestamp.
 
 When YouTube answers with its bot check, the fields stay empty and reads
-pause for 15 minutes, doubling up to 6 hours while the check persists. The
+pause for 30 minutes, doubling up to 24 hours while the check persists. The
+pause is kept in the working index, so a restart does not end it. The
 check is never worked around: no cookies, no client switching. Set
 `MEDIA_ARCHIVIST_REENRICH=0` to stop the hourly task.
 
