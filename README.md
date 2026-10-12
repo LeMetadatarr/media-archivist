@@ -87,10 +87,10 @@ phone from your homelab network:
 
 ![Mobile](docs/img/mobile.png)
 
-Like the rest of the HTTP service, the Web UI ships with **no built-in
-authentication**. It's single-tenant, LAN-only by design, put it behind a
-reverse proxy if you expose it beyond your local network, see
-[`docs/deploy.md`](docs/deploy.md). Full page-by-page tour:
+The Web UI is single-tenant and meant for your local network. An optional API
+key (`MEDIA_ARCHIVIST_API_KEY`) protects the HTTP service; local and Tailscale
+addresses need no key. Put it behind a reverse proxy if you expose it beyond
+your network, see [`docs/deploy.md`](docs/deploy.md). Full page-by-page tour:
 [`docs/webui.md`](docs/webui.md).
 
 ## Playback: `.strm` + a play-time yt-dlp hook
@@ -251,9 +251,16 @@ image includes `yt-dlp` and stores everything under `/data`.
 docker compose -f deploy/docker-compose.yml up -d
 ```
 
-The service is **single-tenant, no authentication**. It is designed to run
-on your LAN or behind your existing reverse proxy (Caddy, Traefik, nginx).
-Do not expose port 8000 directly to the internet.
+The service is **single-tenant**. It is designed to run on your LAN or behind
+your existing reverse proxy (Caddy, Traefik, nginx). Do not expose port 8000
+directly to the internet. Set `MEDIA_ARCHIVIST_API_KEY` to require an API key
+(`X-Api-Key` header or `apikey` query parameter) from anything outside your
+local network and Tailscale.
+
+`serve` also syncs subscriptions on a schedule (every 6 hours by default,
+per subscription with `subscribe --interval-hours`) and fills missing YouTube
+durations, channels and upload dates from yt-dlp at a gentle rate, pausing
+when YouTube shows its bot check.
 
 ### Integration endpoints
 
@@ -269,6 +276,8 @@ Do not expose port 8000 directly to the internet.
 | `POST /quarantine/{id}/accept` | Accept a quarantined row (optional `?canonical_id=` to link). |
 | `POST /quarantine/{id}/reject` | Reject and force a fresh canonical_id. |
 | `POST /entries/{id}/download` | Optional: enqueue a `yt-dlp` download of one entry to `MEDIA_ARCHIVIST_DOWNLOAD_DIR`. `503` if `yt-dlp` isn't available. |
+| `GET /tasks` | Task counts per status plus the task list, newest first (`status`, `kind`, `limit`, `offset`). |
+| `GET /entries` | Entries with filters; `sortKey` and `sortDirection` sort them. |
 | `GET /docs` | Auto-generated OpenAPI / Swagger UI. |
 
 See [`docs/deploy.md`](docs/deploy.md) for the full route table, Systemd

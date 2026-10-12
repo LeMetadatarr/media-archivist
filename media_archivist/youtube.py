@@ -14,6 +14,12 @@ from tutubo.channel import Channel, Playlist, Video
 
 from media_archivist.base import LOG, JsonArchivist
 from media_archivist.exceptions import VideoUnavailable
+from media_archivist.ytmeta import (
+    clean_channel,
+    clean_duration,
+    clean_published,
+    published_from_info,
+)
 
 
 def _video_id_from_url(url: str) -> str:
@@ -43,6 +49,18 @@ def _is_video_available(video_id: str, timeout: int = 10) -> bool:
     return resp.status_code == 200
 
 
+def _attr(video, name: str):
+    """``video.<name>``, or ``None`` when the listing cannot supply it.
+
+    tutubo computes some attributes from page markup on access and raises
+    when that markup lacks them.
+    """
+    try:
+        return getattr(video, name, None)
+    except Exception:
+        return None
+
+
 @dataclass
 class _FlatVideo:
     """A video described by a ``yt-dlp --flat-playlist`` record."""
@@ -54,6 +72,7 @@ class _FlatVideo:
     thumbnail_url: str = ""
     description: str = ""
     view_count: str = ""
+    published_time: str = ""
 
     @property
     def watch_url(self) -> str:
@@ -63,6 +82,13 @@ class _FlatVideo:
 _VIDEO_ID = re.compile(r"[A-Za-z0-9_-]{11}")
 _CHANNEL_TABS = {"videos", "shorts", "streams", "live", "playlists", "releases", "featured", "podcasts", "community", "about", "search"}
 _MAX_TAB_DEPTH = 2
+
+
+def _is_channel_url(url: str) -> bool:
+    parts = [p for p in urlparse(url).path.split("/") if p]
+    if not parts or "list=" in url:
+        return False
+    return parts[0].startswith("@") or (parts[0] in ("channel", "c", "user") and len(parts) >= 2)
 
 
 def _channel_videos_url(url: str) -> str:
@@ -112,6 +138,9 @@ def _flat_videos(url: str) -> tuple:
     from media_archivist import streams
 
     info = streams.list_playlist(_channel_videos_url(url))
+    # A channel's own listing names the channel once, at the top; a
+    # playlist's owner is not the author of the videos in it.
+    listing_author = (info.get("channel") or info.get("uploader")) if _is_channel_url(url) else None
     videos = []
     seen = set()
     for rec in _flat_records(info):
@@ -123,10 +152,11 @@ def _flat_videos(url: str) -> tuple:
             video_id=rec["id"],
             title=rec.get("title") or "",
             length=rec.get("duration"),
-            author=rec.get("channel") or rec.get("uploader"),
+            author=rec.get("channel") or rec.get("uploader") or listing_author,
             thumbnail_url=thumbs[-1].get("url", "") if thumbs else "",
             description=rec.get("description") or "",
             view_count=str(rec["view_count"]) if rec.get("view_count") is not None else "",
+            published_time=published_from_info(rec),
         ))
     return videos, info.get("title")
 
@@ -307,8 +337,17 @@ class YoutubeArchivist(JsonArchivist):
 
     def archive_channel(self, url: str) -> None:
         self.log.debug("Archiving channel: %s", url)
-        videos, _ = self._list_videos(url, Channel(url))
-        self._archive_listing(url, videos, {}, f"channel {url}")
+        channel = Channel(url)
+        videos, _ = self._list_videos(url, channel)
+        meta = {}
+        if videos and not isinstance(videos[0], _FlatVideo):
+            try:
+                name = clean_channel(channel.channel_name)
+            except Exception:
+                name = None
+            if name:
+                meta["author"] = name
+        self._archive_listing(url, videos, meta, f"channel {url}")
 
     def archive_channel_playlists(self, url: str) -> None:
         from media_archivist.progress import progress
@@ -329,10 +368,14 @@ class YoutubeArchivist(JsonArchivist):
         from media_archivist.models import RawYoutubeEntry
 
         url = video.watch_url
-        length = getattr(video, "length", None)
-        author = getattr(video, "author", None)
-        playlist = (extra_data or {}).get("playlist")
-        unknown_extras = {k: v for k, v in (extra_data or {}).items() if k != "playlist"}
+        extra_data = extra_data or {}
+        # Listing values are stored only when they mean what the field
+        # says; the rest is filled from yt-dlp later (see ytmeta).
+        length = clean_duration(_attr(video, "length"))
+        author = clean_channel(_attr(video, "author")) or clean_channel(extra_data.get("author"))
+        published = clean_published(_attr(video, "published_time"))
+        playlist = extra_data.get("playlist")
+        unknown_extras = {k: v for k, v in extra_data.items() if k not in ("playlist", "author")}
         entry = RawYoutubeEntry(
             url=url,
             videoId=video.video_id,
@@ -340,11 +383,11 @@ class YoutubeArchivist(JsonArchivist):
             tags=list(getattr(video, "keywords", None) or []) + list(getattr(video, "tags", []) or []),
             thumbnail=video.thumbnail_url,
             is_live=bool(getattr(video, "is_live", False)),
-            published=getattr(video, "published_time", "") or "",
+            published=published,
             views=getattr(video, "view_count", "") or getattr(video, "views", "") or "",
             description=getattr(video, "description", "") or "",
             duration=length,
-            author=author or None,
+            author=author,
             playlist=playlist,
             extra=unknown_extras,
         )

@@ -10,6 +10,7 @@ from typing import Any, Callable, Dict
 
 from media_archivist.models.canonical import MediaEntry
 from media_archivist.models.raw import Source
+from media_archivist.ytmeta import clean_channel, clean_duration, clean_published
 
 
 def _youtube(raw: Dict[str, Any]) -> MediaEntry:
@@ -18,9 +19,9 @@ def _youtube(raw: Dict[str, Any]) -> MediaEntry:
         url=raw["url"],
         title=raw.get("title"),
         raw=raw,
-        artist=raw.get("author"),
-        duration=raw.get("duration"),
-        published=raw.get("published") or None,
+        artist=clean_channel(raw.get("author")),
+        duration=clean_duration(raw.get("duration")),
+        published=clean_published(raw.get("published")) or None,
         thumbnail=raw.get("thumbnail"),
         is_live=bool(raw.get("is_live")),
         tags=list(raw.get("tags") or []),

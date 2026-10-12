@@ -15,11 +15,18 @@ import threading
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Awaitable, Callable, Dict, List, Optional, Union, get_args
+from typing import Awaitable, Callable, Dict, List, Optional, Tuple, Union, get_args
 
-from media_archivist.models.api import ArchiveRequest, DownloadRequest, Task, TaskStatus
+from media_archivist.models.api import (
+    ArchiveRequest,
+    DownloadRequest,
+    EnrichRequest,
+    SyncRequest,
+    Task,
+    TaskStatus,
+)
 
-TaskRequest = Union[ArchiveRequest, DownloadRequest]
+TaskRequest = Union[ArchiveRequest, DownloadRequest, SyncRequest, EnrichRequest]
 
 LOG = logging.getLogger("media_archivist.server.scheduler")
 
@@ -143,6 +150,23 @@ class TaskStore:
         with self._lock:
             statuses = [t.status for t in self.tasks.values()]
         return {s: statuses.count(s) for s in get_args(TaskStatus)}
+
+    def page(self, *, status: Optional[str] = None, kind: Optional[str] = None,
+             limit: int = 50, offset: int = 0) -> Tuple[int, List[Task]]:
+        """``(matched, tasks)``: one page of tasks, newest first.
+
+        Ordered by ``created``; tasks created in the same second keep their
+        submission order, latest first.
+        """
+        with self._lock:
+            tasks = list(self.tasks.values())
+        tasks.reverse()
+        tasks.sort(key=lambda t: t.created, reverse=True)
+        if status is not None:
+            tasks = [t for t in tasks if t.status == status]
+        if kind is not None:
+            tasks = [t for t in tasks if t.kind == kind]
+        return len(tasks), tasks[offset:offset + limit]
 
     def pending(self) -> List[Task]:
         return [t for t in self.tasks.values() if t.status in {"queued", "running"}]

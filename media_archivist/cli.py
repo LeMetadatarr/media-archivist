@@ -478,6 +478,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_sub.add_argument("--download", action="store_true",
                        help="flag this subscription to always download "
                             "newly-indexed items on sync (auto_download=true)")
+    p_sub.add_argument("--interval-hours", type=float, metavar="HOURS",
+                       help="hours between the syncs `serve` runs on its own "
+                            "(default: MEDIA_ARCHIVIST_SYNC_INTERVAL_HOURS, else 6)")
     p_sub.set_defaults(func=cmd_subscribe)
 
     p_unsub = sub.add_parser("unsubscribe", help="remove a subscription by URL")
