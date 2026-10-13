@@ -73,12 +73,12 @@ def test_settings_read_and_change(db_path):
     with TestClient(create_app(db_path)) as c:
         assert c.get("/api/v1/settings").json() == {
             "youtube_ip_family": "ipv4", "youtube_request_spacing": 10,
-            "download_concurrency": 1}
+            "download_concurrency": 1, "status_cards": "on"}
         r = c.patch("/api/v1/settings", json={"youtube_ip_family": "ipv6",
                                               "youtube_request_spacing": 4})
         assert r.status_code == 200
         assert r.json() == {"youtube_ip_family": "ipv6", "youtube_request_spacing": 4,
-                            "download_concurrency": 1}
+                            "download_concurrency": 1, "status_cards": "on"}
         assert c.get("/api/v1/settings").json()["youtube_ip_family"] == "ipv6"
         assert c.get("/api/v1/youtube/backoff").json()["ip_family"] == "ipv6"
     assert ytclient.CLIENT.ytdlp_args() == ["--force-ipv6"]

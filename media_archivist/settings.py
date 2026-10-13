@@ -39,16 +39,27 @@ def _concurrency(value: Any) -> int:
     return value
 
 
+STATUS_CARDS = ("on", "off")
+
+
+def _status_cards(value: Any) -> str:
+    if value not in STATUS_CARDS:
+        raise ValueError(f"status_cards must be one of {', '.join(STATUS_CARDS)}")
+    return value
+
+
 DEFAULTS: Dict[str, Any] = {
     "youtube_ip_family": "ipv4",
     "youtube_request_spacing": 10,
     "download_concurrency": 1,
+    "status_cards": "on",
 }
 
 VALIDATORS: Dict[str, Callable[[Any], Any]] = {
     "youtube_ip_family": _ip_family,
     "youtube_request_spacing": _seconds,
     "download_concurrency": _concurrency,
+    "status_cards": _status_cards,
 }
 
 

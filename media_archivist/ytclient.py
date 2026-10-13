@@ -160,6 +160,11 @@ def _chain(error: BaseException):
         todo.extend((e.__cause__, e.__context__))
 
 
+def error_text(error: BaseException) -> str:
+    """The lower-cased messages of *error* and everything it wraps."""
+    return " ".join(str(e).lower() for e in _chain(error))
+
+
 def http_status(error: BaseException) -> Optional[int]:
     """The HTTP status behind *error*, from the exception chain or its text."""
     chain = list(_chain(error))
@@ -197,7 +202,7 @@ def failure_kind(error: BaseException) -> str:
         return "permanent"
     if isinstance(error, NetworkError):
         return "network"
-    text = " ".join(str(e).lower() for e in _chain(error))
+    text = error_text(error)
     if is_bot_check(text):
         return "bot"
     if any(m in text for m in PERMANENT_MARKERS):
