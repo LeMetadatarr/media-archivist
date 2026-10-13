@@ -82,6 +82,35 @@ def test_feed_rss(client):
     assert "<rss" in r.text and "Hello" in r.text
 
 
+def test_feed_rss_escapes_ampersands_in_urls(tmp_path):
+    """Regression: an unescaped ``&`` in a video URL produced invalid XML.
+
+    YouTube watch URLs routinely carry more than one query parameter (e.g.
+    ``...&list=...``); the raw ``&`` broke every RSS/podcast client that
+    actually parses the feed as XML instead of eyeballing it.
+    """
+    db_path = tmp_path / "db.json"
+    db = EnvelopeJsonStorage(str(db_path))
+    db["https://www.youtube.com/watch?v=a&list=PL1"] = {
+        "source": "youtube",
+        "url": "https://www.youtube.com/watch?v=a&list=PL1",
+        "videoId": "a",
+        "title": "Rock & Roll",
+        "duration": 240,
+    }
+    db.store()
+    app = create_app(str(db_path))
+    with TestClient(app) as c:
+        r = c.get("/feed.rss")
+    assert r.status_code == 200
+    assert "v=a&list=PL1" not in r.text, "raw & must not appear in the XML body"
+    assert "v=a&amp;list=PL1" in r.text
+    assert "Rock &amp; Roll" in r.text
+
+    import xml.etree.ElementTree as ET
+    ET.fromstring(r.text)  # raises if the feed isn't well-formed XML
+
+
 def test_m3u(client):
     r = client.get("/m3u", params={"has_stream": True})
     assert r.status_code == 200
@@ -116,6 +145,51 @@ def test_strm_falls_back_to_watch_url(client):
 
 def test_strm_404_for_unknown_id(client):
     r = client.get("/strm/notarealid")
+    assert r.status_code == 404
+
+
+def test_healthz(client):
+    r = client.get("/healthz")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "ok"
+    assert "version" in body and "db_path" in body
+
+
+def test_providers_lists_registry(client):
+    r = client.get("/providers")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["total"] >= 1
+    names = {p["name"] for p in body["providers"]}
+    assert "musicbrainz" in names or "wikidata" in names
+    for p in body["providers"]:
+        assert isinstance(p["available"], bool)
+        assert isinstance(p["media"], list)
+        assert isinstance(p["modality"], list)
+
+
+def test_canonicalize_unknown_provider_400(client):
+    r = client.post("/canonicalize", json={"providers": ["does_not_exist"]})
+    assert r.status_code == 400
+    assert "unknown provider" in r.json()["detail"]
+
+
+def test_quarantine_list_empty(client):
+    r = client.get("/quarantine")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["total"] == 0
+    assert body["entries"] == []
+
+
+def test_quarantine_accept_unknown_404(client):
+    r = client.post("/quarantine/notarealrow/accept")
+    assert r.status_code == 404
+
+
+def test_quarantine_reject_unknown_404(client):
+    r = client.post("/quarantine/notarealrow/reject")
     assert r.status_code == 404
 
 

@@ -8,12 +8,12 @@ empty / missing files are initialised with a fresh :class:`ArchiveMeta`.
 """
 from __future__ import annotations
 
-import json
 import os
 from typing import Any, Dict, Optional
 
 from json_database import JsonStorage, JsonStorageXDG
 
+from media_archivist._atomic import atomic_write_json
 from media_archivist.models import MediaArchive
 from media_archivist.models.archive import ArchiveMeta
 
@@ -49,12 +49,7 @@ class _EnvelopeMixin:
         arc = MediaArchive(meta=self.meta, entries=dict(d))
         arc.recompute_source_mix()
         arc.touch()
-        target = os.path.expanduser(target)
-        target_dir = os.path.dirname(target)
-        if target_dir and not os.path.isdir(target_dir):
-            os.makedirs(target_dir)
-        with open(target, "w", encoding="utf-8") as f:
-            json.dump(arc.dump_dict(), f, indent=4, ensure_ascii=False)
+        atomic_write_json(os.path.expanduser(target), arc.dump_dict(), indent=4)
 
 
 class EnvelopeJsonStorage(_EnvelopeMixin, JsonStorage):

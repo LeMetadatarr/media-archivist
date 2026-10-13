@@ -1,8 +1,8 @@
 site_name: media_archivist
 site_description: Cross-source media metadata indexer (YouTube, YT Music, Internet Archive, Bandcamp, SoundCloud)
 site_url: https://tigregotico.github.io/media-archivist/
-repo_url: https://github.com/TigreGotico/media-archivist
-repo_name: TigreGotico/media-archivist
+repo_url: https://github.com/LeMetadatarr/media-archivist
+repo_name: LeMetadatarr/media-archivist
 edit_uri: edit/master/docs/
 
 theme:
@@ -51,6 +51,7 @@ nav:
       - Install & first run: getting-started.md
       - Tutorial: cross-source music dataset: tutorial.md
       - FAQ: faq.md
+  - Web UI: webui.md
   - Concepts:
       - Schema & validation: schema.md
       - Storage format: storage.md
@@ -58,6 +59,8 @@ nav:
       - Disambiguation & external IDs: disambiguation.md
       - Datasets, enrichment & sharing: datasets.md
       - Running as a service: deploy.md
+      - Jellyfin / Kodi remote media: jellyfin.md
+      - Metadata providers (metadatarr): metadatarr.md
   - Recipes:
       - recipes/index.md
       - recipes/music-library-from-bandcamp-soundcloud-and-ytmusic.md

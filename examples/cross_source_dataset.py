@@ -4,14 +4,14 @@ This recipe shows how to:
 
 1. Index the same artist on **three** sources (YouTube Music, Bandcamp,
    SoundCloud).
-2. Run :func:`media_archivist.canon.link` to fingerprint duplicates across
+2. Run :func:`media_archivist.dedupe.link` to fingerprint duplicates across
    sources.
-3. Run :func:`media_archivist.canon.dedupe` to emit a canonical JSONL,
+3. Run :func:`media_archivist.dedupe.dedupe` to emit a canonical JSONL,
    preferring sources that ship a direct stream URL.
 
 Run::
 
-    pip install media_archivist[bandcamp,soundcloud]
+    pip install media_archivist py_bandcamp nuvem_de_som
     python examples/cross_source_dataset.py "Aphex Twin"
 """
 from __future__ import annotations
@@ -25,7 +25,7 @@ from media_archivist import (
     SoundCloudArchivist,
     YoutubeMusicArchivist,
 )
-from media_archivist.canon import dedupe, link, write_dedupe_jsonl
+from media_archivist.dedupe import dedupe, link, write_dedupe_jsonl
 
 HERE = Path(__file__).parent
 
