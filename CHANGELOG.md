@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.27.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.27.0a1) (2026-10-13)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.26.0a1...0.27.0a1)
+
+**Merged pull requests:**
+
+- feat: play a short status video when a stream cannot be resolved [\#77](https://github.com/LeMetadatarr/media-archivist/pull/77) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.26.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.26.0a1) (2026-10-12)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.25.0a1...0.26.0a1)
