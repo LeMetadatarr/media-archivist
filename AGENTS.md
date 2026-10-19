@@ -102,6 +102,9 @@ Module inventory below is generated from `git ls-files 'media_archivist/*.py'
   of each file a download placed, checked before forgetting deletes it.
 - `media_archivist/index_migrations/m0402_download_bot_attempts.py` — the
   count of runs that met the bot check, apart from runs started.
+- `media_archivist/index_migrations/m0403_download_captions.py` — the caption
+  kinds asked for, whether the info JSON is kept, and what each placed caption
+  file is.
 - `media_archivist/backoff.py` — per-kind pauses after YouTube's bot check,
   persisted in the index.
 - `media_archivist/settings.py` — run-time settings (YouTube IP family,

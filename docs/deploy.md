@@ -128,6 +128,29 @@ with its bot check, that download goes back to the queue and downloads pause
 for the `download` back-off kind; other kinds of request carry on. A download
 that meets the bot check on its fifth attempt fails instead of going back.
 
+A request with `subtitles` fetches caption tracks beside the video. The record
+says what each placed caption file is: `captions` lists its `file`, `language`,
+`kind` (`manual`, or `automatic` for YouTube's own recogniser) and
+`is_translation`. YouTube also offers its recogniser's text machine-translated
+into other languages, so a track named `pt` can be a translation of a video
+spoken in English. `subtitles_kinds` picks what is fetched: `manual`,
+`automatic` (every automatic track, translations included) and
+`automatic_original` (only the recogniser's track in the video's own
+language). It defaults to `["manual", "automatic"]`. With kinds named, a
+file the video's info cannot prove to be one of them is not kept. The
+recogniser's own track is known by its `-orig` name or, for a language that has
+one, by the plain name beside it; a language YouTube cannot translate has no
+`-orig` track, so `automatic_original` drops it rather than risk calling a
+translation original. With the default kinds such a track is kept with kind
+`automatic` and a null `is_translation`. Downloads that completed before the record had
+captions show `captions` as an empty list while `files` still lists the
+caption files.
+
+Set `keep_info_json` to keep the video's info JSON beside it; `info_json`
+names the file. The file holds the signed media URLs YouTube issued to the
+server and the server's public IP address, so it is opt-in and the server
+never serves it.
+
 A download never replaces a file already in its folder: when a name is taken,
 the video and its subtitles all get the first free number, as in
 `Title [id] (2).mp4`. Forgetting a download with `delete_files=true` removes a

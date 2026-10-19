@@ -9,7 +9,12 @@ reads ``FAKE_YTDLP_CONTROL`` (``{"mode": ..., "modes": {video_id: mode},
 "titles": {video_id: title}}``), appends its argument list as one JSON line
 to ``FAKE_YTDLP_LOG`` and behaves as yt-dlp would for the mode:
 
-``ok``           progress lines, the video and one subtitle file per language
+``ok``           progress lines, the video and one subtitle file per language; with
+                 ``--write-info-json`` also its info JSON, whose caption lists are
+                 the control file's ``info`` (``subtitles``, ``automatic_captions``;
+                 like yt-dlp's cleaned JSON it has no ``requested_subtitles``
+                 and, for YouTube, no ``language``) and which then limits the
+                 subtitle files to the tracks the flags allow, as yt-dlp would
 ``gate``         as ``ok``, once ``release-<video_id>`` exists beside the control file
 ``hang``         a partial file and progress, then sleeps until it is killed
 ``bot``          the bot-check error recorded from YouTube, exit 1
@@ -104,9 +109,26 @@ def main(argv):
     else:
         video.write_bytes(b"" if mode == "emptyfile" else b"video bytes")
         done = str(video)
-        if "--sub-langs" in opts:
-            for lang in opts["--sub-langs"].split(","):
+        info = control.get("info")
+        langs = opts["--sub-langs"].split(",") if "--sub-langs" in opts else []
+        if info is None:
+            for lang in langs:
                 video.with_suffix(f".{lang}.vtt").write_text("WEBVTT\n")
+        else:
+            subs, auto = info.get("subtitles", {}), info.get("automatic_captions", {})
+            for lang in langs:
+                if ("--write-subs" in argv and lang in subs) or ("--write-auto-subs" in argv and lang in auto):
+                    video.with_suffix(f".{lang}.vtt").write_text("WEBVTT\n")
+            if "--write-info-json" in argv:
+                info_path = video.with_suffix(".info.json")
+                if control.get("trim_info_json"):
+                    info_path = video.with_name(video.stem[:-1] + ".info.json")
+                info_path.write_text(json.dumps(
+                    {"id": video_id, "title": title, **info}))
+                if control.get("decoy_info_json"):
+                    video.with_name("A decoy.info.json").write_text("{}")
+        if info is None and "--write-info-json" in argv:
+            video.with_suffix(".info.json").write_text(json.dumps({"id": video_id, "title": title}))
     print("ARCHIVIST-DONE " + json.dumps({"filepath": done, "title": title, "id": video_id,
                                           "ext": "mp4"}), flush=True)
     return 0
