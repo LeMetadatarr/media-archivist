@@ -836,6 +836,321 @@ def test_migration_numbers_earlier_rows(tmp_path):
     idx.close()
 
 
+# -- caption kinds and the info JSON ------------------------------------------------
+
+
+def track(lang, translated=False):
+    url = f"https://www.youtube.com/api/timedtext?v={VID}&lang={lang}" + (f"&tlang={lang}" if translated else "")
+    return [{"ext": "vtt", "url": url}]
+
+
+# an English video as YouTube lists it: its own recogniser track under two names, and the
+# translation into Portuguese. The info has no "language" and no "requested_subtitles".
+ENGLISH_VIDEO = {"subtitles": {},
+                 "automatic_captions": {"en-orig": track("en"), "en": track("en"),
+                                        "pt": track("pt", translated=True)}}
+
+
+def run(lane, media, **request):
+    record = lane.queue("a", KEY, target_dir=str(media), **request)[0]
+    lane.start()
+    done = wait_status(lane, record["id"], "completed", "failed")
+    assert done["status"] == "completed", done
+    return done
+
+
+def names(done):
+    return sorted(Path(f).name for f in done["files"][1:])
+
+
+def test_download_argv_for_caption_kinds():
+    def argv(**kw):
+        return streams.download_argv("https://e/v", "/m", subtitles=["pt"], **kw)
+
+    default = argv()
+    assert default[default.index("--write-subs"):default.index("--sub-langs") + 2] == \
+        ["--write-subs", "--write-auto-subs", "--sub-langs", "pt"]
+    assert "--write-info-json" in default
+    assert "--write-info-json" not in streams.download_argv("https://e/v", "/m")
+    assert "--write-info-json" in streams.download_argv("https://e/v", "/m", info_json=True)
+    original = argv(subtitles_kinds=["manual", "automatic_original"])
+    assert "--write-subs" in original and "--write-auto-subs" in original
+    assert original[original.index("--sub-langs") + 1] == "pt,pt-orig"
+    only_manual = argv(subtitles_kinds=["manual"])
+    assert "--write-auto-subs" not in only_manual and only_manual[only_manual.index("--sub-langs") + 1] == "pt"
+    only_auto = argv(subtitles_kinds=["automatic_original"])
+    assert "--write-subs" not in only_auto and "--write-auto-subs" in only_auto
+    every = argv(subtitles_kinds=["automatic", "automatic_original"])
+    assert every[every.index("--sub-langs") + 1] == "pt,pt-orig"
+    assert argv(subtitles_kinds=["automatic"])[argv(subtitles_kinds=["automatic"]).index("--sub-langs") + 1] == "pt"
+
+
+def test_classify_captions():
+    got = streams.classify_captions(ENGLISH_VIDEO, ["en", "en-orig", "pt", "fr"])
+    assert got == {"en": {"kind": "automatic", "language": "en", "is_translation": False},
+                   "en-orig": {"kind": "automatic", "language": "en", "is_translation": False},
+                   "pt": {"kind": "automatic", "language": "pt", "is_translation": True}}
+    manual = {"subtitles": {"pt": track("pt")}, "automatic_captions": {"pt": track("pt")}}
+    assert streams.classify_captions(manual, ["pt"])["pt"] == {"kind": "manual", "language": "pt",
+                                                               "is_translation": False}
+    assert streams.classify_captions(manual, ["pt"], manual=False)["pt"]["kind"] == "automatic"
+    assert streams.classify_captions(manual, ["pt"], manual=False, automatic=False) == {}
+    assert streams.classify_captions({}, ["pt"]) == {}
+    assert streams.classify_captions({"subtitles": None, "automatic_captions": None}, ["pt"]) == {}
+
+
+def test_a_translation_is_known_by_its_address_alone():
+    # a video with two audio tracks has no "-orig" for English, and its English is a translation
+    # yt-dlp downloads the last entry of a name, and YouTube lists a name once per audio track
+    dual = {"automatic_captions": {"en-orig": track("en"),
+                                   "en": track("en") + track("en", translated=True),
+                                   "es-orig": track("es"),
+                                   "es": track("es", translated=True) + track("es")}}
+    got = streams.classify_captions(dual, ["en-orig", "en", "es-orig", "es"])
+    assert {k: v["is_translation"] for k, v in got.items()} == \
+        {"en-orig": False, "en": True, "es-orig": False, "es": False}
+    lone = {"automatic_captions": {"en": track("en", translated=True)}}
+    assert streams.classify_captions(lone, ["en"])["en"]["is_translation"] is True
+    # tlang counts as a parameter of the address, not as text anywhere in it
+    other = {"automatic_captions": {"en": [{"url": "https://e/t?v=1&xtlang=en&name=tlang=x"}]}}
+    assert streams.classify_captions(other, ["en"])["en"]["is_translation"] is None
+
+
+def test_the_original_language_is_known_only_from_the_orig_track():
+    # no "language" field to fall back on: without an "-orig" track an untranslated name is unknown
+    plain = {"automatic_captions": {"pt-BR": track("pt-BR"), "fr": track("fr")}}
+    got = streams.classify_captions(plain, ["pt-BR", "fr"])
+    assert {k: v["is_translation"] for k, v in got.items()} == {"pt-BR": None, "fr": None}
+    assert streams.classify_captions({**plain, "language": "pt"}, ["fr"])["fr"]["is_translation"] is None
+    orig = {"automatic_captions": {"pt-orig": track("pt"), "pt": track("pt"), "fr": track("fr"),
+                                   "pt-BR": track("pt-BR")}}
+    got = streams.classify_captions(orig, ["pt", "fr", "pt-BR"])
+    assert {k: v["is_translation"] for k, v in got.items()} == {"pt": False, "fr": None, "pt-BR": None}
+    assert got["pt"]["language"] == "pt"
+
+
+def test_a_manual_caption_is_recorded_as_manual(lane, fake, media):
+    fake.set(info={"subtitles": {"pt": track("pt")}, "automatic_captions": {}})
+    done = run(lane, media, subtitles=["pt"])
+    video = Path(done["files"][0])
+    assert done["captions"] == [{"file": str(video.with_suffix(".pt.vtt")), "language": "pt",
+                                 "kind": "manual", "is_translation": False}]
+    assert names(done) == [video.with_suffix(".pt.vtt").name] and done["info_json"] is None
+
+
+def test_an_info_json_the_tool_named_differently_still_classifies(lane, fake, media):
+    fake.set(info={"subtitles": {"pt": track("pt")}, "automatic_captions": {}}, trim_info_json=True)
+    done = run(lane, media, subtitles=["pt"], subtitles_kinds=["manual"])
+    video = Path(done["files"][0])
+    assert [(c["language"], c["kind"]) for c in done["captions"]] == [("pt", "manual")]
+    assert done["info_json"] is None
+    assert names(done) == [video.with_suffix(".pt.vtt").name]
+    kept = run(lane, media / "b", subtitles=["pt"], keep_info_json=True)
+    assert kept["info_json"] and kept["info_json"].endswith(".info.json")
+    assert [c["kind"] for c in kept["captions"]] == ["manual"]
+
+
+def test_another_entrys_info_json_is_not_taken_for_the_videos(lane, fake, media):
+    fake.set(info={"subtitles": {"pt": track("pt")}, "automatic_captions": {}}, decoy_info_json=True)
+    done = run(lane, media, subtitles=["pt"], subtitles_kinds=["manual"])
+    video = Path(done["files"][0])
+    assert [(c["language"], c["kind"]) for c in done["captions"]] == [("pt", "manual")]
+    assert done["info_json"] is None
+    assert video.with_suffix(".info.json").name not in names(done)
+
+
+def test_an_automatic_caption_is_recorded_as_automatic(lane, fake, media):
+    fake.set(info=ENGLISH_VIDEO)
+    done = run(lane, media, subtitles=["en"])
+    assert [(c["language"], c["kind"], c["is_translation"]) for c in done["captions"]] == \
+        [("en", "automatic", False)]
+
+
+def test_manual_wins_over_automatic_for_one_language(lane, fake, media):
+    fake.set(info={"subtitles": {"pt": track("pt")},
+                   "automatic_captions": {"pt-orig": track("pt"), "pt": track("pt")}})
+    done = run(lane, media, subtitles=["pt"])
+    assert [(c["kind"], c["is_translation"]) for c in done["captions"]] == [("manual", False)]
+    auto = run(lane, media / "b", subtitles=["pt"], subtitles_kinds=["automatic_original"])
+    assert [(c["kind"], c["is_translation"]) for c in auto["captions"]] == [("automatic", False)]
+    assert names(auto) == [f"Video {VID} [{VID}].pt-orig.vtt"]
+
+
+def test_automatic_kinds_named_alone_keep_a_translation(lane, fake, media):
+    fake.set(info=ENGLISH_VIDEO)
+    done = run(lane, media, subtitles=["pt"], subtitles_kinds=["automatic"])
+    assert [(c["language"], c["kind"], c["is_translation"]) for c in done["captions"]] == \
+        [("pt", "automatic", True)]
+
+
+def test_the_default_keeps_a_translated_track_and_says_so(lane, fake, media):
+    fake.set(info=ENGLISH_VIDEO)
+    done = run(lane, media, subtitles=["pt"])
+    assert [(c["language"], c["kind"], c["is_translation"]) for c in done["captions"]] == \
+        [("pt", "automatic", True)]
+    assert len(done["files"]) == 2 and done["subtitles_kinds"] == ["manual", "automatic"]
+
+
+def test_a_request_for_original_tracks_never_keeps_a_translation(lane, fake, media):
+    fake.set(info=ENGLISH_VIDEO)
+    done = run(lane, media, subtitles=["pt"], subtitles_kinds=["manual", "automatic_original"])
+    assert done["captions"] == [] and len(done["files"]) == 1
+    assert done["subtitles_kinds"] == ["manual", "automatic_original"]
+    assert [p.name for p in media.iterdir() if not p.name.startswith(dl.STAGING_PREFIX)] == \
+        [Path(done["files"][0]).name]
+    both = run(lane, media / "en", subtitles=["en", "pt"], subtitles_kinds=["automatic_original"])
+    assert [(c["language"], c["is_translation"]) for c in both["captions"]] == [("en", False)]
+    assert names(both) == [f"Video {VID} [{VID}].en-orig.vtt"]
+
+
+def test_a_track_the_info_cannot_account_for_is_not_kept_when_kinds_are_named(lane, fake, media):
+    fake.set(info={"subtitles": {}, "automatic_captions": {"pt": track("pt")}})
+    unsure = run(lane, media, subtitles=["pt"], subtitles_kinds=["automatic_original"])
+    assert unsure["captions"] == [] and len(unsure["files"]) == 1
+    default = run(lane, media / "d", subtitles=["pt"])
+    assert [(c["kind"], c["is_translation"]) for c in default["captions"]] == [("automatic", None)]
+
+
+def test_a_translation_without_an_orig_track_is_still_a_translation(lane, fake, media):
+    fake.set(info={"subtitles": {}, "automatic_captions": {"es-orig": track("es"), "es": track("es"),
+                                                            "en": track("en", translated=True)}})
+    done = run(lane, media, subtitles=["en", "es"])
+    assert sorted((c["language"], c["is_translation"]) for c in done["captions"]) == \
+        [("en", True), ("es", False)]
+    original = run(lane, media / "o", subtitles=["en", "es"], subtitles_kinds=["automatic_original"])
+    assert [(c["language"], c["is_translation"]) for c in original["captions"]] == [("es", False)]
+    assert names(original) == [f"Video {VID} [{VID}].es-orig.vtt"]
+
+
+def test_a_file_the_info_does_not_list_is_not_kept_when_kinds_are_named(lane, media):
+    # the fake writes the file but no caption lists in the info
+    named = run(lane, media, subtitles=["en"], subtitles_kinds=["manual", "automatic"])
+    assert named["captions"] == [] and len(named["files"]) == 1
+    assert [p.name for p in media.iterdir() if not p.name.startswith(dl.STAGING_PREFIX)] == \
+        [Path(named["files"][0]).name]
+
+
+def _staged(tmp_path, info, *tracks):
+    video = tmp_path / "Video [x].mp4"
+    video.write_bytes(b"v")
+    files = [video]
+    for name in tracks:
+        path = tmp_path / name
+        path.write_text("WEBVTT\n")
+        files.append(path)
+    info_file = tmp_path / "Video [x].info.json"
+    info_file.write_text(json.dumps(info))
+    return video, files + [info_file]
+
+
+def test_the_orig_track_is_the_one_kept_whatever_the_order(tmp_path):
+    video, files = _staged(tmp_path, ENGLISH_VIDEO, "Video [x].en.vtt", "Video [x].en-orig.vtt")
+    row = {"subtitles_kinds": json.dumps(["automatic_original"]), "keep_info_json": 0}
+    kept, captions = dl.Downloads._captions(row, video, files)
+    assert [c["file"].name for c in captions] == ["Video [x].en-orig.vtt"]
+    assert [p.name for p in kept] == ["Video [x].mp4", "Video [x].en-orig.vtt"]
+    reversed_, captions = dl.Downloads._captions(row, video, [files[0]] + files[1:3][::-1] + files[3:])
+    assert [c["file"].name for c in captions] == ["Video [x].en-orig.vtt"]
+
+
+def test_only_files_named_after_the_video_are_described(tmp_path):
+    video, files = _staged(tmp_path, ENGLISH_VIDEO, "Video [x].en-orig.vtt", "Other.en.vtt")
+    for kinds in (None, json.dumps(["manual", "automatic_original"])):
+        kept, captions = dl.Downloads._captions({"subtitles_kinds": kinds, "keep_info_json": 0}, video, files)
+        assert [c["file"].name for c in captions] == ["Video [x].en-orig.vtt"]
+        assert tmp_path / "Other.en.vtt" in kept
+
+
+def test_a_video_without_captions_has_none_recorded(lane, fake, media):
+    fake.set(info={"subtitles": {}, "automatic_captions": {}})
+    done = run(lane, media, subtitles=["pt"], subtitles_kinds=["manual", "automatic_original"])
+    assert done["captions"] == [] and len(done["files"]) == 1
+
+
+def test_without_an_info_json_the_files_are_kept_with_an_unknown_kind(lane, media):
+    done = run(lane, media, subtitles=["en"])
+    assert [(c["language"], c["kind"], c["is_translation"]) for c in done["captions"]] == \
+        [("en", None, None)]
+
+
+def test_no_captions_asked_records_none(lane, media):
+    done = run(lane, media)
+    assert done["captions"] == [] and done["info_json"] is None and done["keep_info_json"] is False
+
+
+def test_the_info_json_is_kept_beside_the_video_on_request(lane, fake, media):
+    fake.set(info=ENGLISH_VIDEO)
+    kept = run(lane, media, subtitles=["en"], keep_info_json=True)
+    video = Path(kept["files"][0])
+    info = video.with_name(video.stem + ".info.json")
+    assert kept["keep_info_json"] is True and kept["info_json"] == str(info)
+    assert str(info) in kept["files"] and json.loads(info.read_text())["automatic_captions"]
+    assert lane.cancel(kept["id"], delete_files=True)["deleted_files"].count(str(info)) == 1
+    assert not info.exists()
+    plain = run(lane, media / "p", keep_info_json=True)
+    assert Path(plain["info_json"]).name == f"Video {VID} [{VID}].info.json"
+    assert plain["captions"] == []
+    gone = run(lane, media / "q", subtitles=["en"])
+    assert gone["info_json"] is None and not list((media / "q").glob("*.info.json"))
+
+
+def test_a_taken_name_numbers_the_info_json_with_the_rest(lane, fake, media):
+    fake.set(info=ENGLISH_VIDEO)
+    (media / f"Video {VID} [{VID}].mp4").write_bytes(b"x")
+    done = run(lane, media, subtitles=["en"], keep_info_json=True)
+    assert Path(done["info_json"]).name == f"Video {VID} [{VID}] (2).info.json"
+    assert done["captions"][0]["file"] == str(media / f"Video {VID} [{VID}] (2).en.vtt")
+
+
+def test_caption_kinds_are_validated(lane, media):
+    for bad in ([], ["automatic_translated"], ["manual", 3]):
+        with pytest.raises(dl.DownloadRequestError):
+            lane.queue("a", KEY, target_dir=str(media), subtitles=["en"], subtitles_kinds=bad)
+
+
+def test_a_restart_mid_download_keeps_the_request_and_records_the_captions(index, fake, media):
+    fake.set("hang", info=ENGLISH_VIDEO)
+    lane = dl.Downloads(index)
+    rec = lane.queue("a", KEY, target_dir=str(media), subtitles=["en", "pt"],
+                     subtitles_kinds=["automatic_original"], keep_info_json=True)[0]
+    try:
+        lane.start()
+        wait_for(lambda: lane.get(rec["id"])["status"] == "running" and lane._procs)
+        lane.stop(timeout=10)
+        lane._thread = None
+        reopened = dl.Downloads(index)
+        queued = reopened.get(rec["id"])
+        assert queued["subtitles_kinds"] == ["automatic_original"] and queued["keep_info_json"] is True
+        assert queued["captions"] == [] and queued["info_json"] is None
+        fake.set("ok", info=ENGLISH_VIDEO)
+        reopened.start()
+        done = wait_status(reopened, rec["id"], "completed", "failed")
+    finally:
+        reopened.stop(timeout=10)
+    assert done["status"] == "completed" and done["attempts"] == 2
+    assert [(c["language"], c["kind"], c["is_translation"]) for c in done["captions"]] == \
+        [("en", "automatic", False)]
+    assert Path(done["info_json"]).is_file()
+    again = dl.Downloads(index).get(rec["id"])
+    assert again["captions"] == done["captions"] and again["info_json"] == done["info_json"]
+
+
+def test_the_caption_migration_leaves_old_rows_readable(tmp_path):
+    from media_archivist.index_migrations import m0001_schema
+
+    idx = IndexDB(tmp_path / "db.json", migrate=False)
+    with idx.write() as conn:
+        m0001_schema.apply(conn, idx)
+        conn.execute("INSERT INTO downloads (id, app, entry_id, target_dir, status, created_at,"
+                     " updated_at) VALUES ('old', 'a', 'e', '/m', 'completed', 't', 't')")
+    idx.migrate()
+    assert 403 in [m["version"] for m in idx.migrations()]
+    record = dl._record(idx.execute("SELECT * FROM downloads").fetchone(), None)
+    assert (record["subtitles_kinds"], record["keep_info_json"], record["info_json"], record["captions"]) \
+        == (["manual", "automatic"], False, None, [])
+    idx.close()
+
+
 # -- /api/v1/downloads ------------------------------------------------------------
 
 
@@ -940,3 +1255,35 @@ def test_api_downloads_are_behind_the_key(tmp_path, media, fake, monkeypatch):
     with TestClient(create_app(str(tmp_path / "k.json")), client=("203.0.113.7", 5000)) as c:
         assert c.get("/api/v1/downloads").status_code == 401
         assert c.post("/api/v1/downloads", json={"entry": KEY}).status_code == 401
+
+
+def test_api_records_caption_kinds_and_keeps_the_info_json(client, media, fake):
+    fake.set(info=ENGLISH_VIDEO)
+    r = client.post("/api/v1/downloads", json={
+        "entry": KEY, "target_dir": str(media), "subtitles": ["en", "pt"],
+        "subtitles_kinds": ["manual", "automatic_original"], "keep_info_json": True})
+    assert r.status_code == 201, r.text
+    assert r.json()["subtitles_kinds"] == ["manual", "automatic_original"] and r.json()["keep_info_json"]
+    done = api_wait(client, r.json()["id"], "completed", "failed")
+    assert done["captions"] == [{"file": str(media / f"Video {VID} [{VID}].en-orig.vtt"),
+                                 "language": "en", "kind": "automatic", "is_translation": False}]
+    assert done["info_json"] == str(media / f"Video {VID} [{VID}].info.json")
+    assert client.get("/api/v1/downloads?app=all").json()["downloads"][0]["captions"] == done["captions"]
+
+
+def test_api_old_requests_are_unchanged_and_the_record_only_gains_fields(client, media):
+    r = client.post("/api/v1/downloads", json={"entry": KEY, "target_dir": str(media),
+                                               "subtitles": ["en"]})
+    assert r.status_code == 201
+    done = api_wait(client, r.json()["id"], "completed", "failed")
+    assert done["subtitles_kinds"] == ["manual", "automatic"] and done["keep_info_json"] is False
+    assert done["info_json"] is None and len(done["files"]) == 2
+    assert [(c["kind"], c["language"]) for c in done["captions"]] == [(None, "en")]
+    assert {"id", "app", "entry", "status", "files", "subtitles", "format", "progress"} <= set(done)
+
+
+def test_api_refuses_unknown_caption_kinds(client, media):
+    for kinds in ([], ["translated"]):
+        r = client.post("/api/v1/downloads", json={"entry": KEY, "target_dir": str(media),
+                                                   "subtitles": ["en"], "subtitles_kinds": kinds})
+        assert r.status_code == 400

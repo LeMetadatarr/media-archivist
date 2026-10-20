@@ -26,6 +26,8 @@ class DownloadBody(BaseModel):
     filename_template: Optional[str] = None
     format: Optional[str] = None
     subtitles: Optional[List[str]] = None
+    subtitles_kinds: Optional[List[str]] = None
+    keep_info_json: bool = False
 
 
 def get_downloads(request: Request) -> downloads_mod.Downloads:
@@ -77,7 +79,8 @@ def queue_download(body: DownloadBody, request: Request):
     record, created = _errors(lambda: manager.queue(
         deps.app_label(request), body.entry, target_dir=body.target_dir,
         filename=body.filename if body.filename is not None else body.filename_template,
-        format=body.format, subtitles=body.subtitles))
+        format=body.format, subtitles=body.subtitles,
+        subtitles_kinds=body.subtitles_kinds, keep_info_json=body.keep_info_json))
     return JSONResponse(record, status_code=201 if created else 200)
 
 

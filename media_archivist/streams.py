@@ -28,7 +28,7 @@ import shutil
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional
 from urllib.parse import urlparse, parse_qs
 
 from media_archivist import ytclient
@@ -522,6 +522,12 @@ MAX_FILENAME_TEMPLATE = 200
 SUBTITLE_EXTS = frozenset({"vtt", "srt", "ass", "ssa", "ttml", "srv1", "srv2", "srv3",
                            "json3", "lrc"})
 
+# manual: tracks a person wrote; automatic: YouTube's own recogniser, in the
+# video's language and translated into others; automatic_original: only the
+# recogniser's track in the video's own language.
+CAPTION_KINDS = ("manual", "automatic", "automatic_original")
+DEFAULT_CAPTION_KINDS = ["manual", "automatic"]
+
 PROGRESS_MARK = "ARCHIVIST-PROGRESS"
 DONE_MARK = "ARCHIVIST-DONE"
 _UNSAFE_LITERAL = re.compile(r'[\x00-\x1f\x7f/\\:*?"<>|]')
@@ -582,6 +588,7 @@ def ytdlp_command() -> Optional[List[str]]:
 
 def download_argv(url: str, dest_dir: str, *, filename: Optional[str] = None,
                   format: Optional[str] = None, subtitles: Optional[List[str]] = None,
+                  subtitles_kinds: Optional[List[str]] = None, info_json: bool = False,
                   ip_family: str = "auto") -> List[str]:
     """yt-dlp's arguments for one download into ``dest_dir``.
 
@@ -589,6 +596,11 @@ def download_argv(url: str, dest_dir: str, *, filename: Optional[str] = None,
     <downloaded> <total> <estimate>`` (``NA`` where unknown), and the
     finished video as ``ARCHIVIST-DONE <json>`` with its ``filepath``,
     ``title``, ``id`` and ``ext``; :func:`parse_download_line` reads both.
+
+    ``subtitles_kinds`` (see :data:`CAPTION_KINDS`) picks which caption tracks
+    are asked for; without it, manual and automatic tracks together. The
+    video's info JSON is written beside the video when captions are asked
+    for or ``info_json`` is true, so :func:`classify_captions` can read it.
     """
     argv = [
         "--newline", "--progress", "--no-playlist", "--no-colors",
@@ -605,8 +617,18 @@ def download_argv(url: str, dest_dir: str, *, filename: Optional[str] = None,
         argv.append("--force-ipv4")
     elif ip_family == "ipv6":
         argv.append("--force-ipv6")
+    kinds = subtitles_kinds or DEFAULT_CAPTION_KINDS
     if subtitles:
-        argv += ["--write-subs", "--write-auto-subs", "--sub-langs", ",".join(subtitles)]
+        langs = list(subtitles)
+        if "automatic_original" in kinds:
+            langs += [f"{lang}-orig" for lang in subtitles]
+        if "manual" in kinds:
+            argv.append("--write-subs")
+        if "automatic" in kinds or "automatic_original" in kinds:
+            argv.append("--write-auto-subs")
+        argv += ["--sub-langs", ",".join(dict.fromkeys(langs))]
+    if subtitles or info_json:
+        argv.append("--write-info-json")
     argv += ["--", url]
     return argv
 
@@ -645,3 +667,45 @@ def parse_download_line(line: str) -> Optional[Dict[str, Any]]:
     if m:
         return {"progress": {"downloaded": None, "percent": min(100.0, float(m[1]))}}
     return None
+
+
+def _is_translated_url(tracks: Any) -> bool:
+    """Whether the track yt-dlp downloads from this list (the last) is a translation."""
+    last = tracks[-1] if isinstance(tracks, list) and tracks else tracks
+    return isinstance(last, dict) and bool(re.search(r"[?&]tlang=", str(last.get("url") or "")))
+
+
+def classify_captions(info: Dict[str, Any], tracks: Iterable[str], *, manual: bool = True,
+                      automatic: bool = True) -> Dict[str, Dict[str, Any]]:
+    """What each of the caption tracks ``tracks`` is, from yt-dlp's info JSON.
+
+    ``tracks`` are the track names of the caption files yt-dlp wrote. The
+    info JSON does not say which tracks were requested, so the files are the
+    starting point and the video's ``subtitles`` and ``automatic_captions``
+    say what each is. A track is ``manual`` when ``manual`` was asked for and
+    the video has a manual track of that name (yt-dlp prefers it), else
+    ``automatic`` when ``automatic`` was asked for and the video lists one;
+    any other name is left out. ``language`` is the track name without
+    YouTube's ``-orig`` mark. ``is_translation`` is false for a manual track
+    and for an automatic one that is the recogniser's own (the ``-orig``
+    track, or the plain track of a language that has one), true for one whose
+    address carries ``tlang``, and ``None`` where the info cannot tell.
+    """
+    subs = info.get("subtitles") if isinstance(info.get("subtitles"), dict) else {}
+    auto = info.get("automatic_captions") if isinstance(info.get("automatic_captions"), dict) else {}
+    originals = {k[:-5] for k in auto if k.endswith("-orig")}
+    out: Dict[str, Dict[str, Any]] = {}
+    for track in tracks:
+        if manual and track in subs:
+            out[track] = {"kind": "manual", "language": track, "is_translation": False}
+        elif automatic and track in auto:
+            language = track[:-5] if track.endswith("-orig") else track
+            translated: Optional[bool]
+            if _is_translated_url(auto[track]):
+                translated = True
+            elif language in originals:
+                translated = False
+            else:
+                translated = None
+            out[track] = {"kind": "automatic", "language": language, "is_translation": translated}
+    return out

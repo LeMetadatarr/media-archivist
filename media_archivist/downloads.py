@@ -142,6 +142,14 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _info_file(video: Path, files: List[Path]) -> Path:
+    """The info JSON written for ``video``: its own name, else the one file with that suffix."""
+    exact = video.with_name(video.stem + ".info.json")
+    if exact in files:
+        return exact
+    return next((p for p in files if p.name.endswith(".info.json")), exact)
+
+
 def _numbered(files: List[Path], video: Path, n: int) -> List[str]:
     """The names ``files`` take as the ``n``-th choice: their own, then `` (2)``, `` (3)`` ..."""
     stem = video.stem
@@ -221,6 +229,20 @@ def _clean_subtitles(subtitles: Optional[Iterable[str]]) -> List[str]:
     return list(dict.fromkeys(langs))
 
 
+def _clean_kinds(kinds: Optional[Iterable[str]]) -> Optional[List[str]]:
+    """The caption kinds asked for, or ``None`` for the default (manual and automatic together)."""
+    if kinds is None:
+        return None
+    kinds = list(kinds)
+    for kind in kinds:
+        if kind not in streams.CAPTION_KINDS:
+            raise DownloadRequestError(f"not a caption kind: {kind!r}; expected one of "
+                                       + ", ".join(streams.CAPTION_KINDS))
+    if not kinds:
+        raise DownloadRequestError("subtitles_kinds must name at least one kind")
+    return list(dict.fromkeys(kinds))
+
+
 def _clean_format(fmt: Optional[str]) -> Optional[str]:
     if fmt is None:
         return None
@@ -245,7 +267,11 @@ def _record(row, waiting_for: Optional[Dict[str, str]]) -> Dict[str, Any]:
         "filename": row["filename_template"],
         "format": row["format"],
         "subtitles": json.loads(row["subtitles"] or "[]"),
+        "subtitles_kinds": json.loads(row["subtitles_kinds"] or "null") or streams.DEFAULT_CAPTION_KINDS,
+        "keep_info_json": bool(row["keep_info_json"]),
         "files": json.loads(row["files"] or "[]"),
+        "info_json": row["info_json"],
+        "captions": json.loads(row["captions"] or "[]"),
         "created": row["created_at"],
         "started": row["started_at"],
         "finished": row["finished_at"],
@@ -277,7 +303,9 @@ class Downloads:
 
     def queue(self, app: str, entry: str, *, target_dir: Optional[str] = None,
               filename: Optional[str] = None, format: Optional[str] = None,
-              subtitles: Optional[Iterable[str]] = None) -> Tuple[Dict[str, Any], bool]:
+              subtitles: Optional[Iterable[str]] = None,
+              subtitles_kinds: Optional[Iterable[str]] = None,
+              keep_info_json: bool = False) -> Tuple[Dict[str, Any], bool]:
         """Queue a download; returns ``(record, created)``.
 
         An identical request (same entry, same folder) still queued or
@@ -289,6 +317,7 @@ class Downloads:
             raise DownloadRequestError(str(e)) from None
         fmt = _clean_format(format)
         langs = _clean_subtitles(subtitles)
+        kinds = _clean_kinds(subtitles_kinds)
         target = confine(target_dir)
         if streams.ytdlp_command() is None:
             raise ToolMissing("yt-dlp is not available on this server; downloads are disabled")
@@ -310,11 +339,13 @@ class Downloads:
             download_id = "dl_" + uuid.uuid4().hex
             conn.execute(
                 "INSERT INTO downloads (id, seq, app, entry_id, entry_key, title, target_dir,"
-                " filename_template, format, subtitles, status, created_at, updated_at)"
+                " filename_template, format, subtitles, subtitles_kinds, keep_info_json, status,"
+                " created_at, updated_at)"
                 " VALUES (?, (SELECT COALESCE(MAX(seq), 0) + 1 FROM downloads), ?, ?, ?, ?, ?,"
-                " ?, ?, ?, 'queued', ?, ?)",
+                " ?, ?, ?, ?, ?, 'queued', ?, ?)",
                 (download_id, app, entry_id, key, title, str(target), filename, fmt,
-                 json.dumps(langs), now, now))
+                 json.dumps(langs), None if kinds is None else json.dumps(kinds),
+                 int(bool(keep_info_json)), now, now))
             row = conn.execute("SELECT * FROM downloads WHERE id = ?", (download_id,)).fetchone()
         with self._cond:
             self._cond.notify_all()
@@ -607,6 +638,8 @@ class Downloads:
         argv = command + streams.download_argv(
             url, str(staging), filename=row["filename_template"], format=row["format"],
             subtitles=json.loads(row["subtitles"] or "[]"),
+            subtitles_kinds=json.loads(row["subtitles_kinds"] or "null"),
+            info_json=bool(row["keep_info_json"]),
             ip_family=self.settings.get("youtube_ip_family"))
         try:
             returncode, done, tail = self._execute(download_id, argv)
@@ -689,17 +722,83 @@ class Downloads:
             return
         files = [video] + sorted(p for p in staging.iterdir()
                                  if p != video and p.is_file() and not p.name.endswith(_PARTIAL_SUFFIXES))
+        info_file = _info_file(video, files)
+        files, captions = self._captions(row, video, files)
         digests_of = {path: _sha256(path) for path in files}
         placed_paths = _place(files, target, video)
         placed = [str(p) for p in placed_paths]
         digests = {str(dest): digests_of[src] for src, dest in zip(files, placed_paths)}
+        moved = {src: str(dest) for src, dest in zip(files, placed_paths)}
+        info_json = moved.get(info_file)
+        captions = [{**c, "file": moved[c["file"]]} for c in captions]
         self.backoff.mark_clear(KIND)
         title = done.get("title") if isinstance(done.get("title"), str) else None
         size = sum(p.stat().st_size for p in placed_paths)
         if not self._finish(download_id, status="completed", files=placed, digests=digests,
-                            title=title, size=size):
+                            title=title, size=size, info_json=info_json, captions=captions):
             for dest in placed_paths:
                 dest.unlink(missing_ok=True)
+
+    @staticmethod
+    def _captions(row, video: Path, files: List[Path]):
+        """``(files to place, captions)``: caption files described, the unwanted ones left out.
+
+        The info JSON yt-dlp wrote beside the video says what each caption
+        file is. It is placed only when the request asked to keep it. When
+        the request named caption kinds, a file the info JSON cannot account
+        for as one of them is not placed; with the default, every file is
+        placed and one it cannot account for is described with a null kind.
+        """
+        info_file = _info_file(video, files)
+        try:
+            info = json.loads(info_file.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            info = {}
+        if not isinstance(info, dict):
+            info = {}
+        asked = json.loads(row["subtitles_kinds"] or "null")
+        kinds = asked or streams.DEFAULT_CAPTION_KINDS
+        prefix = video.stem + "."
+        names = {}
+        for path in files[1:]:
+            ext = path.suffix.lstrip(".").lower()
+            if ext in streams.SUBTITLE_EXTS and path.name.startswith(prefix):
+                names[path] = path.name[len(prefix):-len(path.suffix)]
+        tracks = streams.classify_captions(
+            info, names.values(), manual="manual" in kinds,
+            automatic="automatic" in kinds or "automatic_original" in kinds)
+        described: Dict[Path, Optional[Dict[str, Any]]] = {}
+        for path, track in names.items():
+            meta = tracks.get(track)
+            if meta is not None:
+                described[path] = {**meta, "track": track}
+            elif not asked:
+                described[path] = {"kind": None, "language": track, "is_translation": None,
+                                   "track": track}
+            else:
+                described[path] = None
+        dropped = {p for p, m in described.items() if m is None}
+        if asked and "automatic" not in kinds:
+            # only the recogniser's original track; where YouTube lists it twice, the "-orig" one
+            best: Dict[Tuple[str, str], Path] = {}
+            for path, meta in described.items():
+                if meta is None:
+                    continue
+                if meta["kind"] == "automatic" and meta["is_translation"] is not False:
+                    dropped.add(path)
+                    continue
+                key = (meta["language"], meta["kind"])
+                if key not in best or meta["track"].endswith("-orig"):
+                    best[key] = path
+            dropped |= {p for p, m in described.items()
+                        if m and p not in dropped and best[(m["language"], m["kind"])] != p}
+        if info_file in files and not row["keep_info_json"]:
+            dropped.add(info_file)
+        kept = [p for p in files if p not in dropped]
+        captions = [{"file": p, "language": m["language"], "kind": m["kind"],
+                     "is_translation": m["is_translation"]}
+                    for p, m in described.items() if m and p not in dropped]
+        return kept, captions
 
     @staticmethod
     def _video_file(staging: Path, done) -> Optional[Path]:
@@ -733,18 +832,19 @@ class Downloads:
     def _finish(self, download_id: str, *, status: str, error: Optional[str] = None,
                 error_kind: Optional[str] = None, files: Optional[List[str]] = None,
                 digests: Optional[Dict[str, str]] = None, title: Optional[str] = None,
-                size: Optional[int] = None) -> bool:
+                size: Optional[int] = None, info_json: Optional[str] = None,
+                captions: Optional[List[Dict[str, Any]]] = None) -> bool:
         """Settle a running download; false when it was no longer running (cancelled)."""
         now = utcnow()
         with self.index.write() as conn:
             cur = conn.execute(
                 "UPDATE downloads SET status = ?, error = ?, error_kind = ?, files = ?,"
-                " file_digests = ?, result_path = ?, title = COALESCE(?, title), bytes = COALESCE(?, bytes),"
+                " file_digests = ?, result_path = ?, info_json = ?, captions = ?, title = COALESCE(?, title), bytes = COALESCE(?, bytes),"
                 " finished_at = ?, updated_at = ?,"
                 " progress = CASE WHEN ? = 'completed' THEN 100 ELSE progress END"
                 " WHERE id = ? AND status = 'running'",
                 (status, error, error_kind, json.dumps(files or []), json.dumps(digests or {}),
-                 (files or [None])[0], title,
+                 (files or [None])[0], info_json, json.dumps(captions or []), title,
                  size, now, now, status, download_id))
             return cur.rowcount > 0
 
