@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.28.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.28.0a1) (2026-10-20)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.27.0a1...0.28.0a1)
+
+**Merged pull requests:**
+
+- feat: record the kind and language of downloaded captions and keep the info JSON on request [\#79](https://github.com/LeMetadatarr/media-archivist/pull/79) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.27.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.27.0a1) (2026-10-13)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.26.0a1...0.27.0a1)
