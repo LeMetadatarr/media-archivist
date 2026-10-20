@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.28.1a1](https://github.com/LeMetadatarr/media-archivist/tree/0.28.1a1) (2026-10-20)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.28.0a1...0.28.1a1)
+
+**Merged pull requests:**
+
+- fix: take a renamed info JSON only when it is the downloaded video's [\#81](https://github.com/LeMetadatarr/media-archivist/pull/81) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.28.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.28.0a1) (2026-10-20)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.27.0a1...0.28.0a1)
