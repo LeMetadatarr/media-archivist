@@ -123,8 +123,12 @@ def main(argv):
                 info_path = video.with_suffix(".info.json")
                 if control.get("trim_info_json"):
                     info_path = video.with_name(video.stem[:-1] + ".info.json")
-                info_path.write_text(json.dumps(
-                    {"id": video_id, "title": title, **info}))
+                if control.get("foreign_info_json"):
+                    info_path = video.with_name("Other entry.info.json")
+                    info_path.write_text(json.dumps({"id": "other", "title": "Other entry", **info}))
+                else:
+                    info_path.write_text(json.dumps(
+                        {"id": video_id, "title": title, **info}))
                 if control.get("decoy_info_json"):
                     video.with_name("A decoy.info.json").write_text("{}")
         if info is None and "--write-info-json" in argv:

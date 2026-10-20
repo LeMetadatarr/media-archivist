@@ -959,6 +959,30 @@ def test_another_entrys_info_json_is_not_taken_for_the_videos(lane, fake, media)
     assert video.with_suffix(".info.json").name not in names(done)
 
 
+def test_no_info_json_is_placed_when_it_was_not_asked_for(lane, fake, media):
+    fake.set(info={"subtitles": {"pt": track("pt")}, "automatic_captions": {}}, decoy_info_json=True)
+    done = run(lane, media, subtitles=["pt"], subtitles_kinds=["manual"])
+    assert not [f for f in done["files"] if f.endswith(".info.json")]
+    assert not list(media.glob("*.info.json"))
+
+
+def test_an_info_json_of_another_entry_is_not_the_videos_whatever_its_name(lane, fake, media):
+    fake.set(info={"subtitles": {"pt": track("pt")}, "automatic_captions": {}}, foreign_info_json=True)
+    done = run(lane, media, subtitles=["pt"], keep_info_json=True)
+    assert done["info_json"] is None
+    assert [c["kind"] for c in done["captions"]] == [None]
+
+
+def test_an_info_json_that_is_not_a_video_is_not_the_videos(tmp_path):
+    video, files = _staged(tmp_path, {"subtitles": {"pt": track("pt")}}, "Video [x].pt.vtt")
+    foreign = tmp_path / "Other.info.json"
+    foreign.write_text(json.dumps({"id": "x", "_type": "playlist", "subtitles": {"pt": track("pt")}}))
+    files = [p for p in files if p.name != "Video [x].info.json"] + [foreign]
+    assert dl._info_file(video, files, "x") == tmp_path / "Video [x].info.json"
+    foreign.write_text(json.dumps({"id": "x", "_type": "video"}))
+    assert dl._info_file(video, files, "x") == foreign
+
+
 def test_an_automatic_caption_is_recorded_as_automatic(lane, fake, media):
     fake.set(info=ENGLISH_VIDEO)
     done = run(lane, media, subtitles=["en"])

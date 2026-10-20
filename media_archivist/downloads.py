@@ -142,12 +142,26 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _info_file(video: Path, files: List[Path]) -> Path:
-    """The info JSON written for ``video``: its own name, else the one file with that suffix."""
+def _info_file(video: Path, files: List[Path], video_id: Optional[str] = None) -> Path:
+    """The info JSON written for ``video``: its own name, else the first file with that suffix that describes the video.
+
+    A file under another name is taken only when it is a video's info with
+    ``video_id`` as its id; without an id there is no such file.
+    """
     exact = video.with_name(video.stem + ".info.json")
     if exact in files:
         return exact
-    return next((p for p in files if p.name.endswith(".info.json")), exact)
+    if isinstance(video_id, str):
+        for path in files:
+            if not path.name.endswith(".info.json"):
+                continue
+            try:
+                info = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if isinstance(info, dict) and info.get("id") == video_id and info.get("_type", "video") == "video":
+                return path
+    return exact
 
 
 def _numbered(files: List[Path], video: Path, n: int) -> List[str]:
@@ -722,8 +736,9 @@ class Downloads:
             return
         files = [video] + sorted(p for p in staging.iterdir()
                                  if p != video and p.is_file() and not p.name.endswith(_PARTIAL_SUFFIXES))
-        info_file = _info_file(video, files)
-        files, captions = self._captions(row, video, files)
+        video_id = done.get("id")
+        info_file = _info_file(video, files, video_id)
+        files, captions = self._captions(row, video, files, video_id)
         digests_of = {path: _sha256(path) for path in files}
         placed_paths = _place(files, target, video)
         placed = [str(p) for p in placed_paths]
@@ -740,7 +755,7 @@ class Downloads:
                 dest.unlink(missing_ok=True)
 
     @staticmethod
-    def _captions(row, video: Path, files: List[Path]):
+    def _captions(row, video: Path, files: List[Path], video_id: Optional[str] = None):
         """``(files to place, captions)``: caption files described, the unwanted ones left out.
 
         The info JSON yt-dlp wrote beside the video says what each caption
@@ -749,7 +764,7 @@ class Downloads:
         for as one of them is not placed; with the default, every file is
         placed and one it cannot account for is described with a null kind.
         """
-        info_file = _info_file(video, files)
+        info_file = _info_file(video, files, video_id)
         try:
             info = json.loads(info_file.read_text(encoding="utf-8"))
         except (OSError, ValueError):
@@ -792,8 +807,8 @@ class Downloads:
                     best[key] = path
             dropped |= {p for p, m in described.items()
                         if m and p not in dropped and best[(m["language"], m["kind"])] != p}
-        if info_file in files and not row["keep_info_json"]:
-            dropped.add(info_file)
+        if not row["keep_info_json"]:
+            dropped.update(p for p in files if p.name.endswith(".info.json"))
         kept = [p for p in files if p not in dropped]
         captions = [{"file": p, "language": m["language"], "kind": m["kind"],
                      "is_translation": m["is_translation"]}
