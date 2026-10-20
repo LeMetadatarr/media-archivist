@@ -1,0 +1,22 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+{% if error %}
+<span class="error">{{ error }}</span>
+{% elif resolve_error %}
+<div class="player-embed">
+  <span class="error">Could not resolve a direct stream — {{ resolve_error }}</span>
+  <div class="player-fallback">
+    <a href="{{ entry.url|safe_url }}" target="_blank" rel="noopener">Open original &#8599;</a>
+  </div>
+</div>
+{% elif resolved %}
+  {% set safe_resolved = resolved.url|safe_url %}
+  {% if safe_resolved and resolved_kind == "audio" %}
+    <audio controls preload="none" src="{{ safe_resolved }}"></audio>
+  {% elif safe_resolved %}
+    <video controls preload="none" playsinline class="player-video" src="{{ safe_resolved }}"></video>
+  {% else %}
+    <span class="error">Resolved stream had a disallowed URL scheme.</span>
+  {% endif %}
+{% else %}
+<span class="error">Could not resolve a direct stream — open original</span>
+{% endif %}

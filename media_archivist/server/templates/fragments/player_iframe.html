@@ -1,0 +1,15 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+{% if error %}
+<span class="error">{{ error }}</span>
+{% elif yt_id %}
+<iframe
+  src="https://www.youtube-nocookie.com/embed/{{ yt_id }}"
+  title="{{ entry.title }}"
+  allow="encrypted-media; picture-in-picture"
+  allowfullscreen
+  loading="lazy"
+  style="width:100%; aspect-ratio:16/9; border:0"
+></iframe>
+{% else %}
+<span class="error">no video id could be derived for this entry</span>
+{% endif %}

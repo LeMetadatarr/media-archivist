@@ -189,6 +189,21 @@ class StrmExportArgs(_BaseCliArgs):
     has_stream: Optional[bool] = None
     limit: int = 0
     dry_run: bool = False
+    layout: str = "by-source-artist"
+    nfo: bool = False
+
+
+class SubtitlesArgs(_BaseCliArgs):
+    output_dir: str
+    where: Optional[str] = None
+    source_filter: Optional[str] = None
+    langs: str = "en"
+    auto: bool = True
+    sub_format: str = "vtt"
+    layout: str = "by-source-artist"
+    limit: int = 0
+    dry_run: bool = False
+    max_workers: int = 4
 
 
 class DedupeArgs(_BaseCliArgs):
