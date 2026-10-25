@@ -58,12 +58,14 @@ from pathlib import Path
 from typing import Collection, Dict, Iterable, List, Optional, Sequence, Tuple
 from urllib.parse import quote
 
-from media_archivist import links
+from media_archivist import indexdb, links, plugins
+from media_archivist import settings as settings_mod
 from media_archivist._atomic import atomic_write_text
 from media_archivist.index import Index
 from media_archivist.indexdb import utcnow
 from media_archivist.models.canonical import MediaEntry, stable_id
 from media_archivist.models.raw import Source
+from media_archivist.settings import Settings
 
 LOG = logging.getLogger("media_archivist.strm")
 
@@ -151,7 +153,6 @@ def export_strm(db_path: str, output_dir: str, *,
         raise ValueError(f"unknown layout {layout!r}; expected one of {LAYOUTS}")
 
     out_root = Path(output_dir).expanduser().resolve()
-    out_root.mkdir(parents=True, exist_ok=True)
 
     nfo_xml = None
     if nfo:
@@ -161,8 +162,16 @@ def export_strm(db_path: str, output_dir: str, *,
     idx = Index(db_path)
     written = 0
     seen: set = set()
-    for entry in idx.view(source=source, where=where,
-                          has_stream=has_stream, limit=limit):
+    entries = list(idx.view(source=source, where=where,
+                            has_stream=has_stream, limit=limit))
+    index = indexdb.open_index(db_path) if indexdb.index_path(db_path).is_file() else None
+    try:
+        plugins.check_adult_export(settings_mod.existing(db_path),
+                                   provider_names(index, entries, "entry"))
+    except plugins.AdultProviderRefused as e:
+        raise ExportRefused(str(e)) from None
+    out_root.mkdir(parents=True, exist_ok=True)
+    for entry in entries:
         if not (entry.stream or base_url or entry.url):
             continue
         title = _safe(entry.title or entry.url)
@@ -477,6 +486,47 @@ class ExportJob:
     collection: Optional[Tuple[str, str, List[str]]]
 
 
+def provider_names(index, entries: List[MediaEntry], scope: str = "entry",
+                   scope_id: str = "") -> set:
+    """Every provider an export involves.
+
+    The provider claiming an entry's ``source``, the backends recorded in the
+    entry row's ``archived_by`` field, the backend of each subscription the
+    entry belongs to, and, for a playlist or subscription scope, the backend
+    of the subscription named by ``scope_id``.
+    """
+    names = set()
+    for entry in entries:
+        provider = plugins.provider_of_source(entry.source.value)
+        if provider is not None:
+            names.add(provider.name)
+        names.update(entry.raw.get(plugins.ARCHIVED_BY) or ())
+    if index is not None:
+        ids = [e.id for e in entries]
+        for start in range(0, len(ids), 500):
+            chunk = ids[start:start + 500]
+            names.update(r["backend"] for r in index.execute(
+                "SELECT DISTINCT s.backend FROM memberships m JOIN subscriptions s"
+                " ON s.id = m.subscription_id WHERE m.entry_id IN (%s)" % ",".join("?" * len(chunk)),
+                chunk))
+        if scope in ("playlist", "subscription"):
+            row = index.execute("SELECT backend FROM subscriptions WHERE id = ?", (scope_id,)).fetchone()
+            if row is not None:
+                names.add(row["backend"])
+    return names
+
+
+def _refuse_adult(index, scope: str, scope_id: str, entries: List[MediaEntry]) -> None:
+    """Refuse an export that involves an adult or an unloaded provider.
+
+    Files, folders and Jellyfin are untouched when this raises.
+    """
+    try:
+        plugins.check_adult_export(Settings(index), provider_names(index, entries, scope, scope_id))
+    except plugins.AdultProviderRefused as e:
+        raise ExportRefused(str(e)) from None
+
+
 def run_export(db_path: str, index, *, scope: str, scope_id: str, target_dir: str,
                body_for, layout: str = "movies", links: str = "plain", app: str = "user",
                entry_ids: Optional[Iterable[str]] = None, automatic: bool = False,
@@ -503,6 +553,7 @@ def run_export(db_path: str, index, *, scope: str, scope_id: str, target_dir: st
         ids = list(entry_ids) if entry_ids is not None else scope_entry_ids(index, scope, scope_id)
         entries = [(i, idx.get(i)) for i in ids]
 
+    _refuse_adult(index, scope, scope_id, [e for _, e in entries if e is not None])
     out = Written()
     try:
         _make_dirs(target, root, out)

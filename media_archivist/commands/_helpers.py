@@ -3,18 +3,8 @@ from __future__ import annotations
 
 from typing import Iterable, List, Optional
 
-from media_archivist.ia import IAArchivist
+from media_archivist import plugins
 from media_archivist.music import YoutubeMusicArchivist
-from media_archivist.youtube import YoutubeArchivist
-
-try:
-    from media_archivist.bandcamp import BandcampArchivist
-except Exception:  # pragma: no cover
-    BandcampArchivist = None  # type: ignore
-try:
-    from media_archivist.soundcloud import SoundCloudArchivist
-except Exception:  # pragma: no cover
-    SoundCloudArchivist = None  # type: ignore
 
 from pydantic import ValidationError
 
@@ -22,15 +12,6 @@ from media_archivist import cli_args as _cli_args
 
 DEFAULT_FIELDS = ["videoId", "title", "url", "thumbnail", "published",
                   "views", "is_live", "tags", "description", "playlist"]
-
-
-_BACKEND_TO_CLS = {
-    "youtube": ("YoutubeArchivist", lambda: YoutubeArchivist),
-    "ia": ("IAArchivist", lambda: IAArchivist),
-    "music": ("YoutubeMusicArchivist", lambda: YoutubeMusicArchivist),
-    "bandcamp": ("BandcampArchivist", lambda: BandcampArchivist),
-    "soundcloud": ("SoundCloudArchivist", lambda: SoundCloudArchivist),
-}
 
 
 def _validated_args(model_cls, args, **overrides):
@@ -46,14 +27,16 @@ def _make_archivist(args, *, db_override: Optional[str] = None,
                     db_file_override: Optional[str] = None):
     """Construct the right archivist for the validated CLI args."""
     backend = _cli_args.backend_from_namespace(args)
-    cls_name, cls_factory = _BACKEND_TO_CLS[backend]
-    cls = cls_factory()
-    if cls is None:
+    try:
+        cls = plugins.get(backend).cls
+    except plugins.ProviderUnavailable as e:
         extra = {
             "bandcamp": "py_bandcamp",
             "soundcloud": "nuvem_de_som",
         }.get(backend)
-        raise SystemExit(f"error: {backend} backend requires `pip install {extra}`")
+        if extra:
+            raise SystemExit(f"error: {backend} backend requires `pip install {extra}`") from None
+        raise SystemExit(f"error: {e}") from None
     db_name = db_override if db_override is not None else args.db
     db_path = db_file_override if db_file_override is not None else args.db_file
     if not db_name and not db_path:

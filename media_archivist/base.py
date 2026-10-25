@@ -3,12 +3,20 @@ from __future__ import annotations
 from logging import Logger, getLogger
 from typing import Iterable, List, Optional
 
+from media_archivist.plugins import API_VERSION
 from media_archivist.storage import EnvelopeJsonStorage, EnvelopeJsonStorageXDG
 
 LOG = getLogger("media_archivist")
 
 
 class JsonArchivist:
+    """Base of every provider; see :mod:`media_archivist.plugins` for the contract."""
+
+    API_VERSION = API_VERSION
+    adult = False
+    url_hosts: tuple = ()
+    sources: tuple = ()
+
     def __init__(
         self,
         db_name: Optional[str] = None,

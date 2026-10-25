@@ -11,11 +11,14 @@ the link secret) are not stored here.
 """
 from __future__ import annotations
 
+import copy
 import json
 import math
 from typing import Any, Callable, Dict, Mapping
 
 from media_archivist.indexdb import utcnow
+from media_archivist import plugins
+from media_archivist.plugins import BUILTIN_NAMES
 
 IP_FAMILIES = ("ipv4", "ipv6", "auto")
 
@@ -48,11 +51,24 @@ def _status_cards(value: Any) -> str:
     return value
 
 
+def _provider_names(value: Any) -> list:
+    """A list of installed provider names; the empty list enables none."""
+    if not isinstance(value, list) or not all(
+            isinstance(v, str) and plugins.NAME.fullmatch(v) for v in value):
+        raise ValueError("expected a list of provider names (lowercase letters, digits, - and _)")
+    unknown = sorted(set(value) - set(plugins.known_names()))
+    if unknown:
+        raise ValueError(f"no installed provider named {', '.join(unknown)}")
+    return list(dict.fromkeys(value))
+
+
 DEFAULTS: Dict[str, Any] = {
     "youtube_ip_family": "ipv4",
     "youtube_request_spacing": 10,
     "download_concurrency": 1,
     "status_cards": "on",
+    "enabled_providers": list(BUILTIN_NAMES),
+    "adult_export_providers": [],
 }
 
 VALIDATORS: Dict[str, Callable[[Any], Any]] = {
@@ -60,6 +76,8 @@ VALIDATORS: Dict[str, Callable[[Any], Any]] = {
     "youtube_request_spacing": _seconds,
     "download_concurrency": _concurrency,
     "status_cards": _status_cards,
+    "enabled_providers": _provider_names,
+    "adult_export_providers": _provider_names,
 }
 
 
@@ -75,12 +93,12 @@ class Settings:
     def get(self, key: str) -> Any:
         _known(key)
         row = self.index.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
-        return json.loads(row["value"]) if row else DEFAULTS[key]
+        return json.loads(row["value"]) if row else copy.deepcopy(DEFAULTS[key])
 
     def all(self) -> Dict[str, Any]:
         stored = {r["key"]: json.loads(r["value"])
                   for r in self.index.execute("SELECT key, value FROM settings")}
-        return {key: stored.get(key, default) for key, default in DEFAULTS.items()}
+        return {key: stored.get(key, copy.deepcopy(default)) for key, default in DEFAULTS.items()}
 
     def set(self, key: str, value: Any) -> Any:
         return self.update({key: value})[key]
@@ -105,6 +123,21 @@ class Settings:
         _known(key)
         with self.index.write() as conn:
             conn.execute("DELETE FROM settings WHERE key = ?", (key,))
+
+
+class _DefaultSettings:
+    """Settings of a working directory that has no index yet: all defaults."""
+
+    def get(self, key: str) -> Any:
+        _known(key)
+        return copy.deepcopy(DEFAULTS[key])
+
+
+def existing(db_path):
+    """The settings of ``db_path``'s index, without creating the index."""
+    from media_archivist.indexdb import index_path
+
+    return for_db(db_path) if index_path(db_path).is_file() else _DefaultSettings()
 
 
 def for_db(db_path) -> Settings:

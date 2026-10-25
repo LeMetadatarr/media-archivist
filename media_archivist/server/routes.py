@@ -46,6 +46,8 @@ def _env_strm_proxy_default() -> bool:
     """
     return os.environ.get("MEDIA_ARCHIVIST_STRM_PROXY", "").strip().lower() in _TRUTHY
 
+from media_archivist import plugins
+from media_archivist import settings as settings_mod
 from media_archivist.canonicalize import (
     canonicalize as run_canonicalize,
     load_canonical,
@@ -159,20 +161,10 @@ def register_routes(app, *, db_path: str) -> Scheduler:
     )
 
     async def _archive_worker(task: Task) -> None:
-        from media_archivist.bandcamp import BandcampArchivist
-        from media_archivist.ia import IAArchivist
-        from media_archivist.music import YoutubeMusicArchivist
-        from media_archivist.soundcloud import SoundCloudArchivist
         from media_archivist.youtube import YoutubeArchivist
 
         backend = task.request.backend or "youtube"
-        cls = {
-            "youtube": YoutubeArchivist,
-            "ia": IAArchivist,
-            "music": YoutubeMusicArchivist,
-            "bandcamp": BandcampArchivist,
-            "soundcloud": SoundCloudArchivist,
-        }[backend]
+        cls = plugins.get(backend, settings_mod.existing(db_path)).cls
         archivist = cls(
             db_path=db_path,
             required_kwords=task.request.require,
@@ -185,7 +177,7 @@ def register_routes(app, *, db_path: str) -> Scheduler:
         # so one wedged download can't head-of-line-block every other
         # queued task forever (see module docstring above).
         await asyncio.wait_for(
-            asyncio.to_thread(archivist.archive, task.request.url),
+            asyncio.to_thread(plugins.archive_and_stamp, archivist, backend, task.request.url),
             timeout=ARCHIVE_TIMEOUT_S,
         )
         after = len(archivist.video_urls) if hasattr(archivist, "video_urls") else 0

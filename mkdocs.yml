@@ -61,6 +61,7 @@ nav:
       - Running as a service: deploy.md
       - Jellyfin / Kodi remote media: jellyfin.md
       - Metadata providers (metadatarr): metadatarr.md
+      - Provider plugins: plugins.md
   - Recipes:
       - recipes/index.md
       - recipes/music-library-from-bandcamp-soundcloud-and-ytmusic.md

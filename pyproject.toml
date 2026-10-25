@@ -31,6 +31,13 @@ all = ["huggingface_hub", "fastapi", "uvicorn[standard]", "jinja2", "python-mult
 [project.scripts]
 media-archivist = "media_archivist.cli:main"
 
+[project.entry-points."media_archivist.providers"]
+youtube = "media_archivist.youtube:YoutubeArchivist"
+ia = "media_archivist.ia:IAArchivist"
+music = "media_archivist.music:YoutubeMusicArchivist"
+bandcamp = "media_archivist.bandcamp:BandcampArchivist"
+soundcloud = "media_archivist.soundcloud:SoundCloudArchivist"
+
 [project.urls]
 Homepage = "https://github.com/LeMetadatarr/media-archivist"
 Repository = "https://github.com/LeMetadatarr/media-archivist"
