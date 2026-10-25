@@ -3,30 +3,29 @@
 `media_archivist` mints a **canonical_id** per *work* and links it to
 authoritative external IDs (MusicBrainz, IMDb, TMDB, TVDB, ISBN, the
 Arr stack). Two rows describe the same work only if **every overlapping
-disambiguation signal agrees**; on any disagreement the row is
+disambiguation signal agrees**. On any disagreement the row is
 **quarantined** for review instead of silently collapsed.
 
 ## Identity model
 
 ```
-local row id   sha1(source:url)            — never changes
+local row id   sha1(source:url), never changes
    │
    ▼
-canonical_id   sha1(immutable signal set)  — assigned per work
+canonical_id   sha1(immutable signal set), assigned per work
    │
    ▼
-external_ids   mbid, tt-id, tmdb, tvdb, isbn, …  — populated by providers
+external_ids   mbid, tt-id, tmdb, tvdb, isbn, …, populated by providers
 ```
 
 - `local row id`: per-source-row, computed from the URL.
 - `canonical_id`: opaque hex, allocated from the merged signal set
   (title, artist, year, country, runtime, medium, language) the first
   time a row matches a provider response. Stamped onto the raw row
-  under `_meta.canonical_id`; indexed in the `<db>.canonical.json`
+  under `_meta.canonical_id`. Indexed in the `<db>.canonical.json`
   sidecar.
 - `external_ids`: any provider's authoritative IDs. Multiple providers
-  can contribute (MusicBrainz recording + Wikidata Q-id + IMDb tt-id);
-  no precedence — they coexist.
+  can contribute (MusicBrainz recording + Wikidata Q-id + IMDb tt-id).  no precedence, they coexist.
 
 ## Disambiguation signals
 
@@ -58,21 +57,21 @@ Comparison rules (`mediavocab.compare_signals`):
 When a provider responds but disagrees with our local signals on at
 least one field, the row is added to `<db>.quarantine.json` with the
 conflicting signals recorded. No `canonical_id` is stamped on the
-row; its `_meta.canonical_status` becomes `"quarantined"`.
+row. Its `_meta.canonical_status` becomes `"quarantined"`.
 
 To resolve a quarantined row:
 
 ```bash
-# accept — link to existing or allocate a new canonical_id from the proposal
+# accept, link to existing or allocate a new canonical_id from the proposal
 media-archivist quarantine-resolve --db-file talks.json \
     --row-id <id> [--canonical-id <id>]
 
-# reject — force a brand-new canonical_id distinct from the proposal
+# reject, force a brand-new canonical_id distinct from the proposal
 media-archivist quarantine-reject  --db-file talks.json --row-id <id>
 ```
 
 `reject` salts the new id so it can never collide with the proposed
-one — useful when two films share a name and a year but differ on
+one, useful when two films share a name and a year but differ on
 country / runtime / language.
 
 ## Storage layout
@@ -90,8 +89,8 @@ Two sidecars sit next to the DB:
 
 | File                       | Schema                                     |
 | -------------------------- | ------------------------------------------ |
-| `<db>.canonical.json`      | `CanonicalSidecar` — `canonical_id → record` |
-| `<db>.quarantine.json`     | `QuarantineSidecar` — `row_id → entry` |
+| `<db>.canonical.json`      | `CanonicalSidecar`, `canonical_id → record` |
+| `<db>.quarantine.json`     | `QuarantineSidecar`, `row_id → entry` |
 
 Each `CanonicalRecord` carries `signals`, `members` (row ids that
 collapsed into the work), `external_ids`, and a `provider_log` of
@@ -100,8 +99,7 @@ hits with timestamps + confidence.
 ## Built-in providers
 
 All providers live in `metadatarr` and self-register on import. Missing
-API keys or endpoint URLs disable the corresponding provider at runtime;
-`media-archivist providers` reports which are active.
+API keys or endpoint URLs disable the corresponding provider at runtime.`media-archivist providers` reports which are active.
 
 For the full table of ~24 providers (MusicBrainz, Wikidata, TMDB, AniList,
 Jikan, Google Books, LibriVox, Apple Podcasts, *arr family, Discogs,
@@ -113,14 +111,13 @@ configuration keys, see [metadatarr resolver integration](./metadatarr.md).
 
 Providers declare `modality: ClassVar[Set[PlaybackModality]]` alongside
 `media` and `genre_filter` (mediavocab spec §5.10). All three axes are
-evaluated independently; a provider is skipped if any declared axis does
+evaluated independently. A provider is skipped if any declared axis does
 not match the request.
 
 `PlaybackModality` (from `mediavocab`) carries: `AUDIO`, `VIDEO`,
 `INTERACTIVE`, `TEXT`, `UNKNOWN`. Examples: `discogs` declares
-`{AUDIO, VIDEO}`; `dvdcompare` declares `{VIDEO}`; `librivox` and
-`audiodb` declare `{AUDIO}`; `annas_archive` declares `{TEXT}`;
-`wikidata` and `youtube` are universal (empty set).
+`{AUDIO, VIDEO}`. `dvdcompare` declares `{VIDEO}`. `librivox` and
+`audiodb` declare `{AUDIO}`. `annas_archive` declares `{TEXT}`. `wikidata` and `youtube` are universal (empty set).
 
 To restrict a resolve call to audio-only providers:
 
@@ -135,10 +132,10 @@ signals = Signals(title="Kind of Blue", modality=PlaybackModality.AUDIO)
 from the resolved `medium` via `mediavocab.infer_modality()`:
 `MediaType.MUSIC` → `AUDIO`, `MediaType.MOVIE` → `VIDEO`, etc. Rows whose
 medium is `GENERIC` / `PLAYLIST` / `NOT_MEDIA` leave `modality=None`
-(unspecified) — the gate treats `None` as "no preference," so plain
+(unspecified), the gate treats `None` as "no preference," so plain
 YouTube / Internet-Archive rows still fan out to every applicable
-provider until a content-type enrichment pass narrows them.
-— `media_archivist/canonicalize.py:122`, `metadatarr/resolve/base.py:118`
+provider until a content-type enrichment pass narrows them
+(`media_archivist/canonicalize.py:122`, `metadatarr/resolve/base.py:118`).
 
 ### Provider contract
 
@@ -170,7 +167,7 @@ See [Release variants](./variants.md) for full details.
 ```python
 ProviderMatch(
     provider="my_provider",
-    confidence=0.93,                  # 0–1
+    confidence=0.93,                  # 0-1
     signals=Signals(...),             # what they think the work is
     external_ids=ExternalIds(...),    # authoritative IDs they produced
 )
@@ -204,7 +201,10 @@ media-archivist canonicalize --db-file demo.json --providers wikidata
 jq '.records[].external_ids' demo.canonical.json
 ```
 
-`media-archivist providers` reports active providers; the orchestrator
+`media-archivist providers` reports active providers. The orchestrator
 no-ops cleanly when nothing is active. The 10 disambiguation tests
 under `test/test_disambiguation.py` cover the full
 match / quarantine / resolve / reject flow without network access.
+
+---
+[← Canonical View & Dedupe](canonical.md) · [Home](index.md) · [Entities & Relations →](entities.md)

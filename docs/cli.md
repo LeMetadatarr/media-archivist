@@ -35,7 +35,7 @@ Every subcommand accepts:
 --only-audio         (YT Music) keep only audio-only tracks
 ```
 
-`--db` and `--db-file` are mutually exclusive; exactly one is required.
+`--db` and `--db-file` are mutually exclusive. Exactly one is required.
 
 ## Validation behaviour
 
@@ -57,19 +57,19 @@ error: pass --db NAME or --db-file PATH
 Validators encode rules that are awkward to express with `argparse`
 alone:
 
-- `_BaseCliArgs._exactly_one_target` — exactly one of `--db` / `--db-file`.
-- `PruneArgs._at_least_one_action` — at least one of `--unavailable`,
+- `_BaseCliArgs._exactly_one_target`, exactly one of `--db` / `--db-file`.
+- `PruneArgs._at_least_one_action`, at least one of `--unavailable`,
   `--below`, `--missing`, `--blacklist`.
-- `MonitorArgs._no_ia_for_monitor` — IA backend is incompatible with the
+- `MonitorArgs._no_ia_for_monitor`, IA backend is incompatible with the
   monitor loop.
-- `MergeArgs._at_least_one_source` — `merge` requires source paths.
+- `MergeArgs._at_least_one_source`, `merge` requires source paths.
 - `ExportArgs.format` is constrained to `Literal["json", "jsonl", "csv",
   "txt"]`.
 - `extra="forbid"` on the base model surfaces typos in any subcommand.
 
 ## Reusing the validators in scripts
 
-The same models are public — call them directly when scripting:
+The same models are public, call them directly when scripting:
 
 ```python
 from media_archivist.cli_args import ExportArgs
@@ -80,3 +80,6 @@ args = ExportArgs(db_file="talks.json", format="jsonl",
 ```
 
 See [`examples/scripted_export.py`](../examples/scripted_export.py).
+
+---
+[← Jellyfin / Kodi Remote Media](jellyfin.md) · [Home](index.md) · [CI / Release Automation →](ci.md)

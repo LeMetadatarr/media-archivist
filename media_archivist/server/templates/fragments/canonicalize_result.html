@@ -1,0 +1,12 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+{% if error %}
+<div class="error">{{ error }}</div>
+{% else %}
+<div class="card">
+  <div class="kv">
+    <dt>canonical records</dt><dd>{{ result.canonical_records }}</dd>
+    <dt>quarantined</dt><dd>{{ result.quarantined }}</dd>
+    <dt>entities</dt><dd>{{ result.entities }}</dd>
+  </div>
+</div>
+{% endif %}

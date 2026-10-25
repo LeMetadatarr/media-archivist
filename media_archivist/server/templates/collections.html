@@ -1,0 +1,56 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+{% extends "base.html" %}
+{% block title %}Collections — media_archivist{% endblock %}
+{% block page_title %}Collections{% endblock %}
+{% block content %}
+<div class="card">
+  <p class="label" style="color:var(--text-dim)">
+    A collection is a named saved filter — "Blender open movies" could be
+    <code>source=='youtube' and grep=='blender'</code>. It stays live: it
+    always reflects the current library, and its <code>/collections/&lt;name&gt;/m3u</code>
+    URL is a stable playlist Jellyfin/Kodi/VLC can subscribe to directly.
+  </p>
+  <form class="form-grid" hx-post="{{ root_path }}/ui/collections" hx-target="#coll-table" hx-swap="innerHTML">
+    <div class="field">
+      <label for="c-name">Name</label>
+      <input id="c-name" name="name" required placeholder="Blender open movies">
+    </div>
+    <div class="field">
+      <label for="c-source">Source</label>
+      <input id="c-source" name="source" placeholder="youtube, bandcamp, ...">
+    </div>
+    <div class="field">
+      <label for="c-grep">Grep (title contains)</label>
+      <input id="c-grep" name="grep" placeholder="free text">
+    </div>
+    <div class="field">
+      <label for="c-where">Where (DSL)</label>
+      <input id="c-where" name="where" placeholder="duration > 60 and source == 'youtube'">
+      <details class="dsl-help">
+        <summary>Filter syntax</summary>
+        <p>Fields: <code>title</code>, <code>source</code>, <code>duration</code>, <code>has_stream</code>,
+           <code>explicit</code>, <code>artist</code>, <code>album</code>, <code>published</code>.</p>
+        <p>Operators: <code>==</code> <code>!=</code> <code>&gt;</code> <code>&gt;=</code>
+           <code>&lt;</code> <code>&lt;=</code> <code>and</code> <code>or</code>.</p>
+      </details>
+    </div>
+    <div class="field">
+      <label for="c-has-stream"><input id="c-has-stream" name="has_stream" type="checkbox" value="true"> Has stream</label>
+    </div>
+    <div class="field">
+      <label for="c-explicit"><input id="c-explicit" name="explicit" type="checkbox" value="true"> Explicit</label>
+    </div>
+    <div class="field">
+      <label for="c-description">Description (optional)</label>
+      <input id="c-description" name="description" placeholder="e.g. CC-BY-licensed feature films">
+    </div>
+    <div class="field">
+      <button class="btn" type="submit">Save collection</button>
+    </div>
+  </form>
+</div>
+<div id="coll-table" hx-get="{{ root_path }}/ui/collections/table" hx-trigger="load" hx-swap="innerHTML">
+  <p class="empty">Loading…</p>
+</div>
+<div id="coll-preview"></div>
+{% endblock %}
