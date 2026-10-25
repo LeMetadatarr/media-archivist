@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.29.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.29.0a1) (2026-10-25)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.28.1a1...0.29.0a1)
+
+**Merged pull requests:**
+
+- feat: load providers through entry points with an adult-export guard [\#83](https://github.com/LeMetadatarr/media-archivist/pull/83) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.28.1a1](https://github.com/LeMetadatarr/media-archivist/tree/0.28.1a1) (2026-10-20)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.28.0a1...0.28.1a1)
