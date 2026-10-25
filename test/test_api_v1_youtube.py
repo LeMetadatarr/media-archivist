@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from media_archivist import backoff, indexdb, ytclient
+from media_archivist import backoff, indexdb, plugins, ytclient
 from media_archivist.server import auth
 from media_archivist.server.app import create_app
 
@@ -73,12 +73,14 @@ def test_settings_read_and_change(db_path):
     with TestClient(create_app(db_path)) as c:
         assert c.get("/api/v1/settings").json() == {
             "youtube_ip_family": "ipv4", "youtube_request_spacing": 10,
-            "download_concurrency": 1, "status_cards": "on"}
+            "download_concurrency": 1, "status_cards": "on",
+            "enabled_providers": list(plugins.BUILTIN_NAMES), "adult_export_providers": []}
         r = c.patch("/api/v1/settings", json={"youtube_ip_family": "ipv6",
                                               "youtube_request_spacing": 4})
         assert r.status_code == 200
         assert r.json() == {"youtube_ip_family": "ipv6", "youtube_request_spacing": 4,
-                            "download_concurrency": 1, "status_cards": "on"}
+                            "download_concurrency": 1, "status_cards": "on",
+            "enabled_providers": list(plugins.BUILTIN_NAMES), "adult_export_providers": []}
         assert c.get("/api/v1/settings").json()["youtube_ip_family"] == "ipv6"
         assert c.get("/api/v1/youtube/backoff").json()["ip_family"] == "ipv6"
     assert ytclient.CLIENT.ytdlp_args() == ["--force-ipv6"]

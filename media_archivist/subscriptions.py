@@ -29,22 +29,12 @@ from typing import Callable, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from media_archivist import plugins
+from media_archivist import settings as settings_mod
+
 LOG = logging.getLogger("media_archivist.subscriptions")
 
 Backend = str  # "youtube" | "ia" | "music" | "bandcamp" | "soundcloud"
-
-# Ordered so more specific hosts (music.youtube.com) don't get shadowed by
-# a broader substring match earlier in the list.
-_URL_BACKEND_HINTS: List[tuple] = [
-    ("music.youtube.com", "music"),
-    ("youtube.com", "youtube"),
-    ("youtu.be", "youtube"),
-    ("archive.org", "ia"),
-    ("bandcamp.com", "bandcamp"),
-    ("soundcloud.com", "soundcloud"),
-]
-
-KNOWN_BACKENDS = {"youtube", "ia", "music", "bandcamp", "soundcloud"}
 
 DEFAULT_INTERVAL_HOURS = 6.0
 MAX_INTERVAL_HOURS = 24 * 366
@@ -64,13 +54,12 @@ def _utcnow() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def infer_backend(url: str) -> Optional[str]:
-    """Guess the backend from a channel/playlist/collection URL, or ``None``."""
-    low = (url or "").lower()
-    for needle, backend in _URL_BACKEND_HINTS:
-        if needle in low:
-            return backend
-    return None
+def infer_backend(url: str, db_path: Optional[str] = None) -> Optional[str]:
+    """Guess the backend from a channel/playlist/collection URL, or ``None``.
+
+    With ``db_path``, installed providers count only when enabled there.
+    """
+    return plugins.infer(url, None if db_path is None else settings_mod.existing(db_path))
 
 
 class Subscription(BaseModel):
@@ -149,13 +138,12 @@ def add_subscription(db_path: str, url: str, *, backend: Optional[str] = None,
     url = url.strip()
     if not url:
         raise ValueError("url must not be empty")
-    resolved_backend = backend or infer_backend(url)
+    resolved_backend = backend or infer_backend(url, db_path=db_path)
     if not resolved_backend:
         raise ValueError(
             f"could not infer backend from url {url!r} — pass backend explicitly"
         )
-    if resolved_backend not in KNOWN_BACKENDS:
-        raise ValueError(f"unknown backend: {resolved_backend!r}")
+    plugins.get(resolved_backend, settings_mod.existing(db_path))
     if interval_hours is not None and not 0 < interval_hours <= MAX_INTERVAL_HOURS:
         raise ValueError(f"interval_hours must be above 0 and at most {MAX_INTERVAL_HOURS}")
 
@@ -246,30 +234,8 @@ def due_subscriptions(db_path: str, now: Optional[datetime] = None) -> List[Subs
     return due
 
 
-_BACKEND_TO_CLS_FACTORY = {
-    "youtube": lambda: __import__(
-        "media_archivist.youtube", fromlist=["YoutubeArchivist"]
-    ).YoutubeArchivist,
-    "ia": lambda: __import__(
-        "media_archivist.ia", fromlist=["IAArchivist"]
-    ).IAArchivist,
-    "music": lambda: __import__(
-        "media_archivist.music", fromlist=["YoutubeMusicArchivist"]
-    ).YoutubeMusicArchivist,
-    "bandcamp": lambda: __import__(
-        "media_archivist.bandcamp", fromlist=["BandcampArchivist"]
-    ).BandcampArchivist,
-    "soundcloud": lambda: __import__(
-        "media_archivist.soundcloud", fromlist=["SoundCloudArchivist"]
-    ).SoundCloudArchivist,
-}
-
-
 def _archivist_class(backend: str):
-    factory = _BACKEND_TO_CLS_FACTORY.get(backend)
-    if factory is None:
-        raise ValueError(f"unknown backend: {backend!r}")
-    return factory()
+    return plugins.get(backend).cls
 
 
 def _default_downloader(url: str, dest_dir: str) -> None:
@@ -307,6 +273,7 @@ def sync_subscription(db_path: str, sub: Subscription, *,
         return SyncResult(url=sub.url, backend=sub.backend, ok=True, dry_run=True)
 
     try:
+        plugins.get(sub.backend, settings_mod.existing(db_path))
         cls = _archivist_class(sub.backend)
     except Exception as e:
         sub.last_error = str(e)
@@ -316,7 +283,7 @@ def sync_subscription(db_path: str, sub: Subscription, *,
     try:
         archivist = cls(db_path=db_path)
         before = set(archivist.video_urls)
-        archivist.archive(sub.url)
+        plugins.archive_and_stamp(archivist, sub.backend, sub.url)
         after = set(archivist.video_urls)
         new_urls = sorted(after - before)
         rows_added = len(new_urls)

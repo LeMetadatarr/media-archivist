@@ -47,6 +47,9 @@ def _browse_id_from_url(url: str) -> str:
 class YoutubeMusicArchivist(JsonArchivist):
     """Index YouTube Music tracks, albums, artists and playlists into a JSON DB."""
 
+    url_hosts = ("music.youtube.com",)
+    sources = ("youtube_music",)
+
     def __init__(
         self,
         db_name: Optional[str] = None,

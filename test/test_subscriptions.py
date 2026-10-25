@@ -31,6 +31,7 @@ def _fake_archivist_cls(rows_to_add=1, raises=None):
         def __init__(self, db_path):
             self.db_path = db_path
             self._db = EnvelopeJsonStorage(db_path)
+            self.db = self._db
             self._n = 0
 
         @property
@@ -202,6 +203,7 @@ def _fake_archivist_cls_with_urls(existing, new):
     class _Fake:
         def __init__(self, db_path):
             self._db = EnvelopeJsonStorage(db_path)
+            self.db = self._db
             for u in existing:
                 self._db[u] = {"url": u}
             self._db.store()

@@ -245,6 +245,9 @@ class YoutubeMonitor(Thread):
 class YoutubeArchivist(JsonArchivist):
     """Index YouTube channels, playlists and individual videos into a JSON-backed DB."""
 
+    url_hosts = ("youtube.com", "youtu.be")
+    sources = ("youtube",)
+
     entries_seen: Optional[int] = None
     """Videos the source listed during the last :meth:`archive` call,
     whether or not they were new; 0 for a playlist or channel means the

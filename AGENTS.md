@@ -29,6 +29,10 @@ Package name is `media_archivist`; CLI entry point is `media-archivist`
 pytest test/
 ```
 
+The YouTube client tests need `unblock_requests>=0.3.0a1`; an older install
+fails seven tests in `test_ytclient.py`, `test_ytindex_client.py` and
+`test_api_v1_end_to_end.py`.
+
 Tests are network-free: they use captured JSON fixtures under `test/fixtures/`
 and mock backend clients. The `examples/live/` scripts hit the network and are
 NOT part of the test suite — never run them in CI.
@@ -145,6 +149,11 @@ Module inventory below is generated from `git ls-files 'media_archivist/*.py'
   (HMAC-SHA256, optional expiry).
 - `media_archivist/jellyfin.py` — Jellyfin library refresh and the
   collections exports make, matched by YouTube id.
+- `media_archivist/plugins.py` — providers loaded through the
+  `media_archivist.providers` entry-point group: API version check, installed
+  versus enabled, the adult-export guard.
+- `media_archivist/server/api_v1/providers.py` — `GET /api/v1/providers`, the
+  installed providers with their state and load errors.
 - `media_archivist/export_hooks.py` — automatic export of new entries for
   subscriptions that ask for it.
 - `media_archivist/index_migrations/m0300_exports.py` — export records,

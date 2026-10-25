@@ -6,6 +6,7 @@ import json
 import sys
 
 from media_archivist import cli_args as _cli_args
+from media_archivist import plugins
 from media_archivist.commands._helpers import (
     DEFAULT_FIELDS,
     _filter_entries,
@@ -20,8 +21,9 @@ from media_archivist.commands._helpers import (
 def cmd_add(args) -> int:
     _validated_args(_cli_args.AddArgs, args)
     archivist = _make_archivist(args)
+    backend = _cli_args.backend_from_namespace(args)
     for url in args.urls:
-        archivist.archive(url)
+        plugins.archive_and_stamp(archivist, backend, url)
     print(f"db now contains {len(archivist.video_urls)} entries", file=sys.stderr)
     return 0
 
@@ -276,21 +278,24 @@ def cmd_bootstrap(args) -> int:
 def cmd_strm_export(args) -> int:
     """Write one .strm per matching entry, ready for Jellyfin / Kodi to pick up."""
     _validated_args(_cli_args.StrmExportArgs, args)
-    from media_archivist.strm import export_strm
+    from media_archivist.strm import ExportRefused, export_strm
 
     db_path = args.db_file or _index_for(args).path
-    n = export_strm(
-        db_path,
-        args.output_dir,
-        base_url=args.base_url,
-        source=args.source_filter,
-        where=args.where,
-        has_stream=args.has_stream,
-        limit=args.limit,
-        dry_run=args.dry_run,
-        layout=args.layout,
-        nfo=args.nfo,
-    )
+    try:
+        n = export_strm(
+            db_path,
+            args.output_dir,
+            base_url=args.base_url,
+            source=args.source_filter,
+            where=args.where,
+            has_stream=args.has_stream,
+            limit=args.limit,
+            dry_run=args.dry_run,
+            layout=args.layout,
+            nfo=args.nfo,
+        )
+    except ExportRefused as e:
+        raise SystemExit(f"error: {e}") from None
     print(f"{'would write' if args.dry_run else 'wrote'} {n} .strm files",
           file=sys.stderr)
     return 0

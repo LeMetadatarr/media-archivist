@@ -4,7 +4,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Annotated, Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
+
+from media_archivist import plugins
 
 from media_archivist.models.canonical import MediaEntry
 
@@ -12,6 +14,15 @@ from media_archivist.models.canonical import MediaEntry
 def _utcnow() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
+
+def _installed_provider(name: str) -> str:
+    if name not in plugins.registry().providers:
+        raise ValueError(f"unknown backend: {name!r}")
+    return name
+
+
+ProviderName = Annotated[str, AfterValidator(_installed_provider)]
+"""The name of an installed provider; enabling is checked where it is used."""
 
 TaskStatus = Literal["queued", "running", "ok", "error"]
 
@@ -21,7 +32,7 @@ class ArchiveRequest(BaseModel):
 
     kind: Literal["archive"] = "archive"
     url: str
-    backend: Optional[Literal["youtube", "ia", "music", "bandcamp", "soundcloud"]] = None
+    backend: Optional[ProviderName] = None
     require: List[str] = Field(default_factory=list)
     blacklist: List[str] = Field(default_factory=list)
     min_duration: int = -1
@@ -293,7 +304,7 @@ class SubscriptionCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     url: str
-    backend: Optional[Literal["youtube", "ia", "music", "bandcamp", "soundcloud"]] = None
+    backend: Optional[ProviderName] = None
     label: Optional[str] = None
     auto_download: bool = False
     interval_hours: Optional[float] = Field(default=None, gt=0, le=24 * 366)
