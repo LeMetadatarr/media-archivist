@@ -34,6 +34,7 @@ ENV_SECRET = "MEDIA_ARCHIVIST_LINK_SECRET"
 ENV_PUBLIC_URL = "MEDIA_ARCHIVIST_PUBLIC_URL"
 SETTING_KEY = "link_secret"
 STREAM_PREFIX = "/api/v1/stream/"
+MAX_EXP_DIGITS = 12
 
 
 def _now() -> int:
@@ -77,7 +78,7 @@ def verify_query(index, entry_id: str, query: Mapping[str, str]) -> bool:
         return False
     exp = None
     if raw_exp:
-        if not raw_exp.isdigit():
+        if not (raw_exp.isascii() and raw_exp.isdigit()) or len(raw_exp) > MAX_EXP_DIGITS:
             return False
         exp = int(raw_exp)
     return verify(secret(index), entry_id, sig, exp)

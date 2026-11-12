@@ -140,6 +140,23 @@ def test_tampered_and_expired_links_are_refused(db_path, monkeypatch, resolved):
         assert c.get(f"/api/v1/stream/{EID}", params=q).status_code == 401
 
 
+@pytest.mark.parametrize("exp", ["\u00b2", "\u0663", "9" * 5000, "-1", "1.5", " 12", "1e3"])
+def test_malformed_expiry_is_refused_not_an_error(db_path, monkeypatch, exp):
+    with _client(db_path, monkeypatch) as c:
+        r = c.get(f"/api/v1/stream/{EID}", params={"sig": "0" * 64, "exp": exp})
+        assert r.status_code == 401
+    monkeypatch.setattr(links, "secret", lambda index: b"k")
+    assert not links.verify_query(None, EID, {"sig": "0" * 64, "exp": exp})
+
+
+@pytest.mark.parametrize("exp", [99_999_999_999, 253_402_300_699])
+def test_a_valid_eleven_or_twelve_digit_expiry_is_accepted(db_path, monkeypatch, resolved, exp):
+    with _client(db_path, monkeypatch) as c:
+        sig = links.signature(links.secret(indexdb.open_index(db_path)), EID, exp)
+        r = c.get(f"/api/v1/stream/{EID}", params={"sig": sig, "exp": str(exp)})
+        assert r.status_code == 302
+
+
 def test_changing_the_secret_revokes_links(db_path, monkeypatch, resolved):
     with _client(db_path, monkeypatch) as c:
         url = c.post(f"/api/v1/entries/{EID}/link", headers={"X-Api-Key": KEY}).json()["url"]
