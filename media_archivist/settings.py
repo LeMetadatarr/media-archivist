@@ -29,10 +29,13 @@ def _ip_family(value: Any) -> str:
     return value
 
 
+MAX_SPACING = 3600
+
+
 def _seconds(value: Any) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)) \
-            or not math.isfinite(value) or value < 0:
-        raise ValueError("expected a number of seconds, 0 or more")
+            or not math.isfinite(value) or not 0 <= value <= MAX_SPACING:
+        raise ValueError(f"expected a number of seconds from 0 to {MAX_SPACING}")
     return value
 
 

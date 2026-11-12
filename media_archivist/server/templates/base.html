@@ -21,6 +21,7 @@
         <a href="{{ request.scope.get('root_path', '') }}/ui/quarantine" class="{{ 'active' if active == 'quarantine' else '' }}">Quarantine</a>
         <a href="{{ request.scope.get('root_path', '') }}/ui/health" class="{{ 'active' if active == 'health' else '' }}">Stream health</a>
         <a href="{{ request.scope.get('root_path', '') }}/ui/providers" class="{{ 'active' if active == 'providers' else '' }}">Providers</a>
+        <a href="{{ request.scope.get('root_path', '') }}/ui/settings" class="{{ 'active' if active == 'settings' else '' }}">Settings</a>
       </nav>
       <div class="health">
         <span id="health-dot" class="health-dot checking" title="Checking server status…" aria-label="Checking server status"

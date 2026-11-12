@@ -142,6 +142,16 @@ whether it's currently available (installed + reachable).
 
 ![Providers](img/providers.png)
 
+## Settings
+
+The Settings page edits the same values as `PATCH /api/v1/settings`: the
+address family and request spacing for YouTube, how many downloads run at
+once, whether a play that cannot be resolved shows a status card, which
+providers are enabled and which adult providers may export `.strm` files. A
+value outside its range is refused with the reason and nothing is saved.
+Environment settings such as the library roots and the link secret are not
+shown.
+
 ## Responsive, themeable
 
 The UI works down to phone width and follows your OS light/dark preference.
