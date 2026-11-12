@@ -118,7 +118,7 @@ def install(app, auth: Optional[ApiKeyAuth] = None) -> ApiKeyAuth:
     @app.middleware("http")
     async def _require_key(request, call_next):
         peer = request.client.host if request.client else None
-        path = request.url.path
+        path = request.scope["path"]
         root = request.scope.get("root_path") or ""
         if root and path.startswith(root):
             path = path[len(root):]

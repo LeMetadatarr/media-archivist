@@ -239,3 +239,13 @@ def test_proxy_mode_passes_range_and_falls_back_to_redirect(db_path, monkeypatch
         monkeypatch.setattr(requests, "get", failing_get)
         r = c.get(f"/api/v1/stream/{EID}", params={"mode": "proxy"})
     assert r.status_code == 302 and r.headers["location"] == "https://cdn.example.org/media.mp4"
+
+
+@pytest.mark.parametrize("seconds", [10 ** 12, 3 * 10 ** 11, 10 ** 29])
+def test_link_expiry_beyond_the_calendar_is_a_400(db_path, monkeypatch, seconds):
+    with _client(db_path, monkeypatch) as c:
+        r = c.post(f"/api/v1/entries/{EID}/link", json={"expires_in": seconds},
+                   headers={"X-Api-Key": KEY})
+        assert r.status_code == 400
+        assert c.post(f"/api/v1/entries/{EID}/link", json={"expires_in": 3600},
+                      headers={"X-Api-Key": KEY}).status_code == 200

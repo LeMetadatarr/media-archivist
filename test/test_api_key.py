@@ -117,3 +117,19 @@ def test_compose_file_exempts_loopback_only():
     assert nets
     assert all(n.is_loopback for n in nets)
     assert not any(ipaddress.ip_address("172.18.0.1") in n for n in nets if n.version == 4)
+
+
+HOST_TRICKS = ("x/healthz#", "x/healthz?", "x/api/v1/healthz#")
+
+
+@pytest.mark.parametrize("host", HOST_TRICKS)
+def test_host_header_cannot_pose_as_an_open_path(db_path, monkeypatch, host):
+    monkeypatch.setenv(auth.ENV_KEY, KEY)
+    monkeypatch.setenv(auth.ENV_EXEMPT, "")
+    with _client(db_path) as c:
+        bad = {"Host": host}
+        assert c.get("/api/v1/settings", headers=bad).status_code == 401
+        assert c.patch("/api/v1/settings", headers=bad,
+                       json={"youtube_request_spacing": 0}).status_code == 401
+        assert c.post("/api/v1/entries/" + "a" * 40 + "/link", headers=bad).status_code == 401
+        assert c.get("/api/v1/settings", headers={"X-Api-Key": KEY}).status_code == 200
