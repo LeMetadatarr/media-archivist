@@ -15,7 +15,8 @@ Create an ML dataset suitable for training recommender systems, classifiers, or 
 
 ```bash
 # Install media_archivist and ML dependencies
-pip install media_archivist[all] datasets
+# from a clone of https://github.com/LeMetadatarr/media-archivist
+pip install ".[all]" datasets
 
 # HF Hub token (optional, for uploading to Hub)
 huggingface-cli login

@@ -64,7 +64,7 @@ media_archivist/
 
 ## Design principles
 
-1. **Metadata-first.** Index streams. Never download. Pair with `yt-dlp`.
+1. **Stream first.** Index streams and play them without downloading. A file is downloaded only on request, through `yt-dlp`.
 2. **Pydantic at every stage.** Every value entering or leaving the index
    is validated against a typed model, no untyped dicts in the write
    path, no defensive reads on the consumer side.

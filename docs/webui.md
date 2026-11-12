@@ -7,7 +7,8 @@ use: point it at a DB file, open a browser, manage your index.
 ## Launch it
 
 ```bash
-pip install "media-archivist[server]"
+# from a clone of https://github.com/LeMetadatarr/media-archivist
+pip install ".[server]"
 media-archivist serve --db-file talks.json
 # open http://localhost:8000/
 ```
