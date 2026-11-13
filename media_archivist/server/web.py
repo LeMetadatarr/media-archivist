@@ -11,6 +11,7 @@ import asyncio
 import logging
 import re
 from typing import Annotated, List, Optional
+from urllib.parse import urlsplit
 
 from media_archivist.canonicalize import (
     canonicalize as run_canonicalize,
@@ -563,6 +564,61 @@ def register_web(app, *, db_path: str, templates, scheduler) -> None:
     def providers_page(request: Request):
         return _render(request, "providers.html", active="providers",
                        providers=_providers_payload())
+
+    def _settings_context(request: Request, **extra):
+        from media_archivist import plugins
+        from media_archivist.settings import IP_FAMILIES, STATUS_CARDS, Settings
+
+        return {"values": Settings(request.app.state.index).all(),
+                "providers": plugins.known_names(), "ip_families": IP_FAMILIES,
+                "status_cards": STATUS_CARDS, **extra}
+
+    @app.get("/ui/settings", response_class=HTMLResponse)
+    def settings_page(request: Request):
+        return _render(request, "settings.html", active="settings",
+                       **_settings_context(request))
+
+    def _same_origin(request: Request) -> bool:
+        """A browser form post comes from this site; other clients send neither header."""
+        fetch_site = request.headers.get("sec-fetch-site")
+        if fetch_site is not None:
+            return fetch_site in ("same-origin", "none")
+        origin = request.headers.get("origin")
+        if origin is None:
+            return True
+        host = request.headers.get("x-forwarded-host") or request.headers.get("host")
+        return urlsplit(origin).netloc == host
+
+    @app.post("/ui/settings", response_class=HTMLResponse)
+    async def settings_save(request: Request):
+        from media_archivist.settings import Settings
+
+        if not _same_origin(request):
+            return _render(request, "settings.html", active="settings", status_code=403,
+                           **_settings_context(request, error="cross-site request refused"))
+        form = await request.form()
+
+        def number(name, convert):
+            raw = form.get(name, "")
+            if not isinstance(raw, str):
+                raise ValueError(f"{name} must be a plain value, not a file")
+            return convert(raw)
+
+        try:
+            changes = {
+                "youtube_ip_family": form.get("youtube_ip_family"),
+                "youtube_request_spacing": number("youtube_request_spacing", float),
+                "download_concurrency": number("download_concurrency", int),
+                "status_cards": form.get("status_cards"),
+                "enabled_providers": form.getlist("enabled_providers"),
+                "adult_export_providers": form.getlist("adult_export_providers"),
+            }
+            Settings(request.app.state.index).update(changes)
+        except ValueError as e:
+            return _render(request, "settings.html", active="settings", status_code=400,
+                           **_settings_context(request, error=str(e)))
+        return _render(request, "settings.html", active="settings",
+                       **_settings_context(request, saved=True))
 
     @app.get("/ui/subscriptions", response_class=HTMLResponse)
     def subscriptions_page(request: Request):

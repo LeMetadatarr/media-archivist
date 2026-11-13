@@ -1,0 +1,54 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+{% extends "base.html" %}
+{% block title %}Settings — media_archivist{% endblock %}
+{% block page_title %}Settings{% endblock %}
+{% block content %}
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+{% if saved %}<p class="badge badge-ok">Saved</p>{% endif %}
+<form class="card" method="post" action="{{ root_path }}/ui/settings">
+  <h3 style="margin-top:0">YouTube</h3>
+  <p>
+    <label>Address family
+      <select name="youtube_ip_family">
+        {% for f in ip_families %}<option value="{{ f }}" {{ 'selected' if values.youtube_ip_family == f else '' }}>{{ f }}</option>{% endfor %}
+      </select>
+    </label>
+  </p>
+  <p>
+    <label>Seconds between background requests
+      <input type="number" name="youtube_request_spacing" min="0" step="any" value="{{ values.youtube_request_spacing }}">
+    </label>
+  </p>
+  <h3>Downloads</h3>
+  <p>
+    <label>Downloads at once (1 to 8)
+      <input type="number" name="download_concurrency" min="1" max="8" step="1" value="{{ values.download_concurrency }}">
+    </label>
+  </p>
+  <h3>Playback</h3>
+  <p>
+    <label>Status cards for a play that cannot be resolved
+      <select name="status_cards">
+        {% for c in status_cards %}<option value="{{ c }}" {{ 'selected' if values.status_cards == c else '' }}>{{ c }}</option>{% endfor %}
+      </select>
+    </label>
+  </p>
+  <h3>Providers</h3>
+  <p style="font-size:0.85rem; color:var(--text-dim)">A provider works only when it is enabled. An adult provider is refused for <code>.strm</code> export and Jellyfin refresh unless it is also allowed to export.</p>
+  <div class="scroll-x">
+  <table class="table">
+    <thead><tr><th>Provider</th><th>Enabled</th><th>Allow adult export</th></tr></thead>
+    <tbody>
+      {% for name in providers %}
+      <tr>
+        <td><code>{{ name }}</code></td>
+        <td><input type="checkbox" name="enabled_providers" value="{{ name }}" {{ 'checked' if name in values.enabled_providers else '' }}></td>
+        <td><input type="checkbox" name="adult_export_providers" value="{{ name }}" {{ 'checked' if name in values.adult_export_providers else '' }}></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p><button class="btn" type="submit">Save</button></p>
+</form>
+{% endblock %}
