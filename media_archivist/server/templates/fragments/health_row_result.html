@@ -1,0 +1,22 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+{% if error %}
+<tr id="health-row-{{ entry_id }}"><td colspan="5" class="error">{{ error }}</td></tr>
+{% elif removed is defined %}
+{% if removed %}
+<tr id="health-row-{{ entry_id }}"><td colspan="4"><span class="badge badge-dim">removed</span> {{ removed_title }} dropped from the index.</td></tr>
+{% else %}
+<tr id="health-row-{{ entry_id }}"><td colspan="4" class="error">Not removed — entry already gone from the index.</td></tr>
+{% endif %}
+{% elif result.ok %}
+<tr id="health-row-{{ entry_id }}">
+  <td><span class="badge badge-ok">refreshed</span></td>
+  <td colspan="4">
+    {{ result.old_stream or "(none)" }} &rarr; {{ result.new_stream }}
+  </td>
+</tr>
+{% else %}
+<tr id="health-row-{{ entry_id }}">
+  <td><span class="badge badge-err">failed</span></td>
+  <td colspan="4">{{ result.error }}</td>
+</tr>
+{% endif %}

@@ -15,7 +15,8 @@ Merge multiple cross-source indexes while maintaining data integrity by:
 
 ```bash
 # Install with all backends
-pip install media_archivist[all]
+# from a clone of https://github.com/LeMetadatarr/media-archivist
+pip install ".[all]" py_bandcamp nuvem_de_som
 
 # wikidata / musicbrainz / skyhook are free — no config needed
 ```

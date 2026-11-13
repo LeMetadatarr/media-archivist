@@ -4,6 +4,31 @@
 ([reference](./reference/cli.md#serve)). For long-lived deployments the
 repository ships two ready-to-use templates under `deploy/`.
 
+The same process also serves the build-free Web UI at `/`, alongside the
+JSON API and the Swagger docs at `/docs`. See [`webui.md`](./webui.md) for a
+page-by-page tour.
+
+> **Security note:** The API key is optional and off by default. Do not
+> expose port 8000 directly to the internet; put it behind your reverse proxy
+> (Caddy, Traefik, nginx), and set an API key when anything outside your
+> network can reach it (see [API key](#api-key)).
+
+## Docker Compose (recommended)
+
+The fastest path from zero to running:
+
+```bash
+docker compose -f deploy/docker-compose.yml up -d
+docker compose -f deploy/docker-compose.yml logs -f
+```
+
+The compose file:
+- pins a named `media-archivist-data` volume so the index survives container
+  rebuilds
+- sets `restart: unless-stopped` for automatic recovery after a reboot
+- wires a `/healthz` healthcheck so Docker (and tools like Uptime Kuma) report
+  container health correctly
+
 ## Docker
 
 ```bash
@@ -14,20 +39,14 @@ docker run -d --name media-archivist \
     media-archivist
 ```
 
+The image carries a `HEALTHCHECK` that polls `/healthz` every 30 s.
+
 The container runs `media-archivist serve --host 0.0.0.0` against
-`/data/index.json`. Mount a host directory at `/data` to persist the
-DB plus all sidecars (`<db>.canonical.json`, `<db>.quarantine.json`,
-`<db>.tasks.json`, `<db>.links.json`).
-
-`yt-dlp` is preinstalled so transcript enrichment works out of the
-box.
-
-```bash
-docker run -d --name media-archivist \
-    -p 8000:8000 \
-    -v "$HOME/media-archivist-data:/data" \
-    media-archivist
-```
+`/data/index.json`. The `/data` mount holds the index plus all sidecars
+(`<db>.canonical.json`, `<db>.quarantine.json`, `<db>.tasks.json`,
+`<db>.links.json`). `yt-dlp`, `ffmpeg` and the `deno` JavaScript runtime are preinstalled, so
+transcript enrichment, stream resolution and downloads that merge separate
+video and audio streams work out of the box.
 
 ## Systemd (per-user)
 
@@ -38,8 +57,7 @@ systemctl --user enable --now media-archivist@$USER.service
 journalctl --user -fu media-archivist@$USER.service
 ```
 
-The unit reads its DB path / host / port from environment variables;
-override them via:
+The unit reads its DB path / host / port from environment variables.override them via:
 
 ```bash
 mkdir -p ~/.config/systemd/user/media-archivist@.service.d
@@ -52,20 +70,168 @@ systemctl --user daemon-reload
 systemctl --user restart media-archivist@$USER.service
 ```
 
+## Homelab integration points
+
+Once the service is up, three endpoints connect it to the rest of your stack:
+
+| Endpoint | Client |
+| -------- | ------ |
+| `GET /strm/{id}` | Jellyfin / Kodi `.strm` files. Plain `text/plain` URL by default; `?resolve=1` turns it into a play-time yt-dlp hook that 302-redirects to a freshly resolved stream (`?mode=proxy` to stream bytes through instead). See [Jellyfin docs](./jellyfin.md). |
+| `GET /m3u` | Any M3U-capable client (VLC, Kodi, IPTV apps). Accepts `source`, `where`, `has_stream`, `limit` query params. |
+| `GET /feed.rss` | Podcast clients, Jellyfin RSS plugin, Freshrss. Accepts `limit`. |
+| `GET /healthz` | Uptime Kuma, Docker healthcheck, Compose healthcheck, k8s liveness probe. Returns `{status: "ok", version, db_path}`. |
+
 ## HTTP surface
 
 | Method | Path                 | Purpose |
 | ------ | -------------------- | ------- |
-| `GET`  | `/entries`           | Query the canonical view (filters: `source`, `where`, `grep`, `has_stream`, `explicit`, `limit`). |
-| `GET`  | `/entries/{id}`      | Fetch a single `MediaEntry` by id. |
-| `POST` | `/archive`           | Enqueue an archive task; returns a `Task`. |
+| `GET`  | `/entries`           | Query the canonical view (filters: `source`, `where`, `grep`, `has_stream`, `explicit`, `limit`, `offset`). Sorted by `sortKey` (`added`, `title`, `artist`, `album`, `duration`, `published`, `source`) in `sortDirection` (`ascending` or `descending`); entries without a value sort last. |
+| `GET`  | `/entries/{id}`      | Fetch a single `MediaEntry` by id. A YouTube entry without a duration, channel or upload date is first read from yt-dlp when the rate limit allows (see [YouTube metadata](#youtube-metadata)). |
+| `POST` | `/entries/enrich`    | Queue a fill of missing YouTube metadata. Optional body `{"limit": 100, "force": false}`. Returns a `Task`. |
+| `POST` | `/archive`           | Enqueue an archive task. Returns a `Task`. |
+| `POST` | `/entries/{id}/download` | Enqueue an optional download of one entry via `yt-dlp` to `MEDIA_ARCHIVIST_DOWNLOAD_DIR`. Optional JSON body `{"format": "<yt-dlp selector>"}` (default `bv*+ba/b`, or `b` when ffmpeg is not installed). Returns a `Task`. `503` if `yt-dlp` isn't available. |
 | `GET`  | `/tasks/{id}`        | Task progress (`queued`, `running`, `ok`, `error`). |
+| `GET`  | `/tasks`             | Task counts per status (`queued`, `running`, `ok`, `error`, `total`) and one page of tasks, newest first, in `tasks`. Query: `status`, `kind` (`archive`, `download`, `sync`, `enrich`), `limit` (default 50), `offset`; `matched` counts the tasks the filters select. |
+| `GET`  | `/subscriptions`     | Subscriptions with `interval_hours`, `last_synced_at` and `next_sync_at`. |
+| `POST` | `/subscriptions`     | Subscribe. Body: `{url, backend?, label?, auto_download?, interval_hours?}`. |
 | `GET`  | `/feed.rss`          | RSS feed of recently-added entries. |
 | `GET`  | `/m3u`               | M3U playlist of stream URLs. |
 | `GET`  | `/stats`             | Source mix, canonical / quarantined counts. |
+| `GET`  | `/healthz`           | Liveness check, `{status: "ok", version, db_path}`. |
+| `GET`  | `/providers`         | Registry introspection, every provider with `available`, `media`, `modality`, `genre_filter`. |
+| `POST` | `/canonicalize`      | Run providers across the DB. Body: `{providers?: [str], stamp_rows?: bool, max_workers?: int}`. Returns counts. |
+| `GET`  | `/quarantine`        | List quarantined rows + their conflicts. |
+| `POST` | `/quarantine/{id}/accept` | Accept a quarantined row (optional `?canonical_id=` to link). |
+| `POST` | `/quarantine/{id}/reject` | Reject and force a fresh canonical_id. |
 | `GET`  | `/docs`              | Auto-generated OpenAPI / Swagger UI. |
 
-The schedulable surface is single-tenant by design — submitted tasks
+The schedulable surface is single-tenant by design, submitted tasks
 queue and run sequentially. Task state persists in
-`<db>.tasks.json`; if the service is restarted, anything still pending
+`<db>.tasks.json`. If the service is restarted, anything still pending
 is re-queued automatically.
+
+## Downloads for apps
+
+`POST /api/v1/downloads` queues a download for another application, which
+chooses the folder and the file name. The folder must be inside one of the
+folders listed in `MEDIA_ARCHIVIST_DOWNLOAD_ROOTS`, separated by `:`; when the
+variable is unset, the only allowed folder is `MEDIA_ARCHIVIST_DOWNLOAD_DIR`
+and the folders below it. Symbolic links are resolved before the check, so a
+link inside a root that points elsewhere is refused.
+
+Downloads run apart from the archive and sync tasks, one at a time unless the
+`download_concurrency` setting says otherwise, taking each app's queue in
+turn. They run yt-dlp as a program (the `yt-dlp` command, or
+`python -m yt_dlp` when only the module is installed), so a cancelled download
+stops at once and leaves no partial files. When YouTube answers a download
+with its bot check, that download goes back to the queue and downloads pause
+for the `download` back-off kind; other kinds of request carry on. A download
+that meets the bot check on its fifth attempt fails instead of going back.
+
+A request with `subtitles` fetches caption tracks beside the video. The record
+says what each placed caption file is: `captions` lists its `file`, `language`,
+`kind` (`manual`, or `automatic` for YouTube's own recogniser) and
+`is_translation`. YouTube also offers its recogniser's text machine-translated
+into other languages, so a track named `pt` can be a translation of a video
+spoken in English. `subtitles_kinds` picks what is fetched: `manual`,
+`automatic` (every automatic track, translations included) and
+`automatic_original` (only the recogniser's track in the video's own
+language). It defaults to `["manual", "automatic"]`. With kinds named, a
+file the video's info cannot prove to be one of them is not kept. The
+recogniser's own track is known by its `-orig` name or, for a language that has
+one, by the plain name beside it; a language YouTube cannot translate has no
+`-orig` track, so `automatic_original` drops it rather than risk calling a
+translation original. With the default kinds such a track is kept with kind
+`automatic` and a null `is_translation`. Downloads that completed before the record had
+captions show `captions` as an empty list while `files` still lists the
+caption files.
+
+Set `keep_info_json` to keep the video's info JSON beside it; `info_json`
+names the file. The file holds the signed media URLs YouTube issued to the
+server and the server's public IP address, so it is opt-in and the server
+never serves it.
+
+A download never replaces a file already in its folder: when a name is taken,
+the video and its subtitles all get the first free number, as in
+`Title [id] (2).mp4`. Forgetting a download with `delete_files=true` removes a
+file only while it still holds what was downloaded and no other download lists
+it; the answer names every file kept and why.
+
+## Scheduled subscription sync
+
+YouTube channels and playlists are kept current by the working index. Once a
+minute `serve` queues one `index` task when anything is due: a channel's feed
+(its latest uploads, one request) every two hours, its whole Videos tab once a
+week, a playlist's videos once a day, a channel's Playlists tab and the video
+ids of those playlists once a day (at most eight playlists per pass), missing
+pictures, and a few per-video reads for videos whose length no listing gave.
+A new subscription and `POST /api/v1/subscriptions/{id}/refresh` are listed in
+full at once. A subscription that fails three times in a row for a reason
+other than YouTube's bot check is flagged and left alone until it is changed
+or refreshed. New videos are also added to the JSON database. The `/api/v1`
+routes serve the subscriptions and the entries the index holds.
+
+Subscriptions of the other backends (Internet Archive, Bandcamp, SoundCloud,
+YouTube Music) are synced from the sidecar: once a minute `serve` queues a
+`sync` task for each one whose interval has passed since its
+`last_synced_at`. The interval is the subscription's `interval_hours`
+(`subscribe --interval-hours`, or the API body), else
+`MEDIA_ARCHIVIST_SYNC_INTERVAL_HOURS`, else 6 hours; an interval above 8,784 hours
+(366 days) is refused, and an environment value above it is ignored. The last run is stored in
+`<db>.subscriptions.json`, so a restart keeps the schedule; a subscription
+never synced is due at once. A failed sync waits for its next interval.
+
+Set `MEDIA_ARCHIVIST_SCHEDULED_SYNC=0` to turn all scheduled subscription work
+off and keep only `POST /subscriptions/sync`, the refresh endpoint and the
+CLI. Set `MEDIA_ARCHIVIST_SCHEDULED_INDEX=0` to turn only the index off; YouTube
+subscriptions are then synced from the sidecar like the other backends.
+
+## YouTube metadata
+
+Channel and playlist listings often lack a video's duration, channel and
+upload date. Values a listing gives that are not real ones (relative times
+such as "3 years ago", view counts, badges) are never stored. The gaps are
+filled from a single-video yt-dlp read: when an entry is opened
+(`GET /entries/{id}`, the entry page), and by an `enrich` task that the
+server queues at most once an hour while rows still need it (and by
+`POST /entries/enrich`). Each task reads up to 100 videos, one every
+`MEDIA_ARCHIVIST_YT_METADATA_INTERVAL` seconds (default 2). A video is read
+once; the result is kept on its row with a `metadata_checked` timestamp.
+
+When YouTube answers with its bot check, the fields stay empty and reads
+pause for 30 minutes, doubling up to 24 hours while the check persists. The
+pause is kept in the working index, so a restart does not end it. The
+check is never worked around: no cookies, no client switching. Set
+`MEDIA_ARCHIVIST_REENRICH=0` to stop the hourly task.
+
+## API key
+
+Set `MEDIA_ARCHIVIST_API_KEY` to require a key. Clients send it as the
+`X-Api-Key` header or the `apikey` query parameter, as with the *arr apps;
+anything else gets `401`. `GET /healthz` stays open for health checks.
+
+Requests from the local network need no key: loopback, `10.0.0.0/8`,
+`172.16.0.0/12`, `192.168.0.0/16` and Tailscale (`100.64.0.0/10`,
+`fd7a:115c:a1e0::/48`). `MEDIA_ARCHIVIST_AUTH_EXEMPT` replaces that list with
+comma-separated networks; set it empty to exempt nothing. The decision uses
+the connecting address only. A request that carries `X-Forwarded-For`,
+`Forwarded` or `X-Real-IP` always needs the key, so a reverse proxy on your
+network does not make outside clients local. The Web UI sends no key, so
+through a proxy it needs the proxy's own login.
+
+Inside Docker the connecting address is the bridge gateway, not the client:
+a request from the LAN, and an IPv6 client that reaches the container through
+docker-proxy, both arrive as a `172.x` address. The default list would exempt
+every one of them, so `deploy/docker-compose.yml` sets
+`MEDIA_ARCHIVIST_AUTH_EXEMPT` to loopback only (`127.0.0.0/8,::1/128`). With
+an API key set, every client of a container needs the key.
+
+A reverse proxy must set `X-Forwarded-For`, because that header is what makes
+the server ask for the key. In nginx:
+
+```nginx
+proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+```
+
+---
+[← Datasets, Enrichment & Sharing](datasets.md) · [Home](index.md) · [Jellyfin / Kodi Remote Media →](jellyfin.md)

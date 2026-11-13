@@ -15,6 +15,9 @@ class SoundCloudArchivist(JsonArchivist):
     Each track entry stores title, artist, artist URL, duration (ms), artwork.
     """
 
+    url_hosts = ("soundcloud.com",)
+    sources = ("soundcloud",)
+
     def __init__(
         self,
         db_name: Optional[str] = None,

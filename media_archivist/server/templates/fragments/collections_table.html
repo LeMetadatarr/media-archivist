@@ -1,0 +1,47 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+{% if error %}
+<div class="error">{{ error }}</div>
+{% else %}
+{% if bulk_note %}
+<p class="q-bulk-note">{{ bulk_note }}</p>
+{% endif %}
+{% if not rows %}
+<p class="empty">No collections yet — save a filter above.</p>
+{% else %}
+<div class="scroll-x">
+<table class="table">
+  <thead>
+    <tr><th>Name</th><th>Filter</th><th>Matches</th><th>M3U</th><th></th></tr>
+  </thead>
+  <tbody id="coll-rows">
+    {% for row in rows %}
+    {% set c = row.coll %}
+    <tr id="coll-row-{{ loop.index }}">
+      <td><strong>{{ c.name }}</strong>{% if c.description %}<br><span class="label" style="color:var(--text-dim)">{{ c.description }}</span>{% endif %}</td>
+      <td>
+        {% if c.source %}<code>source={{ c.source }}</code> {% endif %}
+        {% if c.grep %}<code>grep={{ c.grep }}</code> {% endif %}
+        {% if c.where %}<code>{{ c.where }}</code>{% endif %}
+        {% if c.has_stream %}<span class="badge">has_stream</span>{% endif %}
+        {% if c.explicit %}<span class="badge">explicit</span>{% endif %}
+      </td>
+      <td>{% if row.error %}<span class="badge badge-err" title="{{ row.error }}">error</span>{% else %}{{ row.count }}{% endif %}</td>
+      <td>
+        <input type="text" readonly value="{{ root_path }}/collections/{{ c.name }}/m3u" style="width: 10em" onclick="this.select()">
+        <button class="btn btn-ghost" type="button"
+                onclick="navigator.clipboard.writeText(window.location.origin + '{{ root_path }}/collections/{{ c.name }}/m3u')">Copy link</button>
+      </td>
+      <td>
+        <button class="btn btn-ghost" hx-get="{{ root_path }}/ui/collections/{{ c.name }}/preview"
+                hx-target="#coll-preview" hx-swap="innerHTML">Preview</button>
+        <button class="btn btn-ghost btn-err-outline" hx-delete="{{ root_path }}/ui/collections"
+                hx-vals='{"name": "{{ c.name }}"}' hx-target="#coll-table" hx-swap="innerHTML"
+                hx-confirm="Remove collection {{ c.name }}?">Remove</button>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+{% endif %}

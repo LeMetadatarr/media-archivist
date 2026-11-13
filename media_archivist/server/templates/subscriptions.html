@@ -1,0 +1,62 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+{% extends "base.html" %}
+{% block title %}Subscriptions — media_archivist{% endblock %}
+{% block page_title %}Subscriptions{% endblock %}
+{% block content %}
+<div class="card">
+  <p class="label" style="color:var(--text-dim)">
+    Subscribe to a channel/playlist/collection URL and it stays auto-indexed:
+    "Sync now" re-runs the matching backend's <code>archive()</code> for
+    every subscription, which dedupes on its own — only new uploads get
+    added.
+  </p>
+  <form class="form-grid" hx-post="{{ root_path }}/ui/subscriptions" hx-target="#subs-table" hx-swap="innerHTML">
+    <div class="field">
+      <label for="s-url">URL</label>
+      <input id="s-url" name="url" required placeholder="https://www.youtube.com/@channel">
+    </div>
+    <div class="field">
+      <label for="s-backend">Backend</label>
+      <select id="s-backend" name="backend">
+        <option value="">(infer from URL)</option>
+        <option value="youtube">youtube</option>
+        <option value="ia">ia</option>
+        <option value="music">music</option>
+        <option value="bandcamp">bandcamp</option>
+        <option value="soundcloud">soundcloud</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="s-label">Label (optional)</label>
+      <input id="s-label" name="label" placeholder="e.g. Weekly talks">
+    </div>
+    <div class="field checkbox-field">
+      <label for="s-auto-download">
+        <input type="checkbox" id="s-auto-download" name="auto_download" value="1">
+        Always download new items
+      </label>
+    </div>
+    <div class="field">
+      <button class="btn" type="submit">Subscribe</button>
+    </div>
+  </form>
+</div>
+<div class="card" style="margin: var(--gap) 0; display:flex; align-items:center; gap: var(--gap);">
+  <button class="btn" hx-post="{{ root_path }}/ui/subscriptions/sync" hx-target="#subs-table" hx-swap="innerHTML"
+          hx-include="#sync-download" hx-confirm="Sync every subscription now? This may take a while (network I/O per subscription).">
+    Sync now
+  </button>
+  <label>
+    <input type="checkbox" id="sync-download" name="download" value="1">
+    Download new items
+  </label>
+</div>
+<p class="label" style="color:var(--text-dim)">
+  For unattended periodic scanning (no browser needed), run
+  <code>media-archivist sync-subscriptions --interval 3600</code> under
+  systemd or docker — see the CLI docs.
+</p>
+<div id="subs-table" hx-get="{{ root_path }}/ui/subscriptions/table" hx-trigger="load" hx-swap="innerHTML">
+  <p class="empty">Loading…</p>
+</div>
+{% endblock %}

@@ -15,7 +15,8 @@ Set up automated, re-entrant syncs by:
 
 ```bash
 # media_archivist installed
-pip install media_archivist[all]
+# from a clone of https://github.com/LeMetadatarr/media-archivist
+pip install ".[all]"
 
 # Cron daemon (standard on Unix-like systems)
 crontab -l  # verify cron is available

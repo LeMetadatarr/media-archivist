@@ -11,5 +11,5 @@ jobs:
     uses: OpenVoiceOS/gh-automations/.github/workflows/build-tests.yml@dev
     with:
       python_versions: '["3.10", "3.11", "3.12"]'
-      install_extras: "bandcamp,soundcloud"
+      install_extras: "test"
       test_path: "test/"

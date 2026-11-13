@@ -4,3 +4,7 @@ class MediaArchivistError(Exception):
 
 class VideoUnavailable(MediaArchivistError):
     """Raised when a video has been removed, made private, or otherwise can't be fetched."""
+
+
+class EmptySourceError(MediaArchivistError):
+    """Raised when a playlist or channel lists no videos at all."""

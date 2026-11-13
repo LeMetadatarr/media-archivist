@@ -96,3 +96,16 @@ def test_archive_envelope_v2_round_trip():
     assert dumped["_meta"]["last_synced"] is not None
     again = MediaArchive.load_dict(dumped)
     assert again.entries == arc.entries
+
+
+def test_youtube_entry_keeps_the_metadata_marks():
+    row = {"source": "youtube", "url": "u", "videoId": "abc", "title": "t",
+           "metadata_checked": "2026-01-01T00:00:00+00:00",
+           "metadata_network_failed": "2026-01-02T00:00:00+00:00"}
+    e = RawYoutubeEntry.model_validate(row)
+    assert e.metadata_network_failed == "2026-01-02T00:00:00+00:00"
+    assert e.model_dump(mode="json")["metadata_network_failed"] == row["metadata_network_failed"]
+
+
+def test_youtube_entry_declares_the_metadata_marks():
+    assert {"metadata_checked", "metadata_network_failed"} <= set(RawYoutubeEntry.model_fields)

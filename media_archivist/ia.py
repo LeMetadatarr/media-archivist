@@ -11,6 +11,9 @@ from media_archivist.base import JsonArchivist
 class IAArchivist(JsonArchivist):
     """Index Internet Archive items and collections into a JSON-backed DB."""
 
+    url_hosts = ("archive.org",)
+    sources = ("internet_archive",)
+
     VALID_FORMATS = ["MPEG2", "Ogg Video", "512Kb MPEG4", "h.264"]
 
     def archive(self, identifier: str) -> None:

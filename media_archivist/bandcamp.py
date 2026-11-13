@@ -16,6 +16,9 @@ class BandcampArchivist(JsonArchivist):
     direct stream URL when available.
     """
 
+    url_hosts = ("bandcamp.com",)
+    sources = ("bandcamp",)
+
     def __init__(
         self,
         db_name: Optional[str] = None,
