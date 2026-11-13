@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.29.0a2](https://github.com/LeMetadatarr/media-archivist/tree/0.29.0a2) (2026-11-13)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.29.0a1...0.29.0a2)
+
+**Merged pull requests:**
+
+- docs: describe the app API, fix stale metadata-only claims, slim the README [\#87](https://github.com/LeMetadatarr/media-archivist/pull/87) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.29.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.29.0a1) (2026-10-25)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.28.1a1...0.29.0a1)
