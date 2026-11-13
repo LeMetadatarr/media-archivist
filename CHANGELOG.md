@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.30.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.30.0a1) (2026-11-13)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.29.0a2...0.30.0a1)
+
+**Merged pull requests:**
+
+- feat: add a settings page to the web UI [\#86](https://github.com/LeMetadatarr/media-archivist/pull/86) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.29.0a2](https://github.com/LeMetadatarr/media-archivist/tree/0.29.0a2) (2026-11-13)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.29.0a1...0.29.0a2)
