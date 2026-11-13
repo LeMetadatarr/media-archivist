@@ -1311,3 +1311,41 @@ def test_api_refuses_unknown_caption_kinds(client, media):
         r = client.post("/api/v1/downloads", json={"entry": KEY, "target_dir": str(media),
                                                    "subtitles": ["en"], "subtitles_kinds": kinds})
         assert r.status_code == 400
+
+
+def test_a_failed_download_is_reported_only_after_its_staging_folder_is_gone(
+        lane, fake, media, monkeypatch):
+    fake.set("emptyfile")
+    real_rmtree = dl.shutil.rmtree
+
+    def slow_rmtree(path, *args, **kwargs):
+        if Path(path).name.startswith(dl.STAGING_PREFIX) and Path(path).exists():
+            time.sleep(0.3)
+        return real_rmtree(path, *args, **kwargs)
+
+    monkeypatch.setattr(dl.shutil, "rmtree", slow_rmtree)
+    record = lane.queue("a", KEY, target_dir=str(media))[0]
+    lane.start()
+    failed = wait_status(lane, record["id"], "completed", "failed")
+    assert failed["status"] == "failed"
+    assert not list(media.glob(".archivist-dl-*"))
+
+
+def test_a_failed_download_is_reported_when_its_staging_folder_cannot_be_removed(
+        lane, fake, media, monkeypatch):
+    fake.set("emptyfile")
+    real_rmtree = dl.shutil.rmtree
+    refused = []
+
+    def refusing_rmtree(path, *args, **kwargs):
+        if Path(path).name.startswith(dl.STAGING_PREFIX) and Path(path).exists() and not refused:
+            refused.append(path)
+            raise PermissionError("busy")
+        return real_rmtree(path, *args, **kwargs)
+
+    monkeypatch.setattr(dl.shutil, "rmtree", refusing_rmtree)
+    record = lane.queue("a", KEY, target_dir=str(media))[0]
+    lane.start()
+    failed = wait_status(lane, record["id"], "completed", "failed")
+    assert refused
+    assert failed["error"] == "yt-dlp finished without producing a video file"

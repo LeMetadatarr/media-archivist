@@ -721,18 +721,20 @@ class Downloads:
                 met = self._count_bot_check(download_id)
                 if met >= MAX_ATTEMPTS:
                     self._finish(download_id, status="failed", error_kind="bot",
-                                 error=f"met the bot check on {met} runs")
+                                 error=f"met the bot check on {met} runs", staging=staging)
                 else:
                     self._requeue(download_id)
                 return
             errors = [ln for ln in tail if ln.startswith("ERROR")]
             self._finish(download_id, status="failed", error_kind=kind,
-                         error=(errors[-1] if errors else text.splitlines()[-1])[:2000])
+                         error=(errors[-1] if errors else text.splitlines()[-1])[:2000],
+                         staging=staging)
             return
         video = self._video_file(staging, done)
         if video is None:
             self._finish(download_id, status="failed", error_kind="tool",
-                         error="yt-dlp finished without producing a video file")
+                         error="yt-dlp finished without producing a video file",
+                         staging=staging)
             return
         files = [video] + sorted(p for p in staging.iterdir()
                                  if p != video and p.is_file() and not p.name.endswith(_PARTIAL_SUFFIXES))
@@ -848,8 +850,21 @@ class Downloads:
                 error_kind: Optional[str] = None, files: Optional[List[str]] = None,
                 digests: Optional[Dict[str, str]] = None, title: Optional[str] = None,
                 size: Optional[int] = None, info_json: Optional[str] = None,
-                captions: Optional[List[Dict[str, Any]]] = None) -> bool:
-        """Settle a running download; false when it was no longer running (cancelled)."""
+                captions: Optional[List[Dict[str, Any]]] = None,
+                staging: Optional[Path] = None) -> bool:
+        """Settle a running download; false when it was no longer running (cancelled).
+
+        ``staging`` is removed before the status is written, so a reader that sees
+        the failure also sees the folder gone. A removal that raises is logged and
+        the status is still recorded.
+        """
+        if staging is not None:
+            try:
+                shutil.rmtree(staging)
+            except FileNotFoundError:
+                pass
+            except OSError as e:
+                LOG.warning("could not remove %s: %s", staging, e)
         now = utcnow()
         with self.index.write() as conn:
             cur = conn.execute(
