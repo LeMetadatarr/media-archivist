@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.30.1a1](https://github.com/LeMetadatarr/media-archivist/tree/0.30.1a1) (2026-11-13)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.30.0a1...0.30.1a1)
+
+**Merged pull requests:**
+
+- fix: remove the staging folder before a failed download is reported [\#91](https://github.com/LeMetadatarr/media-archivist/pull/91) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.30.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.30.0a1) (2026-11-13)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.29.0a2...0.30.0a1)
