@@ -1,6 +1,6 @@
 # FAQ: media_archivist
 
-Frequently asked questions and troubleshooting for the metadata-only media indexer.
+Frequently asked questions and troubleshooting for the media indexer.
 
 ## Installation & Setup
 
@@ -10,12 +10,13 @@ Frequently asked questions and troubleshooting for the metadata-only media index
 
 ```bash
 # Core (YouTube, YT Music, IA)
-pip install media_archivist
+# from a clone of https://github.com/LeMetadatarr/media-archivist
+pip install .
 
 # Or with optional backends
-pip install media_archivist py_bandcamp
-pip install media_archivist nuvem_de_som
-pip install "media_archivist[all]"  # hub publishing, HTTP service
+pip install . py_bandcamp
+pip install . nuvem_de_som
+pip install ".[all]"  # hub publishing, HTTP service
 ```
 
 If you installed via `all`, check your `$PYTHONPATH`:
@@ -30,10 +31,11 @@ python -c "import media_archivist; print(media_archivist.__file__)"
 
 ```bash
 # If you get "bandcamp backend requires py_bandcamp":
-pip install media_archivist py_bandcamp
+# from a clone of https://github.com/LeMetadatarr/media-archivist
+pip install . py_bandcamp
 
 # If you get "soundcloud backend requires nuvem_de_som":
-pip install media_archivist nuvem_de_som
+pip install . nuvem_de_som
 ```
 
 After install, retry the command.
@@ -105,13 +107,13 @@ To deduplicate across sources, use `link` and `dedupe` (see [Tutorial](tutorial.
 
 | Backend | Method | ToS | Scraping? |
 |---------|--------|-----|-----------|
-| YouTube | `tutubo` (web scrape) | Technically gray. No API key needed | Yes, but metadata-only |
-| YouTube Music | `ytmusicapi` (web scrape) | Technically gray | Yes, but metadata-only |
+| YouTube | `tutubo` (web scrape) | Technically gray. No API key needed | Yes, but only metadata is read |
+| YouTube Music | `ytmusicapi` (web scrape) | Technically gray | Yes, but only metadata is read |
 | Bandcamp | Public artist pages | Public data, no login | No, public access |
 | SoundCloud | `nuvem_de_som` (API-like) | Unclear | Possibly |
 | Internet Archive | Metadata API | Encouraged | No, uses official API |
 
-**Key point:** `media_archivist` is **metadata-only**. It reads title, URL, artist, duration, and other publicly-visible metadata. It does **not download content**. That's a separate, independent step via `yt-dlp` or your own tool.
+**Key point:** `media_archivist` reads title, URL, artist, duration, and other publicly-visible metadata, and plays entries through links resolved at play time. It downloads a file only when you or an app asks, through `yt-dlp`; see the [app API](app-api.md).
 
 **Recommendation:** For production use cases, especially at scale:
 - Use **Internet Archive** (openly encouraged).

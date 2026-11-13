@@ -4,7 +4,8 @@ Cross-source media indexer: scrapes stream metadata from YouTube, YouTube
 Music, Internet Archive, Bandcamp, and SoundCloud, validates it through
 Pydantic raw models, projects to a canonical `MediaEntry` view,
 canonicalizes/dedupes across sources via `metadatarr`, and serves the JSON DB
-over a FastAPI HTTP API. Metadata-only — it never downloads media; pair with
+over a FastAPI HTTP API. Streams entries without downloading them; a file is downloaded only when an app or a user
+asks, through yt-dlp. Pair with
 `yt-dlp`.
 
 ## Setup

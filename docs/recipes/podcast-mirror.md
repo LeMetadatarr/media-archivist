@@ -14,7 +14,8 @@ Create a self-contained podcast index from Internet Archive by:
 
 ```bash
 # Install media_archivist with Internet Archive support
-pip install media_archivist
+# from a clone of https://github.com/LeMetadatarr/media-archivist
+pip install .
 
 # Install internetarchive CLI for exploration (optional)
 pip install internetarchive

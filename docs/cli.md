@@ -81,5 +81,58 @@ args = ExportArgs(db_file="talks.json", format="jsonl",
 
 See [`examples/scripted_export.py`](../examples/scripted_export.py).
 
+## Subscriptions from the command line
+
+These commands follow channels and playlists in a JSON database. The server
+keeps its own subscriptions in the working index; see the [app API](app-api.md).
+
+```bash
+# Subscriptions: remember a channel/playlist/collection so new uploads keep
+# getting auto-indexed, without re-typing every URL each run
+media-archivist subscribe --db-file talks.json https://www.youtube.com/@LinusTechTips
+media-archivist subscribe --db-file talks.json --backend ia --label "Cartoons" \
+    https://archive.org/details/classic_cartoons
+# --download flags a subscription to always download newly-indexed items
+media-archivist subscribe --db-file talks.json --download \
+    https://www.youtube.com/@SomeArtist
+media-archivist subscriptions --db-file talks.json
+media-archivist sync-subscriptions --db-file talks.json   # archive() dedupes; only new uploads land
+media-archivist unsubscribe --db-file talks.json https://www.youtube.com/@LinusTechTips
+
+# Periodic auto-sync: keep re-running sync-subscriptions forever, on an
+# interval, indexing (and optionally downloading) new uploads as they show
+# up. This is a foreground daemon (Ctrl-C to stop) — run it under
+# systemd/docker for unattended "curate once, keep growing" operation:
+#   systemd: ExecStart=media-archivist sync-subscriptions --db-file talks.json --interval 3600 --download
+#   docker:  CMD ["media-archivist", "sync-subscriptions", "--db-file", "/data/talks.json", "--interval", "3600"]
+media-archivist sync-subscriptions --db-file talks.json --interval 3600
+# --download (with --interval or alone) downloads every newly-indexed item
+# this run, in addition to any subscription's own --download flag
+media-archivist sync-subscriptions --db-file talks.json --download
+```
+
+## Output formats
+
+| `--format` | Use case |
+| --- | --- |
+| `jsonl` *(default)* | streaming pipelines, HuggingFace `datasets`, `jq` |
+| `json` | small datasets, human inspection |
+| `csv` | pandas, spreadsheets, list/dict fields auto-serialized to JSON strings |
+| `txt` | flat URL list for `yt-dlp -a -` / `wget -i` / `xargs` |
+
+Combine with `--fields` to project only what you need, `--grep` to filter by
+title substring, and `--limit N` to cap row count.
+
+## Stored fields per video
+
+| field | source |
+| --- | --- |
+| `videoId`, `url`, `title`, `thumbnail` | tutubo `Video` |
+| `tags` | union of `Video.keywords` and inferred `Video.tags` |
+| `is_live`, `published`, `views`, `description` | tutubo channel-grid metadata |
+| `playlist` | only set when archived from a playlist |
+
+The `examples/` directory of the repository holds end-to-end dataset-creation scripts.
+
 ---
 [← Jellyfin / Kodi Remote Media](jellyfin.md) · [Home](index.md) · [CI / Release Automation →](ci.md)

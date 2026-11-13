@@ -8,16 +8,17 @@ Choose the right variant for your use case:
 
 ```bash
 # Core: YouTube, YouTube Music, Internet Archive
-pip install media_archivist
+# from a clone of https://github.com/LeMetadatarr/media-archivist
+pip install .
 
 # Add Bandcamp
-pip install media_archivist py_bandcamp
+pip install . py_bandcamp
 
 # Add SoundCloud
-pip install media_archivist nuvem_de_som
+pip install . nuvem_de_som
 
 # Everything
-pip install "media_archivist[all]" py_bandcamp nuvem_de_som
+pip install ".[all]" py_bandcamp nuvem_de_som
 ```
 
 Verify the install:
@@ -117,7 +118,7 @@ https://www.youtube.com/watch?v=xyz789
 
 ## Pipe to yt-dlp
 
-Now download the actual videos. This is why `media_archivist` is **metadata-only**, it does the heavy lifting of listing, filtering, and deduplication so `yt-dlp` just downloads:
+Now download the actual videos. `media_archivist` does the heavy lifting of listing, filtering, and deduplication so `yt-dlp` just downloads:
 
 ```bash
 # Download the first 5 videos
@@ -194,7 +195,7 @@ Pass collection names or individual item IDs. Downloads format URLs (MPEG4, Ogg 
 
 ### Bandcamp
 
-Requires `pip install media_archivist py_bandcamp`.
+Requires `pip install py_bandcamp`.
 
 ```bash
 media-archivist add --db-file bc.json --bandcamp \
@@ -207,7 +208,7 @@ Bandcamp entries include direct audio stream URLs (when Bandcamp exposes them), 
 
 ### SoundCloud
 
-Requires `pip install media_archivist nuvem_de_som`.
+Requires `pip install nuvem_de_som`.
 
 ```bash
 media-archivist add --db-file sc.json --soundcloud \
@@ -246,7 +247,7 @@ You cannot mix `--db` and `--db-file`. Exactly one is required per command.
 
 **Problem:** You used `--bandcamp` but didn't install the optional dependency.
 
-**Solution:** `pip install media_archivist py_bandcamp`
+**Solution:** `pip install py_bandcamp`
 
 ### URLs are blank in the export
 

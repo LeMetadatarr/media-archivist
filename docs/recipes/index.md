@@ -22,7 +22,8 @@ Each recipe is a self-contained tutorial using real `media-archivist` subcommand
 All recipes assume you have installed the library:
 
 ```bash
-pip install "media_archivist[all]" py_bandcamp nuvem_de_som
+# from a clone of https://github.com/LeMetadatarr/media-archivist
+pip install ".[all]" py_bandcamp nuvem_de_som
 ```
 
 Each recipe creates its own isolated database file(s). Example output files are prefixed with the recipe name (e.g., `recipe_music_library.json`).

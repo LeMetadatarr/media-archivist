@@ -74,7 +74,8 @@ to the entry payload count as "changed".
 ## HuggingFace Hub publishing
 
 ```bash
-pip install media_archivist[hub]   # installs huggingface_hub
+# from a clone of https://github.com/LeMetadatarr/media-archivist
+pip install ".[hub]"   # installs huggingface_hub
 huggingface-cli login
 
 media-archivist hub-publish --db-file talks.json \

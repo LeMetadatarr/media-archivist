@@ -49,7 +49,7 @@ nav:
   - Home: index.md
   - Getting started:
       - Install & first run: getting-started.md
-      - Tutorial: cross-source music dataset: tutorial.md
+      - "Tutorial: cross-source music dataset": tutorial.md
       - FAQ: faq.md
   - Web UI: webui.md
   - Concepts:
@@ -62,6 +62,11 @@ nav:
       - Jellyfin / Kodi remote media: jellyfin.md
       - Metadata providers (metadatarr): metadatarr.md
       - Provider plugins: plugins.md
+      - App API: app-api.md
+      - Notifications: notifications.md
+      - Entities & relations: entities.md
+      - Release variants: variants.md
+      - Anime, manga and book providers: providers_anime_books.md
   - Recipes:
       - recipes/index.md
       - recipes/music-library-from-bandcamp-soundcloud-and-ytmusic.md
