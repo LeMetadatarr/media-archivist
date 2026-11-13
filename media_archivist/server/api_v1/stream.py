@@ -277,6 +277,9 @@ def stream(entry_id: str, request: Request, mode: Optional[str] = None):
     return RedirectResponse(url=url, status_code=302)
 
 
+MAX_EXPIRES_AT = 253402300799  # 9999-12-31T23:59:59Z, the last second datetime can show
+
+
 @router.post("/entries/{entry_id}/link")
 def make_link(entry_id: str, request: Request, body: Optional[dict] = Body(None)):
     """A signed link that plays one entry; ``expires_in`` seconds, or never."""
@@ -287,6 +290,8 @@ def make_link(entry_id: str, request: Request, body: Optional[dict] = Body(None)
         if isinstance(expires_in, bool) or not isinstance(expires_in, int) or expires_in <= 0:
             raise HTTPException(status_code=400, detail="expires_in must be a whole number of seconds above 0")
         expires_at = int(time.time()) + expires_in
+        if expires_at > MAX_EXPIRES_AT:
+            raise HTTPException(status_code=400, detail="expires_in is too large")
     key = links.secret(deps.get_index(request))
     url = links.stream_url(links.public_base(str(request.base_url)), entry.id, key=key,
                            expires_at=expires_at)
