@@ -21,6 +21,13 @@ def _isolated_index_state(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _isolated_tutubo_state(tmp_path_factory, monkeypatch):
+    """tutubo's shared pause file lives in a folder of the test's own, never the user's."""
+    monkeypatch.setenv("TUTUBO_STATE_DIR", str(tmp_path_factory.mktemp("tutubo-state")))
+    monkeypatch.delenv("TUTUBO_BACKOFF", raising=False)
+
+
+@pytest.fixture(autouse=True)
 def _forget_resolved_plays():
     from media_archivist.server.api_v1 import stream
 

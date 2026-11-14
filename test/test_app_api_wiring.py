@@ -286,7 +286,7 @@ def test_plays_cannot_delay_a_download_waiting_for_its_turn(clock, monkeypatch, 
     _resolver(monkeypatch)
     monkeypatch.setattr(stream, "PLAY_CACHE_TTL_S", 0.0)
     claimed = []
-    lane._claim_next = lambda: claimed.append(clock.now) or None
+    lane._claim_next = lambda tools: claimed.append(clock.now) or None
     ytclient.CLIENT.call("listing", lambda: None)
     start = clock.now
     assert lane._start_next() == 10
@@ -394,7 +394,7 @@ def test_a_download_start_takes_its_turn_at_the_shared_gate(clock, tmp_path):
         conn.execute("INSERT INTO downloads (id, app, entry_id, target_dir, status, created_at,"
                      " updated_at) VALUES ('d1', 'a', 'e1', ?, 'queued', '', '')", (str(tmp_path),))
     ytclient.CLIENT.call("listing", lambda: None)
-    lane._claim_next = lambda: None
+    lane._claim_next = lambda tools: None
     assert lane._start_next() == 10
     clock.now += 10
     assert lane._start_next() is None
