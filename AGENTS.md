@@ -110,6 +110,13 @@ Module inventory below is generated from `git ls-files 'media_archivist/*.py'
 - `media_archivist/index_migrations/m0403_download_captions.py` — the caption
   kinds asked for, whether the info JSON is kept, and what each placed caption
   file is.
+- `media_archivist/index_migrations/m0404_download_tool.py` — which program a
+  download runs, its root, and what a dataset fetch placed.
+- `media_archivist/index_migrations/m0405_download_placements.py` — the key
+  that seals the journal of each dataset placement in progress.
+- `media_archivist/tutubofetch.py` — downloads for datasets: runs tutubo's
+  fetch program, checks, hashes and places its files, writes the
+  completeness record, reads tutubo's shared pause.
 - `media_archivist/backoff.py` — per-kind pauses after YouTube's bot check,
   persisted in the index.
 - `media_archivist/settings.py` — run-time settings (YouTube IP family,
@@ -220,7 +227,7 @@ Module inventory below is generated from `git ls-files 'media_archivist/*.py'
 - `media_archivist/server/api_v1/stream.py` — `/api/v1/stream/{id}` play-time
   resolution and `POST /api/v1/entries/{id}/link` signed links.
 - `media_archivist/server/api_v1/downloads.py` — `/api/v1/downloads`:
-  queue, status, history, cancel.
+  queue, batch, status, history, roots, cancel.
 - `media_archivist/server/web.py` — server-rendered htmx WebUI, mounted onto
   the same FastAPI app as the HTTP API.
 - `media_archivist/commands/__init__.py` — command handler modules for the

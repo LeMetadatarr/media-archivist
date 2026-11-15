@@ -1,33 +1,60 @@
 # SPDX-License-Identifier: Apache-2.0
-"""``/api/v1/downloads``: queue, status, history and cancel (see :mod:`media_archivist.downloads`)."""
+"""``/api/v1/downloads``: queue, batch, status, history, roots and cancel (see :mod:`media_archivist.downloads`)."""
 from __future__ import annotations
 
 import asyncio
+import shutil
 from contextlib import asynccontextmanager
-from typing import List, Optional
+from typing import Annotated, List, Literal, Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
 
 from media_archivist import downloads as downloads_mod
 from media_archivist.server.api_v1 import deps
 
 router = APIRouter()
-deps.FEATURES.add("downloads")
+deps.FEATURES.update({"downloads", "downloads_tutubo", "downloads_dest", "downloads_batch"})
+
+Entry = Annotated[str, Field(min_length=1, max_length=500)]
 
 
-class DownloadBody(BaseModel):
+class Options(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    entry: str = Field(min_length=1, max_length=500)
+    tool: Literal["yt-dlp", "tutubo"] = "yt-dlp"
     target_dir: Optional[str] = Field(default=None, max_length=4096)
+    root: Optional[StrictInt] = None
+    dest: Optional[str] = Field(default=None, max_length=downloads_mod.MAX_DEST)
     filename: Optional[str] = None
     filename_template: Optional[str] = None
     format: Optional[str] = None
     subtitles: Optional[List[str]] = None
     subtitles_kinds: Optional[List[str]] = None
     keep_info_json: bool = False
+    audio: Optional[StrictBool] = None
+    captions: Optional[StrictBool] = None
+    caption_kinds: Optional[List[str]] = Field(default=None, max_length=10)
+    caption_formats: Optional[List[str]] = Field(default=None, max_length=10)
+
+    def options(self) -> dict:
+        if self.filename is not None and self.filename_template is not None \
+                and self.filename != self.filename_template:
+            raise HTTPException(status_code=400, detail="give filename or filename_template, not both")
+        return dict(tool=self.tool, target_dir=self.target_dir, root=self.root, dest=self.dest,
+                    filename=self.filename if self.filename is not None else self.filename_template,
+                    format=self.format, subtitles=self.subtitles, subtitles_kinds=self.subtitles_kinds,
+                    keep_info_json=self.keep_info_json, audio=self.audio, captions=self.captions,
+                    caption_kinds=self.caption_kinds, caption_formats=self.caption_formats)
+
+
+class DownloadBody(Options):
+    entry: Entry
+
+
+class BatchBody(Options):
+    entries: List[Entry] = Field(min_length=1, max_length=downloads_mod.MAX_BATCH)
 
 
 def get_downloads(request: Request) -> downloads_mod.Downloads:
@@ -72,16 +99,35 @@ def _errors(call):
 
 @router.post("/downloads")
 def queue_download(body: DownloadBody, request: Request):
-    if body.filename is not None and body.filename_template is not None \
-            and body.filename != body.filename_template:
-        raise HTTPException(status_code=400, detail="give filename or filename_template, not both")
+    options = body.options()
     manager = get_downloads(request)
-    record, created = _errors(lambda: manager.queue(
-        deps.app_label(request), body.entry, target_dir=body.target_dir,
-        filename=body.filename if body.filename is not None else body.filename_template,
-        format=body.format, subtitles=body.subtitles,
-        subtitles_kinds=body.subtitles_kinds, keep_info_json=body.keep_info_json))
+    record, created = _errors(lambda: manager.queue(deps.app_label(request), body.entry, **options))
     return JSONResponse(record, status_code=201 if created else 200)
+
+
+@router.post("/downloads/batch")
+def queue_downloads(body: BatchBody, request: Request):
+    """One download per entry, all with the same options; all are queued or none."""
+    options = body.options()
+    manager = get_downloads(request)
+    queued = _errors(lambda: manager.queue_many(deps.app_label(request), body.entries, **options))
+    created = sum(1 for _, c in queued if c)
+    return JSONResponse({"downloads": [{**record, "created": c} for record, c in queued],
+                         "created": created, "pauses": manager.pauses()},
+                        status_code=201 if created else 200)
+
+
+@router.get("/downloads/roots")
+def list_roots(request: Request):
+    """The folders downloads may be written under, by position; ``root`` in a request is that position."""
+    roots = []
+    for position, root in enumerate(downloads_mod.download_roots()):
+        try:
+            free = shutil.disk_usage(root).free
+        except OSError:
+            free = None
+        roots.append({"root": position, "path": str(root), "exists": root.is_dir(), "free_bytes": free})
+    return {"roots": roots}
 
 
 @router.get("/downloads")
@@ -94,7 +140,7 @@ def list_downloads(request: Request, app: Optional[str] = None, status: Optional
     manager = get_downloads(request)
     records, next_cursor = _errors(lambda: manager.list(
         app=None if app == "all" else app, statuses=statuses, limit=limit, cursor=cursor))
-    return {"downloads": records, "next_cursor": next_cursor}
+    return {"downloads": records, "next_cursor": next_cursor, "pauses": manager.pauses()}
 
 
 @router.get("/downloads/{download_id}")

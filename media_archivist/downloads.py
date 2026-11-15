@@ -34,9 +34,19 @@ other download.
 
 Target folders are confined to the download roots: the folders listed in
 ``MEDIA_ARCHIVIST_DOWNLOAD_ROOTS`` (separated by ``os.pathsep``), or the
-server's download folder when the variable is unset. A path is compared
-after resolving symbolic links, at queue time and again when the download
-starts.
+server's download folder when the variable is unset. A request names its
+folder as an absolute ``target_dir``, or as a ``dest`` relative to one root
+(``root``, the root's position in that list), which suits a client that
+reaches the same folders under other paths; every record gives its folder
+and files relative to their root too. A path is compared after resolving
+symbolic links, at queue time and again when the download starts.
+
+A download's ``tool`` is ``yt-dlp`` (the default: a video or any format, as
+described above) or ``tutubo``: the audio, caption files and the
+video's details for a dataset, see :mod:`media_archivist.tutubofetch`.
+Each tool waits for its own pauses: ``yt-dlp`` downloads for the
+``download`` kind, ``tutubo`` downloads also for ``details`` and for
+tutubo's shared pause file.
 """
 from __future__ import annotations
 
@@ -56,7 +66,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-from media_archivist import streams, ytclient, ytmeta
+from media_archivist import streams, tutubofetch, ytclient, ytmeta
 from media_archivist.backoff import Backoff
 from media_archivist.indexdb import utcnow
 from media_archivist.settings import Settings
@@ -69,6 +79,9 @@ STATUSES = ("queued", "running", "completed", "failed", "cancelled")
 ACTIVE = ("queued", "running")
 FINISHED = ("completed", "failed", "cancelled")
 MAX_QUEUED_PER_APP = 1000
+MAX_BATCH = MAX_QUEUED_PER_APP
+MAX_DEST = 1024
+TOOLS = ("yt-dlp", "tutubo")
 MAX_ATTEMPTS = 5
 MAX_SUBTITLE_LANGS = 20
 STAGING_PREFIX = ".archivist-dl-"
@@ -122,11 +135,82 @@ def confine(target_dir: Optional[str]) -> Path:
     if not os.path.isabs(expanded):
         raise DownloadRequestError("target_dir must be an absolute path")
     path = Path(os.path.realpath(expanded))
-    for root in roots:
-        if path == root or root in path.parents:
-            return path
+    if any(path == root or root in path.parents for root in roots):
+        _refuse_staging(path, roots)
+        return path
     raise DownloadRequestError("target_dir must be inside one of the download roots: "
                                + ", ".join(str(r) for r in roots))
+
+
+def _refuse_staging(folder: Path, roots: List[Path]) -> None:
+    """Refuse a resolved folder that lies in a staging folder below any root holding it.
+
+    A staging folder belongs to the download that made it and is removed with
+    everything in it, so no download may be placed there, by name or by link.
+    """
+    for root in roots:
+        if folder == root or root in folder.parents:
+            if any(part.startswith((STAGING_PREFIX, tutubofetch.STAGING_PREFIX))
+                   for part in folder.relative_to(root).parts):
+                raise DownloadRequestError("the folder must not be or lie in a staging folder")
+
+
+def _clean_dest(dest: str) -> str:
+    """``dest`` as a relative folder path that stays below its root; else ``DownloadRequestError``."""
+    if not isinstance(dest, str) or not dest.strip() or len(dest) > MAX_DEST:
+        raise DownloadRequestError(f"dest must be a relative folder path of 1 to {MAX_DEST} characters")
+    if any(ord(c) < 32 or c in "\\\x7f" for c in dest):
+        raise DownloadRequestError("dest must not hold control characters or backslashes")
+    if dest.startswith("/") or os.path.isabs(dest) or dest.startswith("~"):
+        raise DownloadRequestError("dest must be relative to the root")
+    parts = dest.rstrip("/").split("/")
+    for part in parts:
+        if part in ("", ".", ".."):
+            raise DownloadRequestError("dest must not hold empty, '.' or '..' parts")
+        if part.startswith((STAGING_PREFIX, tutubofetch.STAGING_PREFIX)):
+            raise DownloadRequestError("dest must not name a staging folder")
+    return "/".join(parts)
+
+
+def resolve_target(target_dir: Optional[str] = None, root: Optional[int] = None,
+                   dest: Optional[str] = None) -> Tuple[Path, Path]:
+    """``(folder, root)`` of a request, both resolved; ``DownloadRequestError`` when it is not allowed.
+
+    ``target_dir`` is an absolute folder inside any root; ``root`` and
+    ``dest`` name a root by position and a folder below it. With neither,
+    the first root.
+    """
+    if target_dir is not None and (root is not None or dest is not None):
+        raise DownloadRequestError("give target_dir, or root and dest, not both")
+    roots = download_roots()
+    if target_dir is not None:
+        folder = confine(target_dir)
+        return folder, root_of(folder, roots)
+    if root is None:
+        root = 0
+    if isinstance(root, bool) or not isinstance(root, int) or not 0 <= root < len(roots):
+        raise DownloadRequestError(f"root must be a whole number from 0 to {len(roots) - 1}")
+    base = roots[root]
+    if dest is None:
+        return base, base
+    folder = Path(os.path.realpath(base / _clean_dest(dest)))
+    if base not in folder.parents:
+        raise DownloadRequestError("dest must stay inside its root")
+    _refuse_staging(folder, roots)
+    return folder, base
+
+
+def root_of(folder: Path, roots: Optional[List[Path]] = None) -> Optional[Path]:
+    """The innermost download root that holds ``folder``, or ``None``."""
+    inside = [r for r in (roots or download_roots()) if folder == r or r in folder.parents]
+    return max(inside, key=lambda r: len(r.parts)) if inside else None
+
+
+def _relative(path: Optional[str], root: Optional[str]) -> Optional[str]:
+    if not path or not root:
+        return None
+    rel = os.path.relpath(path, root)
+    return None if rel == ".." or rel.startswith("../") else rel
 
 
 def _inside(path: Path, folder: Path) -> bool:
@@ -266,11 +350,22 @@ def _clean_format(fmt: Optional[str]) -> Optional[str]:
     return fmt
 
 
-def _record(row, waiting_for: Optional[Dict[str, str]]) -> Dict[str, Any]:
+def _record(row, waiting: Dict[str, Optional[Dict[str, str]]],
+            roots: Optional[List[Path]] = None) -> Dict[str, Any]:
     progress = row["progress"]
-    return {
+    tool = row["tool"]
+    files = json.loads(row["files"] or "[]")
+    root_dir = row["root_dir"]
+    if root_dir is None:
+        found = root_of(Path(row["target_dir"]), roots)
+        root_dir = str(found) if found is not None else None
+    roots = roots if roots is not None else download_roots()
+    root_index = next((i for i, r in enumerate(roots) if str(r) == root_dir), None)
+    fetched = json.loads(row["fetch_record"] or "null")
+    record = {
         "id": row["id"],
         "app": row["app"],
+        "tool": tool,
         "entry": row["entry_key"] or row["entry_id"],
         "entry_id": row["entry_id"],
         "title": row["title"],
@@ -278,12 +373,16 @@ def _record(row, waiting_for: Optional[Dict[str, str]]) -> Dict[str, Any]:
         "progress": None if progress is None else int(progress),
         "bytes": row["bytes"],
         "target_dir": row["target_dir"],
+        "root": root_index,
+        "root_dir": root_dir,
+        "dest": _relative(row["target_dir"], root_dir),
         "filename": row["filename_template"],
         "format": row["format"],
         "subtitles": json.loads(row["subtitles"] or "[]"),
         "subtitles_kinds": json.loads(row["subtitles_kinds"] or "null") or streams.DEFAULT_CAPTION_KINDS,
         "keep_info_json": bool(row["keep_info_json"]),
-        "files": json.loads(row["files"] or "[]"),
+        "files": files,
+        "paths": [_relative(f, root_dir) for f in files],
         "info_json": row["info_json"],
         "captions": json.loads(row["captions"] or "[]"),
         "created": row["created_at"],
@@ -292,8 +391,23 @@ def _record(row, waiting_for: Optional[Dict[str, str]]) -> Dict[str, Any]:
         "error": row["error"],
         "error_kind": row["error_kind"],
         "attempts": row["attempts"],
-        "waiting_for": waiting_for if row["status"] == "queued" else None,
+        "waiting_for": waiting.get(tool) if row["status"] == "queued" else None,
     }
+    record.update({"fetch": None, "complete": None, "incomplete": None, "file_details": None})
+    if tool == "tutubo":
+        options = json.loads(row["fetch_options"] or "{}")
+        record["fetch"] = {"audio": options.get("audio"), "captions": options.get("captions"),
+                           "caption_kinds": options.get("kinds"),
+                           "caption_formats": options.get("formats")}
+        if fetched is not None:
+            record.update({
+                "complete": fetched.get("complete"),
+                "incomplete": fetched.get("incomplete"),
+                "file_details": [{**item, "path": _relative(os.path.join(row["target_dir"], item["path"]),
+                                                            root_dir)}
+                                 for item in tutubofetch.latest_files(fetched)],
+            })
+    return record
 
 
 class Downloads:
@@ -315,64 +429,143 @@ class Downloads:
 
     # -- queue -----------------------------------------------------------
 
-    def queue(self, app: str, entry: str, *, target_dir: Optional[str] = None,
-              filename: Optional[str] = None, format: Optional[str] = None,
-              subtitles: Optional[Iterable[str]] = None,
-              subtitles_kinds: Optional[Iterable[str]] = None,
-              keep_info_json: bool = False) -> Tuple[Dict[str, Any], bool]:
+    def queue(self, app: str, entry: str, **options: Any) -> Tuple[Dict[str, Any], bool]:
         """Queue a download; returns ``(record, created)``.
 
-        An identical request (same entry, same folder) still queued or
-        running is returned instead of a new one, with ``created`` false.
+        ``options`` are those of :meth:`prepare`. An identical request (same
+        entry, same folder, same tool) still queued or running is returned
+        instead of a new one, with ``created`` false.
         """
-        try:
-            streams.output_template(filename)
-        except ValueError as e:
-            raise DownloadRequestError(str(e)) from None
-        fmt = _clean_format(format)
-        langs = _clean_subtitles(subtitles)
-        kinds = _clean_kinds(subtitles_kinds)
-        target = confine(target_dir)
-        if streams.ytdlp_command() is None:
-            raise ToolMissing("yt-dlp is not available on this server; downloads are disabled")
-        title = None
+        records = self.queue_many(app, [entry], **options)
+        return records[0]
+
+    def queue_many(self, app: str, entries: List[str], **options: Any) -> List[Tuple[Dict[str, Any], bool]]:
+        """Queue one download per entry with the same options; all or none.
+
+        Nothing is queued when any entry is unknown or not allowed, or when
+        the downloads it adds would take the app past
+        :data:`MAX_QUEUED_PER_APP` queued ones.
+        """
+        if not isinstance(entries, list) or not 1 <= len(entries) <= MAX_BATCH:
+            raise DownloadRequestError(f"entries must hold 1 to {MAX_BATCH} entries")
+        prepared = self.prepare(**options)
+        out = []
+        lookup: Dict[str, Any] = {}
         with self.index.write() as conn:
-            entry_id, key, _ = self._resolve_entry(conn, entry)
-            existing = conn.execute(
-                "SELECT * FROM downloads WHERE entry_id = ? AND target_dir = ?"
-                " AND status IN ('queued', 'running') ORDER BY seq LIMIT 1",
-                (entry_id, str(target))).fetchone()
-            if existing is not None:
-                return _record(existing, self._waiting_for()), False
             queued = conn.execute("SELECT COUNT(*) FROM downloads WHERE app = ? AND status = 'queued'",
                                   (app,)).fetchone()[0]
-            if queued >= MAX_QUEUED_PER_APP:
-                raise QueueFull(f"{app} already has {queued} downloads queued")
-            title = self._title(entry_id)
-            now = utcnow()
-            download_id = "dl_" + uuid.uuid4().hex
-            conn.execute(
-                "INSERT INTO downloads (id, seq, app, entry_id, entry_key, title, target_dir,"
-                " filename_template, format, subtitles, subtitles_kinds, keep_info_json, status,"
-                " created_at, updated_at)"
-                " VALUES (?, (SELECT COALESCE(MAX(seq), 0) + 1 FROM downloads), ?, ?, ?, ?, ?,"
-                " ?, ?, ?, ?, ?, 'queued', ?, ?)",
-                (download_id, app, entry_id, key, title, str(target), filename, fmt,
-                 json.dumps(langs), None if kinds is None else json.dumps(kinds),
-                 int(bool(keep_info_json)), now, now))
-            row = conn.execute("SELECT * FROM downloads WHERE id = ?", (download_id,)).fetchone()
-        with self._cond:
-            self._cond.notify_all()
-        return _record(row, self._waiting_for()), True
+            for entry in entries:
+                row, created = self._insert(conn, app, entry, prepared, lookup)
+                if created:
+                    queued += 1
+                    if queued > MAX_QUEUED_PER_APP:
+                        raise QueueFull(f"{app} would have more than {MAX_QUEUED_PER_APP} downloads queued")
+                out.append((row, created))
+        if any(created for _, created in out):
+            with self._cond:
+                self._cond.notify_all()
+        waiting = self._waiting()
+        roots = download_roots()
+        return [(_record(row, waiting, roots), created) for row, created in out]
 
-    def _resolve_entry(self, conn, entry: str) -> Tuple[str, str, str]:
-        """``(entry_id, key, url)`` of an entry id or key; a YouTube key is indexed first."""
-        entry = (entry or "").strip()
+    def prepare(self, *, tool: str = "yt-dlp", target_dir: Optional[str] = None,
+                root: Optional[int] = None, dest: Optional[str] = None,
+                filename: Optional[str] = None, format: Optional[str] = None,
+                subtitles: Optional[Iterable[str]] = None,
+                subtitles_kinds: Optional[Iterable[str]] = None,
+                keep_info_json: bool = False, audio: Optional[bool] = None,
+                captions: Optional[bool] = None, caption_kinds: Optional[Iterable[str]] = None,
+                caption_formats: Optional[Iterable[str]] = None) -> Dict[str, Any]:
+        """The checked form of a request's options; ``DownloadRequestError`` or ``ToolMissing`` otherwise.
+
+        ``tool`` is ``yt-dlp`` (``filename``, ``format``, ``subtitles``,
+        ``subtitles_kinds``, ``keep_info_json``) or ``tutubo`` (``audio``,
+        ``captions``, ``caption_kinds``, ``caption_formats``); an option of
+        the other tool is refused.
+        """
+        if tool not in TOOLS:
+            raise DownloadRequestError(f"tool must be one of {', '.join(TOOLS)}")
+        out: Dict[str, Any] = {"tool": tool}
+        if tool == "yt-dlp":
+            if any(v is not None for v in (audio, captions, caption_kinds, caption_formats)):
+                raise DownloadRequestError("audio, captions, caption_kinds and caption_formats need tool tutubo")
+            try:
+                streams.output_template(filename)
+            except ValueError as e:
+                raise DownloadRequestError(str(e)) from None
+            out.update(filename=filename, format=_clean_format(format),
+                       subtitles=_clean_subtitles(subtitles), subtitles_kinds=_clean_kinds(subtitles_kinds),
+                       keep_info_json=bool(keep_info_json), fetch=None)
+        else:
+            if filename is not None or format is not None or subtitles is not None \
+                    or subtitles_kinds is not None or keep_info_json:
+                raise DownloadRequestError("filename, format, subtitles, subtitles_kinds and keep_info_json "
+                                           "need tool yt-dlp")
+            for name, value in (("audio", audio), ("captions", captions)):
+                if value is not None and not isinstance(value, bool):
+                    raise DownloadRequestError(f"{name} must be true or false")
+            try:
+                kinds = tutubofetch.clean_names(caption_kinds, tutubofetch.CAPTION_KINDS, "caption_kinds",
+                                                tutubofetch.DEFAULT_CAPTION_KINDS)
+                formats = tutubofetch.clean_names(caption_formats, tutubofetch.CAPTION_FORMATS,
+                                                  "caption_formats", tutubofetch.DEFAULT_CAPTION_FORMATS)
+            except ValueError as e:
+                raise DownloadRequestError(str(e)) from None
+            fetch = tutubofetch.request(True if audio is None else audio,
+                                        True if captions is None else captions, kinds, formats)
+            if not fetch["audio"] and not fetch["captions"]:
+                raise DownloadRequestError("audio and captions cannot both be false")
+            out.update(filename=None, format=None, subtitles=[], subtitles_kinds=None,
+                       keep_info_json=False, fetch=fetch)
+        out["target"], out["root"] = resolve_target(target_dir, root, dest)
+        if tool == "yt-dlp" and streams.ytdlp_command() is None:
+            raise ToolMissing("yt-dlp is not available on this server; downloads are disabled")
+        if tool == "tutubo" and tutubofetch.command() is None:
+            raise ToolMissing("tutubo's fetch program cannot run on this server (tutubo or yt-dlp missing, "
+                              f"or {tutubofetch.ENV_COMMAND} is not a program)")
+        return out
+
+    def _insert(self, conn, app: str, entry: str, p: Dict[str, Any], lookup: Dict[str, Any]):
+        """``(row, created)`` for one entry, inside the caller's write transaction."""
+        entry_id, key, _ = self._resolve_entry(conn, entry, lookup)
+        if p["tool"] == "tutubo" and tutubofetch.video_id_of(key) is None:
+            raise DownloadRequestError(f"tool tutubo downloads YouTube videos only, not {entry!r}")
+        target = str(p["target"])
+        existing = conn.execute(
+            "SELECT * FROM downloads WHERE entry_id = ? AND target_dir = ? AND tool = ?"
+            " AND status IN ('queued', 'running') ORDER BY seq LIMIT 1",
+            (entry_id, target, p["tool"])).fetchone()
+        if existing is not None:
+            return existing, False
+        title = self._title(entry_id, lookup)
+        now = utcnow()
+        download_id = "dl_" + uuid.uuid4().hex
+        kinds = p["subtitles_kinds"]
+        conn.execute(
+            "INSERT INTO downloads (id, seq, app, entry_id, entry_key, title, target_dir,"
+            " filename_template, format, subtitles, subtitles_kinds, keep_info_json, status,"
+            " created_at, updated_at, tool, root_dir, fetch_options)"
+            " VALUES (?, (SELECT COALESCE(MAX(seq), 0) + 1 FROM downloads), ?, ?, ?, ?, ?,"
+            " ?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?)",
+            (download_id, app, entry_id, key, title, target, p["filename"], p["format"],
+             json.dumps(p["subtitles"]), None if kinds is None else json.dumps(kinds),
+             int(p["keep_info_json"]), now, now, p["tool"],
+             None if p["root"] is None else str(p["root"]),
+             None if p["fetch"] is None else json.dumps(p["fetch"])))
+        return conn.execute("SELECT * FROM downloads WHERE id = ?", (download_id,)).fetchone(), True
+
+    def _resolve_entry(self, conn, entry: str, lookup: Optional[Dict[str, Any]] = None) -> Tuple[str, str, str]:
+        """``(entry_id, key, url)`` of an entry id or key; a YouTube key is indexed first.
+
+        ``lookup`` keeps the JSON database's reader between calls of one request.
+        """
+        if not isinstance(entry, str):
+            raise DownloadRequestError("an entry is an id or a key such as youtube:<videoId>")
+        entry = entry.strip()
         row = conn.execute("SELECT entry_id, key, url FROM entries_meta WHERE entry_id = ? OR key = ?",
                            (entry, entry)).fetchone()
         if row is not None:
             return row["entry_id"], row["key"], row["url"]
-        from media_archivist.index import Index
         from media_archivist.models.canonical import stable_id
         from media_archivist.models.raw import Source
 
@@ -381,7 +574,8 @@ class Downloads:
             url = f"https://www.youtube.com/watch?v={m[1]}"
             entry_id, key = stable_id(Source.YOUTUBE, url), entry
         else:
-            known = Index(self.db_path).get(entry) if Path(self.db_path).is_file() else None
+            reader = self._reader(lookup)
+            known = reader.get(entry) if reader is not None else None
             if known is None:
                 raise UnknownDownload(f"unknown entry {entry!r}")
             video_id = (known.raw or {}).get("videoId")
@@ -393,13 +587,25 @@ class Downloads:
                      " VALUES (?, ?, ?, ?)", (entry_id, key, url, utcnow()))
         return entry_id, key, url
 
-    def _title(self, entry_id: str) -> Optional[str]:
+    def _reader(self, lookup: Optional[Dict[str, Any]] = None):
+        """The JSON database's reader, kept in ``lookup``; ``None`` when there is no database."""
         if not Path(self.db_path).is_file():
             return None
+        if lookup is not None and "reader" in lookup:
+            return lookup["reader"]
         from media_archivist.index import Index
 
+        reader = Index(self.db_path)
+        if lookup is not None:
+            lookup["reader"] = reader
+        return reader
+
+    def _title(self, entry_id: str, lookup: Optional[Dict[str, Any]] = None) -> Optional[str]:
         try:
-            entry = Index(self.db_path).get(entry_id)
+            reader = self._reader(lookup)
+            if reader is None:
+                return None
+            entry = reader.get(entry_id)
         except Exception:
             LOG.exception("cannot read the title of %s", entry_id)
             return None
@@ -407,15 +613,35 @@ class Downloads:
 
     # -- reading ---------------------------------------------------------
 
-    def _waiting_for(self) -> Optional[Dict[str, str]]:
-        until = self.backoff.blocked_until(KIND)
-        return {"reason": "bot check", "until": _iso(until)} if until else None
+    def blocked_until(self, tool: str) -> Tuple[Optional[float], Optional[str]]:
+        """``(until, reason)`` while downloads of ``tool`` may not start, else ``(None, None)``."""
+        until = self.backoff.blocked_until(KIND) or 0.0
+        reason = "bot check"
+        if tool == "tutubo":
+            until = max(until, self.backoff.blocked_until("details") or 0.0)
+            shared, why = tutubofetch.shared_pause()
+            if shared and shared > until:
+                until, reason = shared, why
+        return (until, reason) if until else (None, None)
+
+    def _waiting(self) -> Dict[str, Optional[Dict[str, str]]]:
+        out: Dict[str, Optional[Dict[str, str]]] = {}
+        for tool in TOOLS:
+            until, reason = self.blocked_until(tool)
+            out[tool] = {"reason": reason, "until": _iso(until)} if until else None
+        return out
+
+    def pauses(self) -> Dict[str, Dict[str, Any]]:
+        """Each tool's pause as ``{"paused", "retry_at", "reason"}``."""
+        return {tool: {"paused": w is not None, "retry_at": w["until"] if w else None,
+                       "reason": w["reason"] if w else None}
+                for tool, w in self._waiting().items()}
 
     def get(self, download_id: str) -> Dict[str, Any]:
         row = self.index.execute("SELECT * FROM downloads WHERE id = ?", (download_id,)).fetchone()
         if row is None:
             raise UnknownDownload(f"unknown download {download_id!r}")
-        return _record(row, self._waiting_for())
+        return _record(row, self._waiting())
 
     def list(self, *, app: Optional[str] = None, statuses: Optional[Iterable[str]] = None,
              limit: int = 100, cursor: Optional[str] = None) -> Tuple[List[Dict[str, Any]], Optional[str]]:
@@ -442,8 +668,9 @@ class Downloads:
         if where:
             sql += " WHERE " + " AND ".join(where)
         rows = self.index.execute(sql + " ORDER BY seq DESC LIMIT ?", (*params, limit + 1)).fetchall()
-        waiting = self._waiting_for()
-        records = [_record(r, waiting) for r in rows[:limit]]
+        waiting = self._waiting()
+        roots = download_roots()
+        records = [_record(r, waiting, roots) for r in rows[:limit]]
         next_cursor = str(rows[limit - 1]["seq"]) if len(rows) > limit else None
         return records, next_cursor
 
@@ -477,10 +704,12 @@ class Downloads:
             if not removed:
                 if download_id in self._jobs:
                     self._cancelled.add(download_id)
+                else:
+                    self._drop_fetch_staging(row)
                 proc = self._procs.get(download_id)
                 if proc is not None:
                     _terminate(proc)
-                return _record(row, None)
+                return _record(row, {})
         deleted, kept = [], []
         if delete_files:
             folder = Path(row["target_dir"])
@@ -507,6 +736,59 @@ class Downloads:
                     continue
                 kept.append({"path": name, "reason": reason})
         return {"id": download_id, "removed": True, "deleted_files": deleted, "kept_files": kept}
+
+    def _drop_fetch_staging(self, row) -> None:
+        """Remove what a queued ``tutubo`` download kept for its next run, when its folder is still inside a root."""
+        video_id = tutubofetch.video_id_of(row["entry_key"])
+        if row["tool"] == "tutubo" and video_id is not None:
+            try:
+                target = confine(row["target_dir"])
+            except DownloadRequestError:
+                return
+            try:
+                self.recover(target, video_id)
+            except tutubofetch.Conflict:
+                pass
+            staging = target / (tutubofetch.STAGING_PREFIX + video_id)
+            if staging.is_symlink():
+                staging.unlink()
+            else:
+                shutil.rmtree(staging, ignore_errors=True)
+
+    # -- placements of tool tutubo -----------------------------------------
+
+    def _placement_key(self, target: Path, video_id: str) -> Optional[str]:
+        row = self.index.execute("SELECT key FROM download_placements WHERE target_dir = ? AND video_id = ?",
+                                 (str(target), video_id)).fetchone()
+        return row["key"] if row else None
+
+    def _new_placement_key(self, target: Path, video_id: str) -> str:
+        key = tutubofetch.new_key()
+        with self.index.write() as conn:
+            conn.execute("INSERT OR REPLACE INTO download_placements (target_dir, video_id, key)"
+                         " VALUES (?, ?, ?)", (str(target), video_id, key))
+        return key
+
+    def _forget_placement_key(self, target: Path, video_id: str) -> None:
+        with self.index.write() as conn:
+            conn.execute("DELETE FROM download_placements WHERE target_dir = ? AND video_id = ?",
+                         (str(target), video_id))
+
+    def _release_placement_key(self, target: Path, video_id: str) -> None:
+        """Drop the placement's key unless its journal is still there for :meth:`recover`."""
+        journal = tutubofetch.journal_path(target, video_id)
+        if not journal.exists() and not journal.is_symlink():
+            self._forget_placement_key(target, video_id)
+
+    def recover(self, target: Path, video_id: str) -> None:
+        """Finish or undo a placement of ``video_id`` in ``target`` that a crash interrupted.
+
+        Only a journal sealed with the key this server keeps for that folder and
+        video is acted on; any other journal is a :class:`tutubofetch.Conflict`.
+        """
+        target = Path(os.path.realpath(target))
+        tutubofetch.recover(target, video_id, self._placement_key(target, video_id))
+        self._forget_placement_key(target, video_id)
 
     # -- the lane --------------------------------------------------------
 
@@ -543,10 +825,18 @@ class Downloads:
         with self._cond:
             if self._jobs:
                 return False
-        if self.backoff.blocked_until(KIND):
-            return True
-        row = self.index.execute("SELECT 1 FROM downloads WHERE status = 'queued' LIMIT 1").fetchone()
-        return row is None
+        return not self._startable()[0]
+
+    def _startable(self) -> Tuple[List[str], Optional[float]]:
+        """The tools with a queued download that may start now, and the wait for the others."""
+        allowed, waits = [], []
+        for (tool,) in self.index.execute("SELECT DISTINCT tool FROM downloads WHERE status = 'queued'"):
+            until, _ = self.blocked_until(tool)
+            if until:
+                waits.append(max(0.01, until - self.backoff.clock()))
+            else:
+                allowed.append(tool)
+        return allowed, (min(waits) if waits else None)
 
     def _recover(self) -> None:
         with self.index.write() as conn:
@@ -575,15 +865,13 @@ class Downloads:
         """Start one download if one may start; returns how long to wait (0: try again)."""
         if len(self._jobs) >= int(self.settings.get("download_concurrency")):
             return None
-        remaining = self.backoff.remaining(KIND)
-        if remaining > 0:
-            return remaining
-        if self.index.execute("SELECT 1 FROM downloads WHERE status = 'queued' LIMIT 1").fetchone() is None:
-            return None
+        allowed, wait = self._startable()
+        if not allowed:
+            return wait
         delay = ytclient.CLIENT.gate.try_start()
         if delay > 0:
             return delay
-        row = self._claim_next()
+        row = self._claim_next(allowed)
         if row is None:
             return None
         self._last_app = row["app"]
@@ -594,10 +882,12 @@ class Downloads:
         job.start()
         return 0
 
-    def _claim_next(self):
+    def _claim_next(self, tools: List[str]):
+        marks = ", ".join("?" for _ in tools)
         with self.index.write() as conn:
             firsts = conn.execute("SELECT app, MIN(seq) AS first FROM downloads"
-                                  " WHERE status = 'queued' GROUP BY app ORDER BY first").fetchall()
+                                  f" WHERE status = 'queued' AND tool IN ({marks})"
+                                  " GROUP BY app ORDER BY first", tools).fetchall()
             if not firsts:
                 return None
             apps = sorted(r["app"] for r in firsts)
@@ -606,7 +896,7 @@ class Downloads:
             else:
                 app = next((a for a in apps if a > self._last_app), apps[0])
             row = conn.execute("SELECT * FROM downloads WHERE app = ? AND status = 'queued'"
-                               " ORDER BY seq LIMIT 1", (app,)).fetchone()
+                               f" AND tool IN ({marks}) ORDER BY seq LIMIT 1", (app, *tools)).fetchone()
             now = utcnow()
             conn.execute("UPDATE downloads SET status = 'running', started_at = ?, finished_at = NULL,"
                          " attempts = attempts + 1, progress = 0, bytes = NULL, error = NULL,"
@@ -628,6 +918,9 @@ class Downloads:
                 self._cond.notify_all()
 
     def _download(self, row) -> None:
+        if row["tool"] == "tutubo":
+            self._fetch(row)
+            return
         download_id = row["id"]
         try:
             target = confine(row["target_dir"])
@@ -656,7 +949,7 @@ class Downloads:
             info_json=bool(row["keep_info_json"]),
             ip_family=self.settings.get("youtube_ip_family"))
         try:
-            returncode, done, tail = self._execute(download_id, argv)
+            returncode, done, tail, _ = self._execute(download_id, argv)
             with self._cond:
                 if download_id in self._cancelled:
                     self._cancelled.discard(download_id)
@@ -670,27 +963,33 @@ class Downloads:
         finally:
             shutil.rmtree(staging, ignore_errors=True)
 
-    def _execute(self, download_id: str, argv: List[str]):
+    def _execute(self, download_id: str, argv: List[str], *, parse=streams.parse_download_line,
+                 env: Optional[Dict[str, str]] = None):
+        """Run ``argv``; ``(returncode, done, tail, events)``, ``returncode`` ``None`` when it never started."""
         with self._cond:
             if download_id in self._cancelled or self._stopping:
-                return None, None, []
+                return None, None, [], []
             proc = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                     stderr=subprocess.STDOUT, text=True, errors="replace",
-                                    start_new_session=True)
+                                    start_new_session=True, env=env)
             self._procs[download_id] = proc
         done = None
+        events: deque = deque(maxlen=50)
         tail: deque = deque(maxlen=40)
         last_write = 0.0
         shown = (-1, None)
         assert proc.stdout is not None
         for line in proc.stdout:
-            parsed = streams.parse_download_line(line)
+            parsed = parse(line)
             if parsed is None:
                 if line.strip():
                     tail.append(line.rstrip())
                 continue
             if "done" in parsed:
                 done = parsed["done"]
+                continue
+            if "event" in parsed:
+                events.append(parsed["event"])
                 continue
             progress = parsed["progress"]
             percent = progress["percent"]
@@ -699,7 +998,154 @@ class Downloads:
             if value != shown and now - last_write >= _PROGRESS_WRITE_S:
                 self._progress(download_id, *value)
                 shown, last_write = value, now
-        return proc.wait(), done, list(tail)
+        return proc.wait(), done, list(tail), list(events)
+
+    # -- downloads for datasets (tool tutubo) -------------------------------
+
+    def _fetch(self, row) -> None:
+        download_id = row["id"]
+        try:
+            target = confine(row["target_dir"])
+        except DownloadRequestError as e:
+            self._finish(download_id, status="failed", error=str(e), error_kind="permanent")
+            return
+        video_id = tutubofetch.video_id_of(row["entry_key"])
+        if video_id is None:
+            self._finish(download_id, status="failed", error_kind="permanent",
+                         error=f"entry {row['entry_id']} is not a YouTube video")
+            return
+        req = json.loads(row["fetch_options"] or "{}")
+        try:
+            self.recover(target, video_id)
+        except tutubofetch.Conflict as e:
+            self._finish(download_id, status="failed", error_kind="conflict", error=str(e)[:2000])
+            return
+        record = tutubofetch.already_complete(target, video_id, req)
+        if record is not None:
+            staging = target / (tutubofetch.STAGING_PREFIX + video_id)
+            if staging.is_symlink():
+                staging.unlink()
+            self._complete_fetch(download_id, target, video_id, record, None,
+                                 staging if staging.is_dir() else None)
+            return
+        command = tutubofetch.command()
+        if command is None:
+            self._finish(download_id, status="failed", error_kind="tool",
+                         error="tutubo's fetch program cannot run on this server")
+            return
+        staging = target / (tutubofetch.STAGING_PREFIX + video_id)
+        if staging.is_symlink() or (staging.exists() and not staging.is_dir()):
+            staging.unlink()
+        staging.mkdir(parents=True, exist_ok=True)
+        argv = command + tutubofetch.argv(
+            video_id, staging, req, gap=self.settings.get("youtube_request_spacing"),
+            family=self.settings.get("youtube_ip_family"))
+        started = self.backoff.clock()
+        keep = False
+        try:
+            returncode, _, tail, events = self._execute(
+                download_id, argv, parse=tutubofetch.parse_line, env=tutubofetch.child_env())
+            with self._cond:
+                if download_id in self._cancelled:
+                    self._cancelled.discard(download_id)
+                    return
+                if self._stopping and returncode != 0:
+                    self._requeue(download_id)
+                    keep = True
+                    return
+            keep = self._settle_fetch(row, target, staging, video_id, req, returncode, tail, events,
+                                      started)
+            with self._cond:
+                self._cancelled.discard(download_id)
+        finally:
+            if not keep:
+                shutil.rmtree(staging, ignore_errors=True)
+
+    def _bot_check(self, download_id: str, kind: str, staging: Path) -> bool:
+        """Pause ``kind`` and queue the download again, or fail it on its last attempt; true when it waits."""
+        wait = self.backoff.mark_blocked(kind)
+        LOG.warning("download %s met the bot check; %s requests pause for %ds", download_id, kind, int(wait))
+        met = self._count_bot_check(download_id)
+        if met >= MAX_ATTEMPTS:
+            self._finish(download_id, status="failed", error_kind="bot",
+                         error=f"met the bot check on {met} runs", staging=staging)
+            return False
+        self._requeue(download_id)
+        return True
+
+    def _settle_fetch(self, row, target: Path, staging: Path, video_id: str, req: Dict[str, Any],
+                      returncode, tail: List[str], events: List[Dict[str, Any]], started: float) -> bool:
+        """Record how a run of the fetch program ended; true when its staging folder stays for the next run."""
+        download_id = row["id"]
+        if returncode == tutubofetch.EXIT_PAUSED:
+            paused = next((e for e in reversed(events) if e.get("event") == "paused"), {})
+            kind = paused.get("kind") if paused.get("kind") in tutubofetch.PAUSE_KINDS else KIND
+            return self._bot_check(download_id, kind, staging)
+        final = next((e for e in reversed(events)
+                      if e.get("event") in ("done", "skip", "skipped", "error")
+                      and e.get("video_id") == video_id), None)
+        if returncode in (0, 1) and final is not None and final.get("meta"):
+            try:
+                try:
+                    meta, files = tutubofetch.read_meta(staging, video_id, req)
+                    placement = tutubofetch.place(staging, target, video_id, files,
+                                                  self._new_placement_key(target, video_id))
+                    try:
+                        missing = tutubofetch.incomplete(meta, placement)
+                        complete = returncode == 0 and meta.get("complete") is True and not missing
+                        record = tutubofetch.write_record(target, video_id, req, complete, missing, placement,
+                                                          meta.get("tools"))
+                    except BaseException:
+                        placement.undo()
+                        raise
+                except tutubofetch.ToolOutputError as e:
+                    self._finish(download_id, status="failed", error_kind="tool", error=str(e), staging=staging)
+                    return False
+                except tutubofetch.Conflict as e:
+                    self._finish(download_id, status="failed", error_kind="conflict", error=str(e)[:2000],
+                                 staging=staging)
+                    return False
+                if final["event"] == "done":
+                    self.backoff.mark_clear(KIND, started_at=started)
+                    self.backoff.mark_clear("details", started_at=started)
+                title = meta.get("title") if isinstance(meta.get("title"), str) else None
+                try:
+                    completed = self._complete_fetch(download_id, target, video_id, record, title, staging)
+                except BaseException:
+                    placement.undo()
+                    raise
+                if completed:
+                    placement.keep()
+                else:
+                    placement.undo()
+                return False
+            finally:
+                self._release_placement_key(target, video_id)
+        if returncode == 1:
+            text = (final or {}).get("error") or "\n".join(tail) or "the fetch program failed"
+            kind = ytmeta.failure_kind(RuntimeError(text))
+            if kind == "bot":
+                return self._bot_check(download_id, KIND, staging)
+            self._finish(download_id, status="failed", error_kind=kind, error=str(text)[:2000],
+                         staging=staging)
+            return False
+        error = (f"the fetch program finished without a record of {video_id}" if returncode == 0
+                 else (tail[-1] if tail else f"the fetch program exited with status {returncode}"))
+        self._finish(download_id, status="failed", error_kind="tool", error=error[:2000], staging=staging)
+        return False
+
+    def _complete_fetch(self, download_id: str, target: Path, video_id: str, record: Dict[str, Any],
+                        title: Optional[str], staging: Optional[Path] = None) -> bool:
+        """Record the download as completed with ``record``'s files; false when it was cancelled meanwhile."""
+        latest = tutubofetch.latest_files(record)
+        files = [str(target / item["path"]) for item in latest]
+        digests = {str(target / item["path"]): item["sha256"] for item in latest}
+        record_file = tutubofetch.record_path(target, video_id)
+        files.append(str(record_file))
+        digests[str(record_file)] = tutubofetch.sha256(record_file)
+        size = sum(item.get("bytes") or 0 for item in latest)
+        return self._finish(download_id, status="completed", files=files, digests=digests, title=title,
+                            size=size, fetch_record=record, staging=staging)
 
     def _progress(self, download_id: str, percent: int, downloaded: Optional[float]) -> None:
         with self.index.write() as conn:
@@ -851,7 +1297,8 @@ class Downloads:
                 digests: Optional[Dict[str, str]] = None, title: Optional[str] = None,
                 size: Optional[int] = None, info_json: Optional[str] = None,
                 captions: Optional[List[Dict[str, Any]]] = None,
-                staging: Optional[Path] = None) -> bool:
+                staging: Optional[Path] = None,
+                fetch_record: Optional[Dict[str, Any]] = None) -> bool:
         """Settle a running download; false when it was no longer running (cancelled).
 
         ``staging`` is removed before the status is written, so a reader that sees
@@ -870,12 +1317,14 @@ class Downloads:
             cur = conn.execute(
                 "UPDATE downloads SET status = ?, error = ?, error_kind = ?, files = ?,"
                 " file_digests = ?, result_path = ?, info_json = ?, captions = ?, title = COALESCE(?, title), bytes = COALESCE(?, bytes),"
+                " fetch_record = ?,"
                 " finished_at = ?, updated_at = ?,"
                 " progress = CASE WHEN ? = 'completed' THEN 100 ELSE progress END"
                 " WHERE id = ? AND status = 'running'",
                 (status, error, error_kind, json.dumps(files or []), json.dumps(digests or {}),
                  (files or [None])[0], info_json, json.dumps(captions or []), title,
-                 size, now, now, status, download_id))
+                 size, None if fetch_record is None else json.dumps(fetch_record),
+                 now, now, status, download_id))
             return cur.rowcount > 0
 
 

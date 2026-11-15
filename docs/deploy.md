@@ -157,6 +157,33 @@ the video and its subtitles all get the first free number, as in
 file only while it still holds what was downloaded and no other download lists
 it; the answer names every file kept and why.
 
+A client on another machine that mounts the same folders under other paths
+names its folder as `root` (a position in `MEDIA_ARCHIVIST_DOWNLOAD_ROOTS`)
+and `dest` (a path below that root) instead of `target_dir`. Every record
+gives the folder and the files relative to their root, so the client maps them
+onto its own mount. `GET /api/v1/downloads/roots` lists the roots by position.
+Keep the order of `MEDIA_ARCHIVIST_DOWNLOAD_ROOTS` stable: a position is how a
+client names a root.
+
+Downloads with `tool` set to `tutubo` run tutubo's fetch program
+(`python -m tutubo.fetch` with the server's interpreter), which needs yt-dlp
+beside that interpreter or on `PATH`. `MEDIA_ARCHIVIST_TUTUBO_FETCH` names
+another program to run in its place, for example the `python -m tutubo.fetch`
+wrapper of a separate environment that keeps yt-dlp fresher than the server's.
+tutubo keeps its bot-check pause in a file that every tutubo program of the
+same user reads (`$TUTUBO_STATE_DIR`, else `~/.local/state/tutubo`); run the
+server and any other tutubo program as the same user, on a local disk, so they
+share one pause. The server never passes `TUTUBO_BACKOFF` to the program, so a
+pause it records always holds.
+
+A program named there must write each file it produces as a new file and
+rename it over the name, the way tutubo does (`.part` files for audio,
+temporary files for captions and details), and never rewrite an existing file
+in place. Where the file system allows, placed files are hard links to the
+files in the staging folder, so after a crash a staging file and the file in
+the dataset folder can be one file on disk, and an in-place rewrite would
+change both.
+
 ## Scheduled subscription sync
 
 YouTube channels and playlists are kept current by the working index. Once a

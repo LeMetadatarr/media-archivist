@@ -2,6 +2,8 @@
 """/api/v1/youtube/backoff and /api/v1/settings."""
 from __future__ import annotations
 
+import os
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -30,7 +32,9 @@ def test_backoff_lists_every_kind_and_the_family(db_path):
     with TestClient(create_app(db_path)) as c:
         body = c.get("/api/v1/youtube/backoff").json()
     assert body == {"kinds": {k: {"paused": False} for k in backoff.KINDS},
-                    "ip_family": "ipv4"}
+                    "ip_family": "ipv4",
+                    "shared": {"path": os.path.join(os.environ["TUTUBO_STATE_DIR"], "backoff.json"),
+                               "kinds": {k: {"paused": False} for k in backoff.KINDS}}}
 
 
 def test_a_bot_check_shows_and_a_clear_ends_it(db_path):

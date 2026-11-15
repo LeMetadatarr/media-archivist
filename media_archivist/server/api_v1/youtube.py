@@ -1,8 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 """``/api/v1/youtube/backoff`` and ``/api/v1/settings``.
 
-The back-off shows every kind's bot-check pause and ends one by hand; the
-settings are the run-time settings of :mod:`media_archivist.settings`.
+The back-off shows every kind's bot-check pause and ends one by hand, and
+beside it the pause tutubo's own programs share (``shared``, read only:
+ending it here would let a program ask again before YouTube's wait is
+over); the settings are the run-time settings of
+:mod:`media_archivist.settings`.
 Both read and write the served working index, which the process-wide
 YouTube client is bound to, so a change applies to the next request.
 """
@@ -10,6 +13,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Body, HTTPException, Request
 
+from media_archivist import tutubofetch
 from media_archivist.backoff import KINDS, Backoff
 from media_archivist.server.api_v1 import deps
 from media_archivist.settings import Settings
@@ -21,7 +25,8 @@ deps.FEATURES.update({"youtube_backoff", "settings"})
 
 def _backoff_state(index):
     return {"kinds": Backoff(index).blocked(),
-            "ip_family": Settings(index).get("youtube_ip_family")}
+            "ip_family": Settings(index).get("youtube_ip_family"),
+            "shared": tutubofetch.shared_state()}
 
 
 @router.get("/youtube/backoff")
