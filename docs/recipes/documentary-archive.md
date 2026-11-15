@@ -14,7 +14,8 @@ Build an offline archive of curated documentaries by:
 
 ```bash
 # Install media_archivist (YouTube is included by default)
-pip install media_archivist
+# from a clone of https://github.com/LeMetadatarr/media-archivist
+pip install .
 
 # Install yt-dlp for batch downloading
 pip install yt-dlp

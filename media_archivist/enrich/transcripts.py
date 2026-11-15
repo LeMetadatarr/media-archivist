@@ -58,6 +58,42 @@ def parse_vtt(text: str) -> List[TranscriptCue]:
     return cues
 
 
+def fetch_subtitle_files(url: str, out_dir: Path, *,
+                         languages: Iterable[str] = ("en",),
+                         auto: bool = True,
+                         sub_format: str = "vtt",
+                         timeout: float = 60) -> List[Path]:
+    """Shell out to ``yt-dlp`` and write subtitle files into ``out_dir``.
+
+    This is the single place that constructs the ``yt-dlp`` subtitle
+    invocation; both :func:`fetch_youtube_transcript` (text-only,
+    in-DB enrichment) and :mod:`media_archivist.subtitles` (on-disk
+    ``.srt``/``.vtt`` sidecar files) build on it rather than shelling
+    out to yt-dlp themselves.
+
+    Returns the list of subtitle files written (possibly empty — a
+    video with no available subtitles is not an error). Raises
+    :class:`subprocess.CalledProcessError`/``TimeoutExpired`` on a
+    yt-dlp failure; callers decide how to report that.
+    """
+    langs = ",".join(languages)
+    out_template = str(Path(out_dir) / "%(id)s.%(ext)s")
+    cmd = [
+        "yt-dlp",
+        "--skip-download",
+        "--sub-langs", langs,
+        "--sub-format", sub_format,
+    ]
+    cmd += ["--write-subs"]
+    if auto:
+        cmd += ["--write-auto-subs"]
+    if sub_format == "vtt":
+        cmd += ["--convert-subs", "vtt"]
+    cmd += ["-o", out_template, url]
+    subprocess.run(cmd, check=True, capture_output=True, timeout=timeout)
+    return sorted(Path(out_dir).glob(f"*.{sub_format}"))
+
+
 def fetch_youtube_transcript(url: str, *,
                              languages: Iterable[str] = ("en",)
                              ) -> Optional[TranscriptBlock]:
@@ -65,27 +101,15 @@ def fetch_youtube_transcript(url: str, *,
     if not _has_yt_dlp():
         LOG.warning("yt-dlp not on PATH — transcript enrichment skipped")
         return None
-    langs = ",".join(languages)
     with tempfile.TemporaryDirectory() as tmp:
-        out_template = str(Path(tmp) / "%(id)s.%(ext)s")
-        cmd = [
-            "yt-dlp",
-            "--skip-download",
-            "--write-auto-subs",
-            "--write-subs",
-            "--sub-langs", langs,
-            "--sub-format", "vtt",
-            "--convert-subs", "vtt",
-            "-o", out_template,
-            url,
-        ]
         try:
-            subprocess.run(cmd, check=True, capture_output=True, timeout=60)
+            vtt_files = fetch_subtitle_files(
+                url, Path(tmp), languages=languages, auto=True, sub_format="vtt",
+            )
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
             LOG.warning("yt-dlp transcript fetch failed for %s: %s", url, e)
             return None
 
-        vtt_files = sorted(Path(tmp).glob("*.vtt"))
         if not vtt_files:
             return None
         vtt = vtt_files[0]

@@ -1,0 +1,90 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+{% if error %}
+<div class="error">{{ error }}</div>
+{% else %}
+{% if bulk_note %}
+<p class="q-bulk-note">{{ bulk_note }}</p>
+{% endif %}
+<div class="grid">
+  <div class="card stat"><div class="num">{{ counts.ok }}</div><div class="label">ok</div></div>
+  <div class="card stat"><div class="num">{{ counts.dead }}</div><div class="label">dead</div></div>
+  <div class="card stat"><div class="num">{{ counts.expired }}</div><div class="label">expired</div></div>
+  <div class="card stat"><div class="num">{{ counts.gone }}</div><div class="label">deleted / gone</div></div>
+  <div class="card stat"><div class="num">{{ counts["no-stream"] }}</div><div class="label">no stream</div></div>
+</div>
+<p class="label" style="color:var(--text-dim); margin-top:var(--gap)">
+  Scanned {{ total }} entries (bounded at {{ scan_limit }} per scan).
+</p>
+
+{% if gone %}
+<div class="card" style="margin-top: var(--gap); border-color: var(--err);">
+  <h3 style="margin-top:0">{{ gone | length }} entries point at deleted/unavailable sources</h3>
+  <p class="label" style="color:var(--text-dim)">
+    The source video is confirmed gone (YouTube oEmbed 404) — these will
+    never be re-resolved automatically. Remove or replace them.
+  </p>
+  <div class="scroll-x">
+  <table class="table">
+    <thead><tr><th>Title</th><th>Source</th><th>URL</th><th></th></tr></thead>
+    <tbody id="gone-rows">
+      {% for r in gone %}
+      <tr id="health-row-{{ r.entry_id }}">
+        <td>{{ r.title }}</td>
+        <td>{{ r.source }}</td>
+        <td><code>{{ r.url }}</code></td>
+        <td>
+          <button class="btn btn-ghost btn-err-outline" hx-post="{{ root_path }}/ui/health/{{ r.entry_id }}/remove"
+                  hx-target="#health-row-{{ r.entry_id }}" hx-swap="outerHTML"
+                  hx-confirm="Remove {{ r.title }} from the index? This cannot be undone.">Remove from index</button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endif %}
+
+{% if not unhealthy %}
+<p class="empty" style="margin-top:var(--gap)">No dead or expired streams in this scan.</p>
+{% else %}
+<div style="margin: var(--gap) 0;">
+  {% if ytdlp_available %}
+  <button class="btn" hx-post="{{ root_path }}/ui/health/reresolve-all"
+          hx-vals='{"source": "{{ source or "" }}", "where": "{{ where or "" }}"}'
+          hx-target="#health-table" hx-swap="innerHTML"
+          hx-confirm="Re-resolve all {{ unhealthy | length }} dead/expired entries in this scan?">
+    Re-resolve all unhealthy ({{ unhealthy | length }})
+  </button>
+  {% else %}
+  <p class="label" style="color:var(--text-dim)">yt-dlp is not available on this server — re-resolve is disabled.</p>
+  {% endif %}
+</div>
+<div class="scroll-x">
+<table class="table">
+  <thead>
+    <tr><th>Status</th><th>Title</th><th>Source</th><th>Detail</th><th></th></tr>
+  </thead>
+  <tbody id="health-rows">
+    {% for r in unhealthy %}
+    <tr id="health-row-{{ r.entry_id }}">
+      <td>
+        {% if r.status == "dead" %}<span class="badge badge-err">dead</span>
+        {% else %}<span class="badge badge-err">expired</span>{% endif %}
+      </td>
+      <td>{{ r.title }}</td>
+      <td>{{ r.source }}</td>
+      <td>{{ r.reason or "" }}{% if r.status_code %} ({{ r.status_code }}){% endif %}</td>
+      <td>
+        {% if ytdlp_available %}
+        <button class="btn btn-ghost" hx-post="{{ root_path }}/ui/health/{{ r.entry_id }}/reresolve"
+                hx-target="#health-row-{{ r.entry_id }}" hx-swap="outerHTML">Re-resolve</button>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+{% endif %}

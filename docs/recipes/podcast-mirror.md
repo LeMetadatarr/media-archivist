@@ -14,7 +14,8 @@ Create a self-contained podcast index from Internet Archive by:
 
 ```bash
 # Install media_archivist with Internet Archive support
-pip install media_archivist
+# from a clone of https://github.com/LeMetadatarr/media-archivist
+pip install .
 
 # Install internetarchive CLI for exploration (optional)
 pip install internetarchive
@@ -272,9 +273,9 @@ Changes (new items) are automatically merged; duplicates are skipped.
   ```
   (Note: `published` field varies by IA item; may be relative or missing.)
 
-- **Combine with other sources:** Index YouTube Podcasts tab alongside IA:
+- **Combine with other sources:** Index a YouTube channel of podcast episodes alongside IA:
   ```bash
-  # Planned: media-archivist add --db-file recipe_podcasts.json --youtube-podcasts <channel>
+  media-archivist add --db-file recipe_podcasts.json https://www.youtube.com/@SomePodcast
   ```
 
 - **Canonicalize for deduplication:** If you're combining multiple sources, link and dedupe:

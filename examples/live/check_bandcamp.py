@@ -14,7 +14,7 @@ try:
     if BandcampArchivist is None:
         raise ImportError
 except ImportError:
-    print("SKIP: install media_archivist[bandcamp]", file=sys.stderr)
+    print("SKIP: install py_bandcamp", file=sys.stderr)
     raise SystemExit(0)
 
 

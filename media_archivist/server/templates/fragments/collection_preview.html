@@ -1,0 +1,22 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+{% if error %}
+<div class="error">{{ error }}</div>
+{% else %}
+<div class="card">
+  <p class="label">Preview — {{ collection_name }} (first {{ entries|length }})</p>
+  {% if not entries %}
+  <p class="empty">No matching entries.</p>
+  {% else %}
+  <div class="scroll-x">
+  <table class="table">
+    <thead><tr><th>Title</th><th>Artist</th><th>Source</th></tr></thead>
+    <tbody>
+      {% for e in entries %}
+      <tr><td>{{ e.title or e.url }}</td><td>{{ e.artist or "" }}</td><td>{{ e.source.value }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+</div>
+{% endif %}

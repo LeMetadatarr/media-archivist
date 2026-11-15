@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import pytest
 
-from media_archivist.index import Index, WhereError
+from media_archivist.index import Index, WhereError, evaluate_where
+from media_archivist.models.canonical import MediaEntry
+from media_archivist.models.raw import Source
 from media_archivist.storage import EnvelopeJsonStorage
 
 
@@ -81,3 +83,34 @@ def test_where_unknown_name(db):
 def test_limit_applies(db):
     idx = Index(db)
     assert len(idx.to_list(limit=2)) == 2
+
+
+def test_where_arithmetic_all_ops():
+    e = MediaEntry.build(source=Source.BANDCAMP, url="u", title="t",
+                         raw={}, duration=200)
+    assert evaluate_where("duration + 1 == 201", e)
+    assert evaluate_where("duration - 1 == 199", e)
+    assert evaluate_where("duration * 2 == 400", e)
+    assert evaluate_where("duration / 2 == 100", e)
+    assert evaluate_where("duration % 3 == 2", e)
+    assert evaluate_where("duration // 3 == 66", e)
+
+
+def test_where_div_by_zero_raises():
+    e = MediaEntry.build(source=Source.BANDCAMP, url="u", title="t",
+                         raw={}, duration=200)
+    with pytest.raises(ZeroDivisionError):
+        evaluate_where("duration / 0 == 0", e)
+
+
+def test_where_type_error_propagates():
+    e = MediaEntry.build(source=Source.BANDCAMP, url="u", title="t",
+                         raw={}, artist="Foo", duration=200)
+    with pytest.raises(TypeError):
+        evaluate_where("artist + duration == 0", e)
+
+
+def test_where_still_rejects_unknown_names(db):
+    idx = Index(db)
+    with pytest.raises(WhereError):
+        list(idx.view(where="frobnicate > 0"))

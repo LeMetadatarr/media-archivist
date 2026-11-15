@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 from typing import List
 
+from media_archivist._atomic import atomic_write_text
 from metadatarr.resolve.entities import (
     EntityKind,
     EntityRecord,
@@ -32,7 +33,7 @@ def load_entities(db_path: str) -> EntitySidecar:
 
 def save_entities(db_path: str, sidecar: EntitySidecar) -> Path:
     p = _entities_path(db_path)
-    p.write_text(sidecar.model_dump_json(indent=2))
+    atomic_write_text(str(p), sidecar.model_dump_json(indent=2))
     return p
 
 

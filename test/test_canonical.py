@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 
-from media_archivist.canon import (
+from media_archivist.dedupe import (
     DEFAULT_PREFERENCE,
     build_links,
     dedupe,
@@ -147,3 +147,20 @@ def test_index_view_filters_chain(tmp_path):
     got = idx.to_list(source="bandcamp", has_stream=True,
                       where='artist=="Foo"')
     assert len(got) == 1 and got[0].url == "a"
+
+
+def test_canon_module_is_deprecated_alias_for_dedupe():
+    """media_archivist.canon re-exports dedupe and warns on import."""
+    import importlib
+    import sys
+
+    import pytest
+
+    sys.modules.pop("media_archivist.canon", None)
+    with pytest.warns(DeprecationWarning, match="media_archivist.dedupe"):
+        canon = importlib.import_module("media_archivist.canon")
+    from media_archivist import dedupe
+
+    assert canon.dedupe is dedupe.dedupe
+    assert canon.link is dedupe.link
+    assert canon.fingerprint is dedupe.fingerprint

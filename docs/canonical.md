@@ -18,7 +18,7 @@ Raw{Youtube,YoutubeMusic,...}Entry  ──▶  MediaEntry
                                          raw: {...source-specific...}
 ```
 
-Adapters live at `media_archivist/views.py`; the dispatcher
+Adapters live at `media_archivist/views.py`. The dispatcher
 `to_media_entry(raw)` picks the right one by `raw["source"]`.
 
 ## The `Index` SDK
@@ -48,7 +48,7 @@ for e in idx.view(where='artist=="Foo" and duration>180',
 ## `--where` expression language
 
 Sandboxed Python-like syntax evaluated against the canonical entry.
-Identifiers refer to entry fields; ordering comparisons against `None`
+Identifiers refer to entry fields. Ordering comparisons against `None`
 fail closed (no `TypeError`).
 
 | Allowed                                                                 | Denied |
@@ -92,7 +92,7 @@ The sidecar is a plain JSON map:
 }
 ```
 
-The source DB is **not modified** — `link` only writes the sidecar.
+The source DB is **not modified**, `link` only writes the sidecar.
 
 ## Dedupe
 
@@ -103,7 +103,7 @@ media-archivist dedupe --db-file talks.json \
 ```
 
 The output is a JSONL of `MediaEntry` rows. Within each fingerprint
-group, the entry from the highest-ranked source wins; the discarded
+group, the entry from the highest-ranked source wins. The discarded
 entries are attached as `raw.alternates`. Singletons pass through
 untouched.
 
@@ -125,7 +125,19 @@ audio track).
 
 - Rows missing either `artist` or `title` are skipped (no reliable key).
 - Wildly different durations stay separate via the cluster step.
-- Cover versions, remasters, etc. share a fingerprint *and* a duration —
-  they will collapse. If that is undesirable for your dataset, run
+- Cover versions, remasters, etc. share a fingerprint *and* a duration, they will collapse. If that is undesirable for your dataset, run
   `dedupe` per-source (`--source youtube_music` etc.) instead of
   globally.
+
+## Sidecar consistency
+
+`canonicalize` writes the entity, canonical, and quarantine sidecars and the
+envelope through atomic replaces, in a fixed sidecars-first / envelope-last
+order (see [Crash safety](storage.md#crash-safety)). The envelope is stored
+exactly once per run, after all three sidecars are on disk, so the
+`_meta.canonical_id` stamps — the commit point — can never reference sidecar
+records that failed to persist. A crash mid-run leaves at worst richer sidecars
+than the envelope stamps, which the next run overwrites.
+
+---
+[← Storage Format](storage.md) · [Home](index.md) · [Disambiguation & External IDs →](disambiguation.md)

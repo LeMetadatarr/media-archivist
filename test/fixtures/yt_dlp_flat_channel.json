@@ -1,0 +1,284 @@
+{
+ "id": "@NASA",
+ "channel": "NASA",
+ "channel_id": "UCLA_DiR1FfKNvjuUpBHmylQ",
+ "title": "NASA",
+ "availability": "public",
+ "channel_follower_count": 15100000,
+ "uploader_id": "@NASA",
+ "uploader_url": "https://www.youtube.com/@NASA",
+ "channel_is_verified": true,
+ "modified_date": null,
+ "view_count": null,
+ "playlist_count": 3,
+ "uploader": "NASA",
+ "channel_url": "https://www.youtube.com/channel/UCLA_DiR1FfKNvjuUpBHmylQ",
+ "_type": "playlist",
+ "entries": [
+  {
+   "id": "UCLA_DiR1FfKNvjuUpBHmylQ",
+   "channel": "NASA",
+   "channel_id": "UCLA_DiR1FfKNvjuUpBHmylQ",
+   "title": "NASA - Videos",
+   "availability": "public",
+   "channel_follower_count": 15100000,
+   "uploader_id": "@NASA",
+   "uploader_url": "https://www.youtube.com/@NASA",
+   "channel_is_verified": true,
+   "modified_date": null,
+   "view_count": null,
+   "playlist_count": 5556,
+   "uploader": "NASA",
+   "channel_url": "https://www.youtube.com/channel/UCLA_DiR1FfKNvjuUpBHmylQ",
+   "_type": "playlist",
+   "entries": [
+    {
+     "title": "NASA's SpaceX Crew-13 Mission (Official NASA Trailer)",
+     "thumbnails": [
+      {
+       "url": "https://i.ytimg.com/vi/ErAqN6gXqZQ/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLCis21qfe9h4tezHg9Ns-L6GxmI3w",
+       "height": 404,
+       "width": 720
+      }
+     ],
+     "duration": 62,
+     "view_count": 98000,
+     "timestamp": null,
+     "live_status": null,
+     "availability": null,
+     "channel_url": null,
+     "uploader_url": null,
+     "creators": null,
+     "ie_key": "Youtube",
+     "id": "ErAqN6gXqZQ",
+     "_type": "url",
+     "url": "https://www.youtube.com/watch?v=ErAqN6gXqZQ",
+     "__x_forwarded_for_ip": null
+    },
+    {
+     "title": "NASA Moon Base: The First Six Months",
+     "thumbnails": [
+      {
+       "url": "https://i.ytimg.com/vi/IwZVXmQdX1E/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLAbF2XsbtQG6_xWiZV5dRYkCpYUpQ",
+       "height": 404,
+       "width": 720
+      }
+     ],
+     "duration": 67,
+     "view_count": 517000,
+     "timestamp": null,
+     "live_status": null,
+     "availability": null,
+     "channel_url": null,
+     "uploader_url": null,
+     "creators": null,
+     "ie_key": "Youtube",
+     "id": "IwZVXmQdX1E",
+     "_type": "url",
+     "url": "https://www.youtube.com/watch?v=IwZVXmQdX1E",
+     "__x_forwarded_for_ip": null
+    },
+    {
+     "title": "What It Takes",
+     "thumbnails": [
+      {
+       "url": "https://i.ytimg.com/vi/90Kgw_SvK4w/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLAvIln3hNXOk8oVGh1IZOIyB8b7dA",
+       "height": 404,
+       "width": 720
+      }
+     ],
+     "duration": 152,
+     "view_count": 322000,
+     "timestamp": null,
+     "live_status": null,
+     "availability": null,
+     "channel_url": null,
+     "uploader_url": null,
+     "creators": null,
+     "ie_key": "Youtube",
+     "id": "90Kgw_SvK4w",
+     "_type": "url",
+     "url": "https://www.youtube.com/watch?v=90Kgw_SvK4w",
+     "__x_forwarded_for_ip": null
+    }
+   ],
+   "extractor_key": "YoutubeTab",
+   "extractor": "youtube:tab",
+   "webpage_url": "https://www.youtube.com/@NASA/videos",
+   "__x_forwarded_for_ip": null,
+   "release_year": null
+  },
+  {
+   "id": "UCLA_DiR1FfKNvjuUpBHmylQ",
+   "channel": "NASA",
+   "channel_id": "UCLA_DiR1FfKNvjuUpBHmylQ",
+   "title": "NASA - Live",
+   "availability": "public",
+   "channel_follower_count": 15100000,
+   "uploader_id": "@NASA",
+   "uploader_url": "https://www.youtube.com/@NASA",
+   "channel_is_verified": true,
+   "modified_date": null,
+   "view_count": null,
+   "playlist_count": 592,
+   "uploader": "NASA",
+   "channel_url": "https://www.youtube.com/channel/UCLA_DiR1FfKNvjuUpBHmylQ",
+   "_type": "playlist",
+   "entries": [
+    {
+     "title": "NASA's Northrop Grumman Commercial Resupply Services 24 Departure",
+     "thumbnails": [
+      {
+       "url": "https://i.ytimg.com/vi/IoL51xLkMSY/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLDodb-A18XRFySx6QR77p6qOYjcWQ",
+       "height": 404,
+       "width": 720
+      }
+     ],
+     "duration": null,
+     "view_count": null,
+     "timestamp": null,
+     "live_status": "is_upcoming",
+     "availability": null,
+     "channel_url": null,
+     "uploader_url": null,
+     "creators": null,
+     "ie_key": "Youtube",
+     "id": "IoL51xLkMSY",
+     "_type": "url",
+     "url": "https://www.youtube.com/watch?v=IoL51xLkMSY",
+     "__x_forwarded_for_ip": null
+    },
+    {
+     "title": "Live Video from the International Space Station (Official NASA Stream)",
+     "thumbnails": [
+      {
+       "url": "https://i.ytimg.com/vi/M3HKLzjvKPc/hq720.jpg?v=6a6b4e0d&sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLDtYCYzA1I3FaijZk_T8bffmWc94g",
+       "height": 404,
+       "width": 720
+      }
+     ],
+     "duration": null,
+     "view_count": null,
+     "timestamp": null,
+     "live_status": "is_live",
+     "availability": null,
+     "channel_url": null,
+     "uploader_url": null,
+     "creators": null,
+     "ie_key": "Youtube",
+     "id": "M3HKLzjvKPc",
+     "_type": "url",
+     "url": "https://www.youtube.com/watch?v=M3HKLzjvKPc",
+     "__x_forwarded_for_ip": null
+    },
+    {
+     "title": "Live High-Definition Views from the International Space Station (Official NASA Stream)",
+     "thumbnails": [
+      {
+       "url": "https://i.ytimg.com/vi/awQzjn72bI0/hq720.jpg?v=6a43c074&sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLCMbd3vYhRGsJhwSvYFItwPt-NyyQ",
+       "height": 404,
+       "width": 720
+      }
+     ],
+     "duration": null,
+     "view_count": null,
+     "timestamp": null,
+     "live_status": "is_live",
+     "availability": null,
+     "channel_url": null,
+     "uploader_url": null,
+     "creators": null,
+     "ie_key": "Youtube",
+     "id": "awQzjn72bI0",
+     "_type": "url",
+     "url": "https://www.youtube.com/watch?v=awQzjn72bI0",
+     "__x_forwarded_for_ip": null
+    }
+   ],
+   "extractor_key": "YoutubeTab",
+   "extractor": "youtube:tab",
+   "webpage_url": "https://www.youtube.com/@NASA/streams",
+   "__x_forwarded_for_ip": null,
+   "release_year": null
+  },
+  {
+   "id": "UCLA_DiR1FfKNvjuUpBHmylQ",
+   "channel": "NASA",
+   "channel_id": "UCLA_DiR1FfKNvjuUpBHmylQ",
+   "title": "NASA - Shorts",
+   "availability": "public",
+   "channel_follower_count": 15100000,
+   "uploader_id": "@NASA",
+   "uploader_url": "https://www.youtube.com/@NASA",
+   "channel_is_verified": true,
+   "modified_date": null,
+   "view_count": null,
+   "playlist_count": 41,
+   "uploader": "NASA",
+   "channel_url": "https://www.youtube.com/channel/UCLA_DiR1FfKNvjuUpBHmylQ",
+   "_type": "playlist",
+   "entries": [
+    {
+     "title": "From the Moon to the 50-Yard Line",
+     "view_count": 35000,
+     "thumbnails": [
+      {
+       "url": "https://i.ytimg.com/vi/-62C9R_41Sc/sardefault.jpg?sqp=-oaymwEgCJUDEOAESFWQAgHyq4qpAw8IARUAAIhCcAHAAQbIAQE=&rs=AOn4CLDNhwklETAiWpO0ZkoxxKaoC6Y2YA",
+       "height": 608,
+       "width": 405
+      }
+     ],
+     "ie_key": "Youtube",
+     "id": "-62C9R_41Sc",
+     "_type": "url",
+     "url": "https://www.youtube.com/shorts/-62C9R_41Sc",
+     "__x_forwarded_for_ip": null
+    },
+    {
+     "title": "2026 Solar Eclipse @ 50,000 Feet",
+     "view_count": 262000,
+     "thumbnails": [
+      {
+       "url": "https://i.ytimg.com/vi/myZ9kn9MIWQ/sardefault.jpg?sqp=-oaymwEgCJUDEOAESFWQAgHyq4qpAw8IARUAAIhCcAHAAQbIAQE=&rs=AOn4CLAGUaHyxdqt6gh2gF2ENsvFpdrMHw",
+       "height": 608,
+       "width": 405
+      }
+     ],
+     "ie_key": "Youtube",
+     "id": "myZ9kn9MIWQ",
+     "_type": "url",
+     "url": "https://www.youtube.com/shorts/myZ9kn9MIWQ",
+     "__x_forwarded_for_ip": null
+    },
+    {
+     "title": "2026 Total Solar Eclipse Over Spain",
+     "view_count": 189000,
+     "thumbnails": [
+      {
+       "url": "https://i.ytimg.com/vi/QP5Fs3AYuWE/sardefault.jpg?sqp=-oaymwEgCJUDEOAESFWQAgHyq4qpAw8IARUAAIhCcAHAAQbIAQE=&rs=AOn4CLBsZibyQ1yG_utVnLeAEEvkGM6gRA",
+       "height": 608,
+       "width": 405
+      }
+     ],
+     "ie_key": "Youtube",
+     "id": "QP5Fs3AYuWE",
+     "_type": "url",
+     "url": "https://www.youtube.com/shorts/QP5Fs3AYuWE",
+     "__x_forwarded_for_ip": null
+    }
+   ],
+   "extractor_key": "YoutubeTab",
+   "extractor": "youtube:tab",
+   "webpage_url": "https://www.youtube.com/@NASA/shorts",
+   "__x_forwarded_for_ip": null,
+   "release_year": null
+  }
+ ],
+ "webpage_url": "https://www.youtube.com/@NASA",
+ "original_url": "https://www.youtube.com/@NASA",
+ "webpage_url_basename": "@NASA",
+ "webpage_url_domain": "youtube.com",
+ "extractor": "youtube:tab",
+ "extractor_key": "YoutubeTab",
+ "release_year": null
+}

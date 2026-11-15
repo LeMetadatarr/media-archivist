@@ -8,16 +8,17 @@ Choose the right variant for your use case:
 
 ```bash
 # Core: YouTube, YouTube Music, Internet Archive
-pip install media_archivist
+# from a clone of https://github.com/LeMetadatarr/media-archivist
+pip install .
 
 # Add Bandcamp
-pip install media_archivist[bandcamp]
+pip install . py_bandcamp
 
 # Add SoundCloud
-pip install media_archivist[soundcloud]
+pip install . nuvem_de_som
 
 # Everything
-pip install media_archivist[all]
+pip install ".[all]" py_bandcamp nuvem_de_som
 ```
 
 Verify the install:
@@ -117,7 +118,7 @@ https://www.youtube.com/watch?v=xyz789
 
 ## Pipe to yt-dlp
 
-Now download the actual videos. This is why `media_archivist` is **metadata-only** — it does the heavy lifting of listing, filtering, and deduplication so `yt-dlp` just downloads:
+Now download the actual videos. `media_archivist` does the heavy lifting of listing, filtering, and deduplication so `yt-dlp` just downloads:
 
 ```bash
 # Download the first 5 videos
@@ -155,7 +156,7 @@ Each backend is activated with a flag. Here's how to pick one:
 ### YouTube (default)
 
 ```bash
-# No flag needed — YouTube is the default
+# No flag needed, YouTube is the default
 media-archivist add --db-file yt.json https://www.youtube.com/@SomeChannel
 media-archivist add --db-file yt.json https://www.youtube.com/watch?v=abc123
 media-archivist add --db-file yt.json https://www.youtube.com/playlist?list=PLxxx
@@ -194,7 +195,7 @@ Pass collection names or individual item IDs. Downloads format URLs (MPEG4, Ogg 
 
 ### Bandcamp
 
-Requires `pip install media_archivist[bandcamp]`.
+Requires `pip install py_bandcamp`.
 
 ```bash
 media-archivist add --db-file bc.json --bandcamp \
@@ -207,7 +208,7 @@ Bandcamp entries include direct audio stream URLs (when Bandcamp exposes them), 
 
 ### SoundCloud
 
-Requires `pip install media_archivist[soundcloud]`.
+Requires `pip install nuvem_de_som`.
 
 ```bash
 media-archivist add --db-file sc.json --soundcloud \
@@ -238,7 +239,7 @@ media-archivist add --db my_dataset https://www.youtube.com/@SomeChannel
 
 The file is auto-placed at `~/.local/share/media_archivist/my_dataset.json` and is shared across all commands using the same `--db my_dataset` name. Good for persistent, system-wide collections.
 
-You cannot mix `--db` and `--db-file`; exactly one is required per command.
+You cannot mix `--db` and `--db-file`. Exactly one is required per command.
 
 ## Common Pitfalls
 
@@ -246,7 +247,7 @@ You cannot mix `--db` and `--db-file`; exactly one is required per command.
 
 **Problem:** You used `--bandcamp` but didn't install the optional dependency.
 
-**Solution:** `pip install media_archivist[bandcamp]`
+**Solution:** `pip install py_bandcamp`
 
 ### URLs are blank in the export
 
@@ -298,3 +299,14 @@ Now that you have a working database:
    ```
 
 For full CLI reference, see [CLI Architecture](cli.md).
+
+6. **Run as a service (homelab):** Start the HTTP API with one command and
+   connect Jellyfin, Kodi, or any M3U/RSS client:
+   ```bash
+   docker compose -f deploy/docker-compose.yml up -d
+   ```
+   See [Running as a service](deploy.md) for details on the full HTTP surface,
+   `/strm`, `/m3u`, and `/feed.rss` endpoints.
+
+---
+[Home](index.md) · [Tutorial →](tutorial.md)

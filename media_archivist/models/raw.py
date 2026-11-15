@@ -46,6 +46,10 @@ class RawYoutubeEntry(_RawEntryBase):
     duration: Optional[float] = None  # seconds, populated from search previews
     author: Optional[str] = None
     playlist: Optional[str] = None
+    # UTC time of the last full yt-dlp read of this video (see ytmeta).
+    metadata_checked: Optional[str] = None
+    # UTC time of the last read that failed on the network (see ytmeta).
+    metadata_network_failed: Optional[str] = None
 
 
 class RawYoutubeMusicEntry(_RawEntryBase):
