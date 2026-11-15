@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.31.0a1](https://github.com/LeMetadatarr/media-archivist/tree/0.31.0a1) (2026-11-15)
+
+[Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.30.1a1...0.31.0a1)
+
+**Merged pull requests:**
+
+- feat: fetch audio, captions and details for datasets through tutubo [\#93](https://github.com/LeMetadatarr/media-archivist/pull/93) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.30.1a1](https://github.com/LeMetadatarr/media-archivist/tree/0.30.1a1) (2026-11-13)
 
 [Full Changelog](https://github.com/LeMetadatarr/media-archivist/compare/0.30.0a1...0.30.1a1)
